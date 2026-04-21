@@ -49,6 +49,8 @@ function requireAdmin(request, response, next) {
 }
 
 module.exports = {
+  getBearerToken,
   requireAdmin,
   signAdminToken,
+  verifyAdminToken,
 };

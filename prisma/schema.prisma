@@ -8,29 +8,29 @@ datasource db {
 }
 
 model Profile {
-  id             Int      @id
-  name           String
-  profile        String
-  designation    String
-  description    String   @db.Text
-  email          String
-  phone          String
-  address        String
-  github         String
-  facebook       String
-  linkedIn       String
-  twitter        String
-  stackOverflow  String
-  leetcode       String
-  socialLinks    Json     @default("[]")
-  devUsername    String
-  resume         String
-  heroSkills     Json
-  hardWorker     Boolean  @default(true)
-  quickLearner   Boolean  @default(true)
-  problemSolver  Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            Int      @id
+  name          String
+  profile       String
+  designation   String
+  description   String   @db.Text
+  email         String
+  phone         String
+  address       String
+  github        String
+  facebook      String
+  linkedIn      String
+  twitter       String
+  stackOverflow String
+  leetcode      String
+  socialLinks   Json     @default("[]")
+  devUsername   String
+  resume        String
+  heroSkills    Json
+  hardWorker    Boolean  @default(true)
+  quickLearner  Boolean  @default(true)
+  problemSolver Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Skill {
@@ -72,14 +72,110 @@ model StatsCounter {
   updatedAt DateTime @updatedAt
 }
 
+model ServiceSection {
+  id        Int      @id
+  title     String
+  subtitle  String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Service {
+  id          Int              @id
+  slug        String           @unique
+  name        String
+  impression  String
+  impressionCount Int          @default(0)
+  description String           @db.Text
+  content     String           @db.LongText
+  isFeatured  Boolean          @default(false)
+  icon        String
+  status      Boolean          @default(true)
+  views       Int              @default(0)
+  sortOrder   Int
+  comments    ServiceComment[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model ServiceComment {
+  id         Int            @id @default(autoincrement())
+  serviceId  Int
+  photo      String
+  comment    String         @db.Text
+  impression String
+  sortOrder  Int
+  service    Service        @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  replies    ServiceReply[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
+
+model ServiceReply {
+  id         Int            @id @default(autoincrement())
+  commentId  Int
+  reply      String         @db.Text
+  impression String
+  sortOrder  Int
+  comment    ServiceComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
+
 model Project {
+  id              Int      @id
+  slug            String   @unique
+  name            String
+  description     String   @db.Text
+  content         String   @db.LongText
+  tools           Json
+  role            String
+  code            String
+  demo            String
+  image           String   @default("")
+  views           Int      @default(0)
+  impressionCount Int      @default(0)
+  buttons         Json     @default("[]")
+  sortOrder       Int
+  comments        ProjectComment[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ProjectComment {
+  id        Int            @id @default(autoincrement())
+  projectId Int
+  name      String
+  comment   String         @db.Text
+  sortOrder Int
+  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  replies   ProjectReply[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model ProjectReply {
+  id        Int            @id @default(autoincrement())
+  commentId Int
+  name      String
+  reply     String         @db.Text
+  sortOrder Int
+  comment   ProjectComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model Pricing {
   id          Int      @id
+  slug        String   @unique
   name        String
   description String   @db.Text
-  tools       Json
-  role        String
-  code        String
-  demo        String
+  price       Decimal  @db.Decimal(10, 2)
+  duration    String
+  content     String   @db.LongText
+  features    Json
+  status      Boolean  @default(true)
+  isPopular   Boolean  @default(false)
   sortOrder   Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

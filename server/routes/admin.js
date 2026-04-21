@@ -168,28 +168,182 @@ function normalizeStatsCounters(value) {
   return [];
 }
 
+function normalizeProjectButtons(items, fallbackProject = null) {
+  if (Array.isArray(items)) {
+    return items
+      .map((item) => {
+        const text = normalizeString(item?.text);
+        const link = normalizeString(item?.link);
+
+        return text && link ? { text, link } : null;
+      })
+      .filter(Boolean);
+  }
+
+  const fallbackButtons = [];
+  const code = normalizeString(fallbackProject?.code);
+  const demo = normalizeString(fallbackProject?.demo);
+
+  if (code) {
+    fallbackButtons.push({ text: "Code", link: code });
+  }
+
+  if (demo) {
+    fallbackButtons.push({ text: "Live Demo", link: demo });
+  }
+
+  return fallbackButtons;
+}
+
+function slugify(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeServiceSection(value, fallbackSection = null) {
+  return {
+    id: 1,
+    title: normalizeString(value?.title ?? fallbackSection?.title),
+    subtitle: normalizeString(value?.subtitle ?? fallbackSection?.subtitle),
+  };
+}
+
+function normalizeServices(items) {
+  return normalizeCollection(items, (item, index) => {
+    const name = normalizeString(item?.name);
+    const slug = normalizeString(item?.slug).toLowerCase();
+    const impression = normalizeString(item?.impression);
+    const description = normalizeString(item?.description);
+    const content = String(item?.content || "").trim();
+
+    if (!name || !slug || !description) {
+      return null;
+    }
+
+    return {
+      id: index + 1,
+      slug,
+      name,
+      impression,
+      description,
+      content,
+      isFeatured: Boolean(item?.isFeatured),
+      icon: normalizeString(item?.icon) || "briefcase",
+      status: typeof item?.status === "boolean" ? item.status : true,
+      impressionCount: Math.max(0, Number.parseInt(item?.impressionCount, 10) || 0),
+      views: Math.max(0, Number.parseInt(item?.views, 10) || 0),
+      sortOrder: index + 1,
+      comments: normalizeCollection(item?.comments || [], (comment, commentIndex) => {
+        const commentText = normalizeString(comment?.comment);
+
+        if (!commentText) {
+          return null;
+        }
+
+        return {
+          photo: normalizeString(comment?.photo) || "/profile.png",
+          comment: commentText,
+          impression: normalizeString(comment?.impression),
+          sortOrder: commentIndex + 1,
+          replies: normalizeCollection(comment?.replies || [], (reply, replyIndex) => {
+            const replyText = normalizeString(reply?.reply);
+
+            if (!replyText) {
+              return null;
+            }
+
+            return {
+              reply: replyText,
+              impression: normalizeString(reply?.impression),
+              sortOrder: replyIndex + 1,
+            };
+          }),
+        };
+      }),
+    };
+  });
+}
+
+function normalizePricings(items) {
+  return normalizeCollection(items, (item, index) => {
+    const slug = slugify(item?.slug || item?.name);
+    const name = normalizeString(item?.name);
+    const description = normalizeString(item?.description);
+    const duration = normalizeString(item?.duration);
+    const content = String(item?.content || "").trim();
+    const parsedPrice = Number.parseFloat(item?.price);
+    const price = Number.isFinite(parsedPrice) ? parsedPrice : Number.NaN;
+    const features = normalizeStringList(item?.features);
+
+    if (!slug || !name || !description || !duration || !content || !Number.isFinite(price)) {
+      return null;
+    }
+
+    return {
+      id: index + 1,
+      slug,
+      name,
+      description,
+      price,
+      duration,
+      content,
+      features,
+      status: typeof item?.status === "boolean" ? item.status : true,
+      isPopular: Boolean(item?.isPopular),
+      sortOrder: index + 1,
+    };
+  });
+}
+
 function normalizeCollection(items, mapper) {
   return (items || []).map((item, index) => mapper(item, index)).filter(Boolean);
 }
 
+function hasPricingModel() {
+  return Boolean(prisma?.pricing && typeof prisma.pricing.findMany === "function");
+}
+
 async function getDashboardData() {
-  const [profile, statsCounters, skills, experiences, educations, projects, messages] = await Promise.all([
+  const [profile, serviceSection, services, statsCounters, skills, experiences, educations, projects, pricings, messages] = await Promise.all([
     prisma.profile.findUnique({ where: { id: 1 } }),
+    prisma.serviceSection.findUnique({ where: { id: 1 } }),
+    prisma.service.findMany({
+      orderBy: { sortOrder: "asc" },
+      include: {
+        comments: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            replies: {
+              orderBy: { sortOrder: "asc" },
+            },
+          },
+        },
+      },
+    }),
     prisma.statsCounter.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.skill.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.experience.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.education.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.project.findMany({ orderBy: { sortOrder: "asc" } }),
+    hasPricingModel()
+      ? prisma.pricing.findMany({ orderBy: { sortOrder: "asc" } })
+      : Promise.resolve([]),
     prisma.contactMessage.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
   ]);
 
   return {
     profile,
+    serviceSection,
+    services,
     statsCounters,
     skills,
     experiences,
     educations,
     projects,
+    pricings,
     messages,
   };
 }
@@ -312,17 +466,26 @@ router.post(
 router.put("/content", requireAdmin, async (request, response) => {
   try {
     const profile = request.body?.profile || {};
+    const serviceSection = request.body?.serviceSection || {};
     const hasSkills = Object.prototype.hasOwnProperty.call(request.body || {}, "skills");
     const hasExperiences = Object.prototype.hasOwnProperty.call(request.body || {}, "experiences");
     const hasEducations = Object.prototype.hasOwnProperty.call(request.body || {}, "educations");
     const hasProjects = Object.prototype.hasOwnProperty.call(request.body || {}, "projects");
     const hasStatsCounters = Object.prototype.hasOwnProperty.call(request.body || {}, "statsCounters");
+    const hasServiceSection = Object.prototype.hasOwnProperty.call(request.body || {}, "serviceSection");
+    const hasServices = Object.prototype.hasOwnProperty.call(request.body || {}, "services");
+    const hasPricings = Object.prototype.hasOwnProperty.call(request.body || {}, "pricings");
     const skills = request.body?.skills || [];
     const experiences = request.body?.experiences || [];
     const educations = request.body?.educations || [];
     const projects = request.body?.projects || [];
     const statsCounters = request.body?.statsCounters || [];
+    const services = request.body?.services || [];
+    const pricings = request.body?.pricings || [];
     const existingProfile = await prisma.profile.findUnique({
+      where: { id: 1 },
+    });
+    const existingServiceSection = await prisma.serviceSection.findUnique({
       where: { id: 1 },
     });
 
@@ -389,12 +552,18 @@ router.put("/content", requireAdmin, async (request, response) => {
     }));
 
     const normalizedProjects = normalizeCollection(projects, (item, index) => ({
-      id: index + 1,
+      id: Math.max(1, Number.parseInt(item?.id, 10) || index + 1),
+      slug: slugify(item?.slug || item?.name),
       name: normalizeString(item.name),
       description: normalizeString(item.description),
+      content: String(item?.content || "").trim(),
       role: normalizeString(item.role),
       code: normalizeString(item.code),
       demo: normalizeString(item.demo),
+      image: normalizeString(item.image),
+      views: Math.max(0, Number.parseInt(item?.views, 10) || 0),
+      impressionCount: Math.max(0, Number.parseInt(item?.impressionCount, 10) || 0),
+      buttons: normalizeProjectButtons(item?.buttons, item),
       tools: normalizeStringList(item.tools),
       sortOrder: index + 1,
     }));
@@ -417,6 +586,16 @@ router.put("/content", requireAdmin, async (request, response) => {
       };
     });
 
+    const normalizedServiceSection = normalizeServiceSection(serviceSection, existingServiceSection);
+    const normalizedServices = normalizeServices(services);
+    const normalizedPricings = normalizePricings(pricings);
+
+    if (hasPricings && !hasPricingModel()) {
+      return response.status(503).json({
+        message: "Pricing model is not available yet. Please restart the backend so Prisma reloads the new schema.",
+      });
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.profile.upsert({
         where: { id: 1 },
@@ -428,6 +607,55 @@ router.put("/content", requireAdmin, async (request, response) => {
         await tx.statsCounter.deleteMany();
         if (normalizedStatsCounters.length) {
           await tx.statsCounter.createMany({ data: normalizedStatsCounters });
+        }
+      }
+
+      if (hasServiceSection) {
+        await tx.serviceSection.upsert({
+          where: { id: 1 },
+          update: normalizedServiceSection,
+          create: normalizedServiceSection,
+        });
+      }
+
+      if (hasServices) {
+        await tx.serviceReply.deleteMany();
+        await tx.serviceComment.deleteMany();
+        await tx.service.deleteMany();
+        if (normalizedServices.length) {
+          for (const service of normalizedServices) {
+            await tx.service.create({
+              data: {
+                id: service.id,
+                slug: service.slug,
+                name: service.name,
+                impression: service.impression,
+                description: service.description,
+                content: service.content,
+                isFeatured: service.isFeatured,
+                icon: service.icon,
+                status: service.status,
+                impressionCount: service.impressionCount,
+                views: service.views,
+                sortOrder: service.sortOrder,
+                comments: {
+                  create: service.comments.map((comment) => ({
+                    photo: comment.photo,
+                    comment: comment.comment,
+                    impression: comment.impression,
+                    sortOrder: comment.sortOrder,
+                    replies: {
+                      create: comment.replies.map((reply) => ({
+                        reply: reply.reply,
+                        impression: reply.impression,
+                        sortOrder: reply.sortOrder,
+                      })),
+                    },
+                  })),
+                },
+              },
+            });
+          }
         }
       }
 
@@ -456,6 +684,13 @@ router.put("/content", requireAdmin, async (request, response) => {
         await tx.project.deleteMany();
         if (normalizedProjects.length) {
           await tx.project.createMany({ data: normalizedProjects });
+        }
+      }
+
+      if (hasPricings) {
+        await tx.pricing.deleteMany();
+        if (normalizedPricings.length) {
+          await tx.pricing.createMany({ data: normalizedPricings });
         }
       }
     });

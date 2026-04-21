@@ -2,8 +2,10 @@ import { GoogleTagManager } from "@next/third-parties/google";
 import { Inter } from "next/font/google";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import "ckeditor5/ckeditor5.css";
 import { getHomePageData } from "@/lib/api";
 import Footer from "./components/footer";
+import LayoutShell from "./components/layout-shell";
 import ScrollToTop from "./components/helper/scroll-to-top";
 import Navbar from "./components/navbar";
 import "./css/card.scss";
@@ -17,20 +19,23 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
-  const { profile } = await getHomePageData();
+  const profile = await getHomePageData()
+    .then((data) => data?.profile || null)
+    .catch(() => null);
 
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
         <ToastContainer />
-        <main className="min-h-screen relative mx-auto px-6 sm:px-12 lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem] text-white">
-          <Navbar profile={profile} />
+        <LayoutShell
+          footer={<Footer />}
+          navbar={<Navbar profile={profile} />}
+          scrollToTop={<ScrollToTop />}
+        >
           {children}
-          <ScrollToTop />
-        </main>
-        <Footer />
+        </LayoutShell>
+        <GoogleTagManager gtmId={process.env.NEXT_PUBLIC_GTM} />
       </body>
-      <GoogleTagManager gtmId={process.env.NEXT_PUBLIC_GTM} />
     </html>
   );
 }

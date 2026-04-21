@@ -1,36 +1,55 @@
-import ProjectCard from './project-card';
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import ProjectCard from "./project-card";
+import SectionHeading from "../section-heading";
 
-const Projects = ({ projects = [] }) => {
+export default function Projects({
+  projects = [],
+  limit = 4,
+  showBottomActions = true,
+  showIntro = true,
+}) {
+  const visibleProjects = typeof limit === "number" ? projects.slice(0, limit) : projects;
 
   return (
-    <div id='projects' className="relative z-50  my-12 lg:my-24">
-      <div className="sticky top-10">
-        <div className="w-[80px] h-[80px] bg-violet-100 rounded-full absolute -top-3 left-0 translate-x-1/2 filter blur-3xl  opacity-30"></div>
-        <div className="flex items-center justify-start relative">
-          <span className="bg-[#1a1443] absolute left-0  w-fit text-white px-5 py-3 text-xl rounded-md">
-            PROJECTS
-          </span>
-          <span className="w-full h-[2px] bg-[#1a1443]"></span>
-        </div>
-      </div>
+    <section id="projects" className="my-12 lg:my-20">
+      <div className="relative overflow-hidden rounded-[2rem] border border-[#24344d] bg-[radial-gradient(circle_at_top,rgba(112,213,255,0.14),transparent_22%),radial-gradient(circle_at_bottom_left,rgba(122,218,181,0.12),transparent_30%),linear-gradient(180deg,#101828,#09111d)] p-6 shadow-[0_26px_80px_rgba(0,0,0,0.28)] md:p-8">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_84%_16%,rgba(117,160,255,0.14),transparent_18%),radial-gradient(circle_at_10%_78%,rgba(255,214,102,0.1),transparent_16%)]" />
 
-      <div className="pt-24">
-        <div className="flex flex-col gap-6">
-          {projects.slice(0, 4).map((project, index) => (
-            <div
-              id={`sticky-card-${index + 1}`}
-              key={index}
-              className="sticky-card w-full mx-auto max-w-2xl sticky"
-            >
-              <div className="box-border flex items-center justify-center rounded shadow-[0_0_30px_0_rgba(0,0,0,0.3)] transition-all duration-[0.5s]">
-                <ProjectCard project={project} />
-              </div>
-            </div>
+        {showIntro ? (
+          <SectionHeading
+            label="Projects"
+            title="Selected product work with stronger storytelling, cleaner presentation, and real delivery context"
+            description="A focused project section designed more like modern agency and product websites, with clearer visuals, stronger hierarchy, and direct paths into each case study."
+            className="relative"
+          />
+        ) : null}
+
+        <div className={`relative grid gap-6 xl:grid-cols-2 ${showIntro ? "mt-10" : ""}`}>
+          {visibleProjects.map((project) => (
+            <ProjectCard key={project.id || project.slug || project.name} project={project} />
           ))}
         </div>
-      </div>
-    </div>
-  );
-};
 
-export default Projects;
+        {showBottomActions ? (
+          <div className="relative mt-10 flex flex-wrap items-center justify-center gap-4">
+            <Link
+              href="/portfolio"
+              className="inline-flex items-center gap-2 rounded-full border border-[#3a5678] bg-[rgba(11,24,39,0.85)] px-6 py-3 text-sm font-medium text-white transition hover:border-[#70d5ff] hover:text-[#70d5ff]"
+            >
+              See More Project
+              <ArrowRight size={16} />
+            </Link>
+            <Link
+              href="/contact"
+              className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-6 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90"
+            >
+              Start a Project
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}

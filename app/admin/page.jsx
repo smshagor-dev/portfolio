@@ -1,17 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import Image from "next/image";
-import {
-  getSocialIconOption,
-  searchSocialIcons,
-} from "@/utils/social-icons";
+import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
+import { FiBarChart2, FiDollarSign, FiFolder, FiLogOut, FiMail, FiSettings } from "react-icons/fi";
+import { getSocialIconOption, searchSocialIcons } from "@/utils/social-icons";
+import { getServiceIconOption, serviceIconOptions } from "@/utils/service-icons";
 import { getStatsIconOption, statsIconOptions } from "@/utils/stats-icons";
 
-const backendUrl =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+const RichTextEditor = dynamic(() => import("@/app/components/admin/rich-text-editor"), {
+  ssr: false,
+});
+
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
 function emptyHeroSkill() {
   return { name: "", image: "" };
@@ -23,6 +28,90 @@ function emptySocialLink() {
 
 function emptyCounterItem() {
   return { label: "", highlight: "", count: "", icon: "projects" };
+}
+
+function emptyPricingItem() {
+  return {
+    slug: "",
+    name: "",
+    description: "",
+    price: "",
+    duration: "Monthly",
+    content: "",
+    features: [""],
+    status: true,
+    isPopular: false,
+  };
+}
+
+function emptyProjectButton() {
+  return { text: "", link: "" };
+}
+
+function emptyProjectItem() {
+  return {
+    id: "",
+    slug: "",
+    name: "",
+    description: "",
+    content: "",
+    role: "",
+    image: "",
+    tools: [""],
+    code: "",
+    demo: "",
+    views: 0,
+    impressionCount: 0,
+    buttons: [emptyProjectButton()],
+  };
+}
+
+function emptyServiceItem() {
+  return {
+    slug: "",
+    name: "",
+    impression: "",
+    impressionCount: 0,
+    description: "",
+    content: "",
+    isFeatured: false,
+    icon: "briefcase",
+    status: true,
+    views: 0,
+    comments: [emptyServiceComment()],
+  };
+}
+
+function emptyServiceComment() {
+  return {
+    photo: "/profile.png",
+    comment: "",
+    impression: "",
+    replies: [emptyServiceReply()],
+  };
+}
+
+function emptyServiceReply() {
+  return {
+    reply: "",
+    impression: "",
+  };
+}
+
+function cloneServiceItem(service) {
+  return JSON.parse(JSON.stringify(service));
+}
+
+function cloneProjectItem(project) {
+  return JSON.parse(JSON.stringify(project));
+}
+
+function slugify(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function normalizeHeroSkills(value) {
@@ -52,6 +141,10 @@ function normalizeHeroSkills(value) {
   }
 
   return [];
+}
+
+function stripHtml(html) {
+  return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function buildHeroPayload(sourceForm) {
@@ -103,15 +196,101 @@ function buildCounterPayload(sourceForm) {
   };
 }
 
-export default function AdminDashboardPage() {
-  const router = useRouter();
-  const tabs = [
-    { id: "hero", label: "Hero Section" },
-    { id: "counter", label: "Stats Counter" },
-    { id: "social", label: "Social Link" },
-    { id: "messages", label: "Messages" },
-  ];
+function buildPricingPayload(sourceForm) {
+  return {
+    pricings: sourceForm.pricings
+      .map((item) => ({
+        slug: slugify(item.slug || item.name),
+        name: item.name.trim(),
+        description: item.description.trim(),
+        price: Number(item.price) || 0,
+        duration: item.duration.trim(),
+        content: item.content,
+        features: (item.features || []).map((feature) => feature.trim()).filter(Boolean),
+        status: Boolean(item.status),
+        isPopular: Boolean(item.isPopular),
+      }))
+      .filter(
+        (item) => item.slug && item.name && item.description && item.duration && item.content && item.price > 0,
+      ),
+  };
+}
 
+function buildProjectsPayload(sourceForm) {
+  return {
+    projects: sourceForm.projects
+      .map((item) => ({
+        id: item.id,
+        slug: slugify(item.name),
+        name: item.name.trim(),
+        description: item.description.trim(),
+        content: item.content,
+        role: item.role.trim(),
+        image: item.image.trim(),
+        tools: (item.tools || []).map((tool) => tool.trim()).filter(Boolean),
+        code: item.code.trim(),
+        demo: item.demo.trim(),
+        views: Number(item.views) || 0,
+        impressionCount: Number(item.impressionCount) || 0,
+        buttons: (item.buttons || [])
+          .map((button) => ({
+            text: button.text.trim(),
+            link: button.link.trim(),
+          }))
+          .filter((button) => button.text && button.link),
+      }))
+      .filter((item) => item.name && item.description),
+  };
+}
+
+function buildServicePayload(sourceForm) {
+  return {
+    serviceSection: {
+      title: sourceForm.serviceSectionTitle.trim(),
+      subtitle: sourceForm.serviceSectionSubtitle.trim(),
+    },
+    services: sourceForm.services
+      .map((item) => ({
+        slug: slugify(item.slug || item.name),
+        name: item.name.trim(),
+        impression: item.impression.trim(),
+        impressionCount: Number(item.impressionCount) || 0,
+        description: item.description.trim(),
+        content: item.content,
+        isFeatured: Boolean(item.isFeatured),
+        icon: item.icon.trim(),
+        status: Boolean(item.status),
+        views: Number(item.views) || 0,
+        comments: (item.comments || [])
+          .map((comment) => ({
+            photo: comment.photo.trim() || "/profile.png",
+            comment: comment.comment.trim(),
+            impression: comment.impression.trim(),
+            replies: (comment.replies || [])
+              .map((reply) => ({
+                reply: reply.reply.trim(),
+                impression: reply.impression.trim(),
+              }))
+              .filter((reply) => reply.reply),
+          }))
+          .filter((comment) => comment.comment),
+      }))
+      .filter((item) => item.name && item.slug && item.description),
+  };
+}
+
+const tabs = [
+  { id: "hero", label: "Hero", icon: HiOutlineSparkles, href: "/admin/hero" },
+  { id: "services", label: "Services", icon: HiOutlineViewGrid, href: "/admin/services" },
+  { id: "projects", label: "Projects", icon: FiFolder, href: "/admin/projects" },
+  { id: "pricing", label: "Pricing", icon: FiDollarSign, href: "/admin/pricing" },
+  { id: "counter", label: "Counters", icon: FiBarChart2, href: "/admin/counters" },
+  { id: "social", label: "Social", icon: HiOutlineUsers, href: "/admin/social" },
+  { id: "messages", label: "Messages", icon: FiMail, href: "/admin/messages" },
+];
+
+export function AdminSectionPage({ section = "services" }) {
+  const router = useRouter();
   const [token, setToken] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -119,8 +298,18 @@ export default function AdminDashboardPage() {
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [admin, setAdmin] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [activeTab, setActiveTab] = useState("hero");
   const [socialSearch, setSocialSearch] = useState({});
+  const [openCounterIconIndex, setOpenCounterIconIndex] = useState(null);
+  const [isServiceIconDropdownOpen, setIsServiceIconDropdownOpen] = useState(false);
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [editingServiceIndex, setEditingServiceIndex] = useState(-1);
+  const [serviceDraft, setServiceDraft] = useState(emptyServiceItem());
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [editingPricingIndex, setEditingPricingIndex] = useState(-1);
+  const [pricingDraft, setPricingDraft] = useState(emptyPricingItem());
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [editingProjectIndex, setEditingProjectIndex] = useState(-1);
+  const [projectDraft, setProjectDraft] = useState(emptyProjectItem());
   const [form, setForm] = useState({
     name: "",
     profile: "",
@@ -128,69 +317,157 @@ export default function AdminDashboardPage() {
     description: "",
     resume: "",
     statsCounters: [emptyCounterItem()],
+    pricings: [],
+    projects: [],
     socialLinks: [emptySocialLink()],
     heroSkillsTitle: "",
     heroSkills: [emptyHeroSkill()],
+    serviceSectionTitle: "",
+    serviceSectionSubtitle: "",
+    services: [emptyServiceItem()],
   });
+  const activeTab = section;
 
-  const loadDashboard = useCallback(async (authToken) => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`${backendUrl}/api/admin/dashboard`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      const data = await response.json();
+  const loadDashboard = useCallback(
+    async (authToken) => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`${backendUrl}/api/admin/dashboard`, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+        const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to load dashboard.");
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to load dashboard.");
+        }
+
+        const heroSkills = normalizeHeroSkills(data.profile?.heroSkills);
+
+        setMessages(data.messages || []);
+        setForm({
+          name: data.profile?.name || "",
+          profile: data.profile?.profile || "",
+          designation: data.profile?.designation || "",
+          description: data.profile?.description || "",
+          resume: data.profile?.resume || "",
+          statsCounters:
+            Array.isArray(data.statsCounters) && data.statsCounters.length
+              ? data.statsCounters.map((item) => ({
+                  label: item?.label || "",
+                  highlight: item?.highlight || "",
+                  count: item?.count || "",
+                  icon: item?.icon || "projects",
+                }))
+              : [emptyCounterItem()],
+          pricings:
+            Array.isArray(data.pricings) && data.pricings.length
+              ? data.pricings.map((item) => ({
+                  slug: item?.slug || "",
+                  name: item?.name || "",
+                  description: item?.description || "",
+                  price: item?.price || "",
+                  duration: item?.duration || "Monthly",
+                  content: item?.content || "",
+                  features:
+                    Array.isArray(item?.features) && item.features.length ? item.features : [""],
+                  status: typeof item?.status === "boolean" ? item.status : true,
+                  isPopular: Boolean(item?.isPopular),
+                }))
+              : [],
+          projects:
+            Array.isArray(data.projects) && data.projects.length
+              ? data.projects.map((item) => ({
+                  id: item?.id || "",
+                  slug: item?.slug || "",
+                  name: item?.name || "",
+                  description: item?.description || "",
+                  content: item?.content || "",
+                  role: item?.role || "",
+                  image: item?.image || "",
+                  tools: Array.isArray(item?.tools) && item.tools.length ? item.tools : [""],
+                  code: item?.code || "",
+                  demo: item?.demo || "",
+                  views: item?.views || 0,
+                  impressionCount: item?.impressionCount || 0,
+                  buttons:
+                    Array.isArray(item?.buttons) && item.buttons.length
+                      ? item.buttons.map((button) => ({
+                          text: button?.text || "",
+                          link: button?.link || "",
+                        }))
+                      : [
+                          ...(item?.demo ? [{ text: "Live Demo", link: item.demo }] : []),
+                          ...(item?.code ? [{ text: "Code", link: item.code }] : []),
+                        ].length
+                        ? [
+                            ...(item?.demo ? [{ text: "Live Demo", link: item.demo }] : []),
+                            ...(item?.code ? [{ text: "Code", link: item.code }] : []),
+                          ]
+                        : [emptyProjectButton()],
+                }))
+              : [],
+          socialLinks:
+            Array.isArray(data.profile?.socialLinks) && data.profile.socialLinks.length
+              ? data.profile.socialLinks.map((item) => ({
+                  icon: item?.icon || "facebook",
+                  label: item?.label || "",
+                  image: "",
+                  link: item?.link || "",
+                }))
+              : [emptySocialLink()],
+          heroSkillsTitle:
+            (data.profile?.heroSkills &&
+              typeof data.profile.heroSkills === "object" &&
+              !Array.isArray(data.profile.heroSkills) &&
+              data.profile.heroSkills?.title) ||
+            "",
+          heroSkills: heroSkills.length ? heroSkills : [emptyHeroSkill()],
+          serviceSectionTitle: data.serviceSection?.title || "",
+          serviceSectionSubtitle: data.serviceSection?.subtitle || "",
+          services:
+            Array.isArray(data.services) && data.services.length
+              ? data.services.map((item) => ({
+                  slug: item?.slug || "",
+                  name: item?.name || "",
+                  impression: item?.impression || "",
+                  impressionCount: item?.impressionCount || 0,
+                  description: item?.description || "",
+                  content: item?.content || "",
+                  isFeatured: Boolean(item?.isFeatured),
+                  icon: item?.icon || "briefcase",
+                  status: typeof item?.status === "boolean" ? item.status : true,
+                  views: item?.views || 0,
+                  comments:
+                    Array.isArray(item?.comments) && item.comments.length
+                      ? item.comments.map((comment) => ({
+                          photo: comment?.photo || "/profile.png",
+                          comment: comment?.comment || "",
+                          impression: comment?.impression || "",
+                          replies:
+                            Array.isArray(comment?.replies) && comment.replies.length
+                              ? comment.replies.map((reply) => ({
+                                  reply: reply?.reply || "",
+                                  impression: reply?.impression || "",
+                                }))
+                              : [emptyServiceReply()],
+                        }))
+                      : [emptyServiceComment()],
+                }))
+              : [emptyServiceItem()],
+        });
+      } catch (error) {
+        toast.error(error.message || "Failed to load dashboard.");
+        localStorage.removeItem("portfolio_admin_token");
+        localStorage.removeItem("portfolio_admin_user");
+        router.replace("/login/admin");
+      } finally {
+        setIsLoading(false);
       }
-
-      const heroSkills = normalizeHeroSkills(data.profile?.heroSkills);
-
-      setMessages(data.messages || []);
-      setForm({
-        name: data.profile?.name || "",
-        profile: data.profile?.profile || "",
-        designation: data.profile?.designation || "",
-        description: data.profile?.description || "",
-        resume: data.profile?.resume || "",
-        statsCounters:
-          Array.isArray(data.statsCounters) && data.statsCounters.length
-            ? data.statsCounters.map((item) => ({
-                label: item?.label || "",
-                highlight: item?.highlight || "",
-                count: item?.count || "",
-                icon: item?.icon || "projects",
-              }))
-            : [emptyCounterItem()],
-        socialLinks:
-          Array.isArray(data.profile?.socialLinks) && data.profile.socialLinks.length
-            ? data.profile.socialLinks.map((item) => ({
-                icon: item?.icon || "facebook",
-                label: item?.label || "",
-                image: "",
-                link: item?.link || "",
-              }))
-            : [emptySocialLink()],
-        heroSkillsTitle:
-          (data.profile?.heroSkills &&
-            typeof data.profile.heroSkills === "object" &&
-            !Array.isArray(data.profile.heroSkills) &&
-            data.profile.heroSkills?.title) ||
-          "",
-        heroSkills: heroSkills.length ? heroSkills : [emptyHeroSkill()],
-      });
-    } catch (error) {
-      toast.error(error.message || "Failed to load dashboard.");
-      localStorage.removeItem("portfolio_admin_token");
-      localStorage.removeItem("portfolio_admin_user");
-      router.replace("/login/admin");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [router]);
+    },
+    [router],
+  );
 
   useEffect(() => {
     const savedToken = localStorage.getItem("portfolio_admin_token");
@@ -218,7 +495,7 @@ export default function AdminDashboardPage() {
     setForm((current) => ({
       ...current,
       heroSkills: current.heroSkills.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, [key]: value } : item
+        itemIndex === index ? { ...item, [key]: value } : item,
       ),
     }));
   }
@@ -227,7 +504,7 @@ export default function AdminDashboardPage() {
     setForm((current) => ({
       ...current,
       socialLinks: current.socialLinks.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, [key]: value } : item
+        itemIndex === index ? { ...item, [key]: value } : item,
       ),
     }));
   }
@@ -236,7 +513,53 @@ export default function AdminDashboardPage() {
     setForm((current) => ({
       ...current,
       statsCounters: current.statsCounters.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, [key]: value } : item
+        itemIndex === index ? { ...item, [key]: value } : item,
+      ),
+    }));
+  }
+
+  function updatePricingDraft(key, value) {
+    setPricingDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateProjectDraft(key, value) {
+    setProjectDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function updatePricingFeature(index, value) {
+    setPricingDraft((current) => ({
+      ...current,
+      features: current.features.map((feature, featureIndex) =>
+        featureIndex === index ? value : feature,
+      ),
+    }));
+  }
+
+  function updateServiceItem(index, key, value) {
+    setForm((current) => ({
+      ...current,
+      services: current.services.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [key]: value } : item,
+      ),
+    }));
+  }
+
+  function updateServiceDraft(key, value) {
+    setServiceDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateProjectTool(index, value) {
+    setProjectDraft((current) => ({
+      ...current,
+      tools: current.tools.map((tool, toolIndex) => (toolIndex === index ? value : tool)),
+    }));
+  }
+
+  function updateProjectButton(index, key, value) {
+    setProjectDraft((current) => ({
+      ...current,
+      buttons: current.buttons.map((button, buttonIndex) =>
+        buttonIndex === index ? { ...button, [key]: value } : button,
       ),
     }));
   }
@@ -270,6 +593,126 @@ export default function AdminDashboardPage() {
     }));
   }
 
+  function addPricingItem() {
+    setEditingPricingIndex(-1);
+    setPricingDraft(emptyPricingItem());
+    setIsPricingModalOpen(true);
+  }
+
+  function removePricingItem(index) {
+    setForm((current) => {
+      const nextPricings = current.pricings.filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...current,
+        pricings: nextPricings,
+      };
+    });
+  }
+
+  function addProjectItem() {
+    setEditingProjectIndex(-1);
+    setProjectDraft(emptyProjectItem());
+    setIsProjectModalOpen(true);
+  }
+
+  function removeProjectItem(index) {
+    setForm((current) => ({
+      ...current,
+      projects: current.projects.filter((_, itemIndex) => itemIndex !== index),
+    }));
+  }
+
+  function openEditProjectModal(index) {
+    setEditingProjectIndex(index);
+    setProjectDraft({
+      ...cloneProjectItem(form.projects[index]),
+      tools:
+        Array.isArray(form.projects[index]?.tools) && form.projects[index].tools.length
+          ? form.projects[index].tools
+          : [""],
+      buttons:
+        Array.isArray(form.projects[index]?.buttons) && form.projects[index].buttons.length
+          ? form.projects[index].buttons
+          : [emptyProjectButton()],
+    });
+    setIsProjectModalOpen(true);
+  }
+
+  function closeProjectModal() {
+    setIsProjectModalOpen(false);
+    setEditingProjectIndex(-1);
+    setProjectDraft(emptyProjectItem());
+  }
+
+  function addProjectTool() {
+    setProjectDraft((current) => ({
+      ...current,
+      tools: [...current.tools, ""],
+    }));
+  }
+
+  function removeProjectTool(index) {
+    setProjectDraft((current) => {
+      const nextTools = current.tools.filter((_, toolIndex) => toolIndex !== index);
+      return {
+        ...current,
+        tools: nextTools.length ? nextTools : [""],
+      };
+    });
+  }
+
+  function addProjectButton() {
+    setProjectDraft((current) => ({
+      ...current,
+      buttons: [...current.buttons, emptyProjectButton()],
+    }));
+  }
+
+  function removeProjectButton(index) {
+    setProjectDraft((current) => {
+      const nextButtons = current.buttons.filter((_, buttonIndex) => buttonIndex !== index);
+      return {
+        ...current,
+        buttons: nextButtons.length ? nextButtons : [emptyProjectButton()],
+      };
+    });
+  }
+
+  function openEditPricingModal(index) {
+    setEditingPricingIndex(index);
+    setPricingDraft({
+      ...form.pricings[index],
+      features:
+        Array.isArray(form.pricings[index]?.features) && form.pricings[index].features.length
+          ? form.pricings[index].features
+          : [""],
+    });
+    setIsPricingModalOpen(true);
+  }
+
+  function closePricingModal() {
+    setIsPricingModalOpen(false);
+    setEditingPricingIndex(-1);
+    setPricingDraft(emptyPricingItem());
+  }
+
+  function addPricingFeature() {
+    setPricingDraft((current) => ({
+      ...current,
+      features: [...current.features, ""],
+    }));
+  }
+
+  function removePricingFeature(index) {
+    setPricingDraft((current) => {
+      const nextFeatures = current.features.filter((_, featureIndex) => featureIndex !== index);
+      return {
+        ...current,
+        features: nextFeatures.length ? nextFeatures : [""],
+      };
+    });
+  }
+
   function removeCounterItem(index) {
     setForm((current) => {
       const nextCounters = current.statsCounters.filter((_, itemIndex) => itemIndex !== index);
@@ -295,6 +738,167 @@ export default function AdminDashboardPage() {
         heroSkills: nextSkills.length ? nextSkills : [emptyHeroSkill()],
       };
     });
+  }
+
+  function addServiceItem() {
+    setEditingServiceIndex(-1);
+    setServiceDraft(emptyServiceItem());
+    setIsServiceModalOpen(true);
+  }
+
+  function removeServiceItem(index) {
+    setForm((current) => {
+      const nextServices = current.services.filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...current,
+        services: nextServices.length ? nextServices : [emptyServiceItem()],
+      };
+    });
+  }
+
+  function openEditServiceModal(index) {
+    setEditingServiceIndex(index);
+    setServiceDraft(cloneServiceItem(form.services[index]));
+    setIsServiceModalOpen(true);
+  }
+
+  function closeServiceModal() {
+    setIsServiceModalOpen(false);
+    setEditingServiceIndex(-1);
+    setServiceDraft(emptyServiceItem());
+    setIsServiceIconDropdownOpen(false);
+  }
+
+  function saveServiceDraft() {
+    const normalizedDraft = {
+      ...serviceDraft,
+      slug: slugify(serviceDraft.slug || serviceDraft.name),
+      name: serviceDraft.name.trim(),
+      impression: serviceDraft.impression.trim(),
+      impressionCount: Number(serviceDraft.impressionCount) || 0,
+      description: serviceDraft.description.trim(),
+      icon: serviceDraft.icon.trim(),
+      views: Number(serviceDraft.views) || 0,
+      comments: (serviceDraft.comments || []).map((comment) => ({
+        ...comment,
+        photo: comment.photo || "/profile.png",
+        comment: comment.comment,
+        impression: comment.impression,
+        replies: comment.replies || [emptyServiceReply()],
+      })),
+    };
+
+    if (!normalizedDraft.name || !normalizedDraft.description) {
+      toast.error("Service name and description are required.");
+      return;
+    }
+
+    setForm((current) => {
+      const nextServices = [...current.services];
+
+      if (editingServiceIndex >= 0) {
+        nextServices[editingServiceIndex] = normalizedDraft;
+      } else {
+        nextServices.push(normalizedDraft);
+      }
+
+      return {
+        ...current,
+        services: nextServices,
+      };
+    });
+
+    closeServiceModal();
+  }
+
+  function savePricingDraft() {
+    const normalizedDraft = {
+      ...pricingDraft,
+      slug: slugify(pricingDraft.slug || pricingDraft.name),
+      name: pricingDraft.name.trim(),
+      description: pricingDraft.description.trim(),
+      price: pricingDraft.price,
+      duration: pricingDraft.duration.trim(),
+      content: pricingDraft.content,
+      features: (pricingDraft.features || []).map((feature) => feature.trim()).filter(Boolean),
+      status: Boolean(pricingDraft.status),
+      isPopular: Boolean(pricingDraft.isPopular),
+    };
+
+    if (
+      !normalizedDraft.slug ||
+      !normalizedDraft.name ||
+      !normalizedDraft.description ||
+      !normalizedDraft.duration ||
+      !normalizedDraft.content ||
+      !(Number(normalizedDraft.price) > 0)
+    ) {
+      toast.error("Pricing slug, name, description, content, price, and duration are required.");
+      return;
+    }
+
+    setForm((current) => {
+      const nextPricings = [...current.pricings];
+
+      if (editingPricingIndex >= 0) {
+        nextPricings[editingPricingIndex] = normalizedDraft;
+      } else {
+        nextPricings.push(normalizedDraft);
+      }
+
+      return {
+        ...current,
+        pricings: nextPricings,
+      };
+    });
+
+    closePricingModal();
+  }
+
+  function saveProjectDraft() {
+    const normalizedDraft = {
+      ...projectDraft,
+      id: projectDraft.id,
+      slug: slugify(projectDraft.name),
+      name: projectDraft.name.trim(),
+      description: projectDraft.description.trim(),
+      content: projectDraft.content,
+      role: projectDraft.role.trim(),
+      image: projectDraft.image.trim(),
+      code: projectDraft.code.trim(),
+      demo: projectDraft.demo.trim(),
+      views: Number(projectDraft.views) || 0,
+      impressionCount: Number(projectDraft.impressionCount) || 0,
+      tools: (projectDraft.tools || []).map((tool) => tool.trim()).filter(Boolean),
+      buttons: (projectDraft.buttons || [])
+        .map((button) => ({
+          text: button.text.trim(),
+          link: button.link.trim(),
+        }))
+        .filter((button) => button.text && button.link),
+    };
+
+    if (!normalizedDraft.name || !normalizedDraft.description || !normalizedDraft.content) {
+      toast.error("Project name, description, and content are required.");
+      return;
+    }
+
+    setForm((current) => {
+      const nextProjects = [...current.projects];
+
+      if (editingProjectIndex >= 0) {
+        nextProjects[editingProjectIndex] = normalizedDraft;
+      } else {
+        nextProjects.push(normalizedDraft);
+      }
+
+      return {
+        ...current,
+        projects: nextProjects,
+      };
+    });
+
+    closeProjectModal();
   }
 
   async function persistContent(payload, successMessage) {
@@ -349,6 +953,27 @@ export default function AdminDashboardPage() {
     } catch {}
   }
 
+  async function handlePricingSave(event) {
+    event.preventDefault();
+    try {
+      await persistContent(buildPricingPayload(form), "Pricing section updated.");
+    } catch {}
+  }
+
+  async function handleProjectsSave(event) {
+    event.preventDefault();
+    try {
+      await persistContent(buildProjectsPayload(form), "Projects updated.");
+    } catch {}
+  }
+
+  async function handleServicesSave(event) {
+    event.preventDefault();
+    try {
+      await persistContent(buildServicePayload(form), "Services section updated.");
+    } catch {}
+  }
+
   async function handleImageUpload(event, options = {}) {
     const file = event.target.files?.[0];
 
@@ -379,9 +1004,15 @@ export default function AdminDashboardPage() {
         nextForm = {
           ...form,
           heroSkills: form.heroSkills.map((item, itemIndex) =>
-            itemIndex === options.index ? { ...item, image: data.path } : item
+            itemIndex === options.index ? { ...item, image: data.path } : item,
           ),
         };
+      } else if (options.type === "project") {
+        setProjectDraft((current) => ({
+          ...current,
+          image: data.path,
+        }));
+        return;
       } else {
         nextForm = {
           ...form,
@@ -390,9 +1021,9 @@ export default function AdminDashboardPage() {
       }
 
       setForm(nextForm);
-
       await persistContent(buildHeroPayload(nextForm), "Image uploaded and saved.");
-    } catch {
+    } catch (error) {
+      toast.error(error.message || "Image upload failed.");
     } finally {
       setIsUploadingImage(false);
       event.target.value = "";
@@ -431,7 +1062,8 @@ export default function AdminDashboardPage() {
 
       setForm(nextForm);
       await persistContent(buildHeroPayload(nextForm), "CV uploaded and saved.");
-    } catch {
+    } catch (error) {
+      toast.error(error.message || "PDF upload failed.");
     } finally {
       setIsUploadingResume(false);
       event.target.value = "";
@@ -445,95 +1077,524 @@ export default function AdminDashboardPage() {
   }
 
   if (isLoading) {
-    return <div className="py-20 text-center text-white">Loading admin dashboard...</div>;
+    return (
+      <div className="flex min-h-[80vh] items-center justify-center">
+        <div className="rounded-3xl border border-[#24344d] bg-[#0d1728] px-8 py-6 text-center shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
+          <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Admin Panel</p>
+          <p className="mt-3 text-lg text-[#e8eef7]">Loading dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
-  return (
-    <div className="py-10 text-white">
-      <div className="mb-8 flex flex-col gap-4 rounded-2xl border border-[#2a2e5a] bg-[#10172d] p-6 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-[#16f2b3]">Admin Dashboard</p>
-          <h1 className="text-3xl font-bold">Hero Content Control</h1>
-          <p className="mt-2 text-sm text-[#d3d8e8]">
-            Logged in as {admin?.email || "support@smshagor.com"}
-          </p>
-        </div>
-        <button
-          className="rounded-lg border border-[#3a4160] px-4 py-2 text-sm font-medium transition hover:border-[#16f2b3] hover:text-[#16f2b3]"
-          onClick={logout}
-          type="button"
-        >
-          Logout
-        </button>
-      </div>
+  const activeServices = form.services.filter((item) => item.status).length;
+  const featuredServices = form.services.filter((item) => item.isFeatured).length;
+  const totalServices = form.services.length;
+  const totalProjects = form.projects.length;
+  const totalProjectViews = form.projects.reduce((sum, item) => sum + (Number(item.views) || 0), 0);
+  const totalProjectImpressions = form.projects.reduce(
+    (sum, item) => sum + (Number(item.impressionCount) || 0),
+    0,
+  );
+  const activePricings = form.pricings.filter((item) => item.status).length;
+  const popularPricings = form.pricings.filter((item) => item.isPopular).length;
+  const totalPricings = form.pricings.length;
+  const dashboardHighlights =
+    activeTab === "pricing"
+      ? [
+          { label: "Active Plans", value: activePricings, icon: FiDollarSign },
+          { label: "Popular Plans", value: popularPricings, icon: HiOutlineSparkles },
+          { label: "Total Plans", value: totalPricings, icon: FiBarChart2 },
+        ]
+      : activeTab === "projects"
+        ? [
+            { label: "Total Projects", value: totalProjects, icon: FiFolder },
+            { label: "Project Views", value: totalProjectViews, icon: HiOutlineViewGrid },
+            { label: "Impressions", value: totalProjectImpressions, icon: FiBarChart2 },
+          ]
+      : [
+          { label: "Active Services", value: activeServices, icon: HiOutlineViewGrid },
+          { label: "Featured Services", value: featuredServices, icon: HiOutlineSparkles },
+          { label: "Total Services", value: totalServices, icon: FiBarChart2 },
+        ];
 
-      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="h-fit rounded-2xl border border-[#2a2e5a] bg-[#10172d] p-4 lg:sticky lg:top-6">
-          <p className="mb-4 text-xs uppercase tracking-[0.3em] text-[#16f2b3]">
-            Content Sections
-          </p>
-          <div className="space-y-2">
-            {tabs.map((tab, index) => {
+  return (
+    <div className="mx-auto max-w-[1600px]">
+      <div className="grid gap-6 xl:grid-cols-[290px_minmax(0,1fr)]">
+        <aside className="rounded-[2rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(16,27,43,0.96),rgba(10,19,34,0.96))] p-5 shadow-[0_26px_70px_rgba(0,0,0,0.35)] xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:overflow-y-auto">
+          <div className="rounded-[1.5rem] border border-[#28405f] bg-[radial-gradient(circle_at_top,rgba(107,212,255,0.18),transparent_50%),#0d1728] p-5">
+            <p className="text-xs uppercase tracking-[0.32em] text-[#8fdcff]">Control Center</p>
+            <h1 className="mt-3 text-2xl font-semibold text-white">Portfolio Admin</h1>
+            <p className="mt-2 text-sm leading-6 text-[#9fb1c7]">
+              Manage hero content, social links, counters, services, projects, and pricing from one place.
+            </p>
+          </div>
+
+          <div className="mt-6 space-y-2">
+            {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
 
               return (
-                <button
+                <Link
                   key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
+                  href={tab.href}
+                  className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
                     isActive
-                      ? "border-[#16f2b3] bg-[#0b1120] text-white"
-                      : "border-[#353a52] bg-transparent text-[#d3d8e8] hover:border-[#16f2b3] hover:text-white"
+                      ? "border-[#4dc4ff] bg-[#11243b] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                      : "border-[#23324a] bg-[#0d1728] text-[#bfd0e2] hover:border-[#36557e] hover:text-white"
                   }`}
                 >
-                  <span>{tab.label}</span>
-                  <span className="text-xs text-[#8b98a5]">
-                    {String(index + 1).padStart(2, "0")}
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#132339] text-[#7fdcff]">
+                    <Icon size={18} />
                   </span>
-                </button>
+                  <span className="font-medium">{tab.label}</span>
+                </Link>
               );
             })}
+          </div>
+
+          <div className="mt-6 rounded-[1.5rem] border border-[#23324a] bg-[#0c1627] p-4">
+            <p className="text-xs uppercase tracking-[0.28em] text-[#8b98a5]">Signed In</p>
+            <p className="mt-3 font-medium text-white">{admin?.name || "Admin"}</p>
+            <p className="mt-1 text-sm text-[#a7b7ca]">{admin?.email || "support@smshagor.com"}</p>
+            <button
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#324966] bg-[#132339] px-4 py-3 text-sm font-medium text-white transition hover:border-[#4dc4ff]"
+              onClick={logout}
+              type="button"
+            >
+              <FiLogOut size={16} />
+              Logout
+            </button>
           </div>
         </aside>
 
         <div className="space-y-6">
+          <section className="rounded-[2rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(15,26,42,0.96),rgba(11,20,34,0.96))] p-6 shadow-[0_28px_70px_rgba(0,0,0,0.35)]">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.3em] text-[#6bd4ff]">Admin Workspace</p>
+                <h2 className="mt-2 text-3xl font-semibold text-white">Clean content management for your portfolio</h2>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-[#a8b8ca]">
+                  The admin area now runs on its own layout, with dedicated service, project, and pricing workflows plus a cleaner editorial flow.
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#27435f] bg-[#102237] px-4 py-2 text-sm text-[#dce8f6]">
+                <FiSettings size={15} />
+                {tabs.find((tab) => tab.id === activeTab)?.label}
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {dashboardHighlights.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <div
+                    key={item.label}
+                    className="rounded-[1.5rem] border border-[#24344d] bg-[#0c1627] p-5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-[#9fb1c7]">{item.label}</p>
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#132339] text-[#7fdcff]">
+                        <Icon size={18} />
+                      </span>
+                    </div>
+                    <p className="mt-4 text-3xl font-semibold text-white">{item.value}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {activeTab === "services" && (
+            <form className="space-y-6" onSubmit={handleServicesSave}>
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Service Section</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Service list and content settings</h3>
+                    <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                      Created services are shown as a clean list here. Use the popup form to create a new service without stretching the page.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addServiceItem}
+                    className="rounded-xl border border-[#4dc4ff] px-4 py-3 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                  >
+                    Add Service
+                  </button>
+                </div>
+
+                <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Section Title</label>
+                    <input
+                      className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                      value={form.serviceSectionTitle}
+                      onChange={(event) => updateField("serviceSectionTitle", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Section Subtitle</label>
+                    <textarea
+                      className="min-h-[120px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                      value={form.serviceSectionSubtitle}
+                      onChange={(event) => updateField("serviceSectionSubtitle", event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-8 grid gap-4">
+                  {form.services.length === 0 ? (
+                    <div className="rounded-[1.5rem] border border-dashed border-[#2b3b55] bg-[#0c1627] p-8 text-center text-sm text-[#95a9bf]">
+                      No services added yet.
+                    </div>
+                  ) : (
+                    form.services.map((service, index) => (
+                      <div
+                        key={`service-${index}`}
+                        className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-5"
+                      >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-[#2e5074] bg-[#10243a] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#8ad7ff]">
+                                {service.icon || "briefcase"}
+                              </span>
+                              {service.isFeatured ? (
+                                <span className="rounded-full border border-[#2d5f4c] bg-[#0f241b] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#8ff0be]">
+                                  Featured
+                                </span>
+                              ) : null}
+                              <span className="rounded-full border border-[#32445d] bg-[#111d31] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#b3c2d4]">
+                                {service.status ? "Live" : "Hidden"}
+                              </span>
+                            </div>
+                            <h4 className="mt-4 text-xl font-semibold text-white">
+                              {service.name || "Untitled service"}
+                            </h4>
+                            <p className="mt-3 line-clamp-2 text-sm leading-7 text-[#9fb1c7]">
+                              {service.description || "No description added yet."}
+                            </p>
+                            <div className="mt-4 flex flex-wrap gap-3 text-xs text-[#bfd0e2]">
+                              <span>{service.slug || "no-slug"}</span>
+                              <span>{service.comments.length} comments</span>
+                              <span>
+                                {service.comments.reduce((sum, item) => sum + item.replies.length, 0)} replies
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => openEditServiceModal(index)}
+                              className="rounded-xl border border-[#36557e] px-4 py-2 text-sm text-[#9ae2ff] transition hover:bg-[#12243b]"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeServiceItem(index)}
+                              className="rounded-xl border border-[#5a3040] px-4 py-2 text-sm text-[#ffb6c6] transition hover:bg-[#2b1420]"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <div className="flex justify-end">
+                <button
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isSaving}
+                  type="submit"
+                >
+                  {isSaving ? "Saving..." : "Save Services"}
+                </button>
+              </div>
+
+              {isServiceModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+                  <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+                    <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Service Form</p>
+                        <h4 className="mt-2 text-2xl font-semibold text-white">
+                          {editingServiceIndex >= 0 ? "Edit Service" : "Create New Service"}
+                        </h4>
+                        <p className="mt-2 text-sm text-[#97a9be]">
+                          Keep the service card compact here, then write the full service details in the editor.
+                        </p>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={closeServiceModal}
+                          className="rounded-xl border border-[#334862] px-4 py-2 text-sm text-[#c1cfde] transition hover:border-[#4a678b]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveServiceDraft}
+                          className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-5 py-2 text-sm font-semibold text-[#08111d] transition hover:opacity-90"
+                        >
+                          {editingServiceIndex >= 0 ? "Update Service" : "Add Service"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_320px]">
+                      <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                        <div className="mb-5 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Core Details</p>
+                            <h5 className="mt-2 text-lg font-semibold text-white">Service information</h5>
+                          </div>
+                          <span className="rounded-full border border-[#2b4c70] bg-[#10233a] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#8ad7ff]">
+                            {serviceDraft.status ? "Published" : "Draft"}
+                          </span>
+                        </div>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div className="lg:col-span-2">
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Name</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="UI/UX Design"
+                              value={serviceDraft.name}
+                              onChange={(event) => {
+                                updateServiceDraft("name", event.target.value);
+                                if (!serviceDraft.slug || slugify(serviceDraft.slug) === slugify(serviceDraft.name)) {
+                                  updateServiceDraft("slug", slugify(event.target.value));
+                                }
+                              }}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Slug</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="ui-ux-design"
+                              value={serviceDraft.slug}
+                              onChange={(event) => updateServiceDraft("slug", slugify(event.target.value))}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Icon</label>
+                            <div className="rounded-xl border border-[#2c3852] bg-[#101b2d] p-3">
+                              <button
+                                type="button"
+                                onClick={() => setIsServiceIconDropdownOpen((current) => !current)}
+                                className="flex w-full items-center justify-between rounded-xl border border-[#2c3852] bg-[#0d1728] px-4 py-3 text-left text-white transition hover:border-[#49c1ff]"
+                              >
+                                <span className="flex items-center gap-3">
+                                  {(() => {
+                                    const selectedIcon = getServiceIconOption(serviceDraft.icon);
+                                    const Icon = selectedIcon.icon;
+                                    return (
+                                      <>
+                                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#29405d] bg-[#11253a] text-[#8fdcff]">
+                                          <Icon size={18} />
+                                        </span>
+                                        <span>
+                                          <span className="block font-medium">{selectedIcon.label}</span>
+                                          <span className="block text-xs uppercase tracking-[0.24em] text-[#89a2bd]">
+                                            {selectedIcon.value}
+                                          </span>
+                                        </span>
+                                      </>
+                                    );
+                                  })()}
+                                </span>
+                                <span className="text-sm text-[#8fdcff]">{isServiceIconDropdownOpen ? "Hide" : "Choose"}</span>
+                              </button>
+
+                              {isServiceIconDropdownOpen ? (
+                                <div className="mt-3 grid max-h-[16rem] grid-cols-2 gap-2 overflow-y-auto pr-1 md:grid-cols-3">
+                                  {serviceIconOptions.map((option) => {
+                                    const Icon = option.icon;
+                                    const isActive = serviceDraft.icon === option.value;
+
+                                    return (
+                                      <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => {
+                                          updateServiceDraft("icon", option.value);
+                                          setIsServiceIconDropdownOpen(false);
+                                        }}
+                                        className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs transition ${
+                                          isActive
+                                            ? "border-[#49c1ff] bg-[#12243b] text-white"
+                                            : "border-[#2c3852] bg-[#0d1728] text-[#d3d8e8] hover:border-[#49c1ff]"
+                                        }`}
+                                      >
+                                        <Icon size={18} />
+                                        <span className="mt-2 text-center leading-4">{option.label}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <div className="lg:col-span-2">
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Short Description</label>
+                            <textarea
+                              className="min-h-[130px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="Write a short summary for the service card."
+                              value={serviceDraft.description}
+                              onChange={(event) => updateServiceDraft("description", event.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                          <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Visibility</p>
+                          <div className="mt-4 grid gap-4">
+                            <label className="flex items-center gap-3 rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-sm text-[#d7dfec]">
+                              <input
+                                type="checkbox"
+                                checked={serviceDraft.isFeatured}
+                                onChange={(event) => updateServiceDraft("isFeatured", event.target.checked)}
+                              />
+                              Featured on homepage
+                            </label>
+
+                            <label className="flex items-center gap-3 rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-sm text-[#d7dfec]">
+                              <input
+                                type="checkbox"
+                                checked={serviceDraft.status}
+                                onChange={(event) => updateServiceDraft("status", event.target.checked)}
+                              />
+                              Show service publicly
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="rounded-[1.6rem] border border-[#2b3d58] bg-[#0b1524] p-5">
+                          <p className="text-xs uppercase tracking-[0.24em] text-[#8ba0b7]">Preview</p>
+                          <div className="mt-4 rounded-[1.25rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0c1523)] p-4">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex items-center gap-2 rounded-full border border-[#2e5074] bg-[#10243a] px-3 py-2 text-[11px] uppercase tracking-[0.22em] text-[#8ad7ff]">
+                                {(() => {
+                                  const selectedIcon = getServiceIconOption(serviceDraft.icon);
+                                  const Icon = selectedIcon.icon;
+                                  return (
+                                    <>
+                                      <Icon size={14} />
+                                      <span>{selectedIcon.label}</span>
+                                    </>
+                                  );
+                                })()}
+                              </span>
+                              {serviceDraft.isFeatured ? (
+                                <span className="rounded-full border border-[#2d5f4c] bg-[#0f241b] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-[#8ff0be]">
+                                  Featured
+                                </span>
+                              ) : null}
+                            </div>
+                            <h6 className="mt-4 text-lg font-semibold text-white">
+                              {serviceDraft.name || "Service title"}
+                            </h6>
+                            <p className="mt-3 text-sm leading-7 text-[#9fb1c7]">
+                              {serviceDraft.description || "Service card description preview."}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                      <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Service Content</p>
+                          <h5 className="mt-2 text-lg font-semibold text-white">Detailed description</h5>
+                        </div>
+                        <p className="text-sm text-[#97a9be]">
+                          Comments and replies are hidden from this form on the front end.
+                        </p>
+                      </div>
+                      <RichTextEditor
+                        id={`service-draft-content-${editingServiceIndex >= 0 ? editingServiceIndex : "new"}`}
+                        label="Content"
+                        value={serviceDraft.content}
+                        onChange={(nextValue) => updateServiceDraft("content", nextValue)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </form>
+          )}
+
           {activeTab === "hero" && (
             <form className="space-y-6" onSubmit={handleSave}>
-              <section className="rounded-2xl border border-[#2a2e5a] bg-[#10172d] p-6">
-                <h2 className="mb-4 text-2xl font-semibold">Hero Section</h2>
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Hero Section</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Main landing content</h3>
+                  </div>
+                </div>
 
-                <div className="mb-6 grid gap-4 lg:grid-cols-[180px_1fr] lg:items-start">
-                  <div className="overflow-hidden rounded-2xl border border-[#353a52] bg-[#0b1120]">
+                <div className="mt-6 grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+                  <div className="overflow-hidden rounded-[1.5rem] border border-[#2c3852] bg-[#101b2d]">
                     <Image
                       src={form.profile || "/profile.png"}
                       alt="Profile preview"
-                      width={180}
-                      height={180}
-                      className="h-[180px] w-full object-cover"
+                      width={220}
+                      height={260}
+                      className="h-[260px] w-full object-cover"
                       unoptimized
                     />
                   </div>
-                  <div className="rounded-2xl border border-dashed border-[#3d4566] bg-[#0b1120] p-4">
-                    <label className="mb-3 block text-sm text-[#d3d8e8]">
-                      Upload profile photo
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => handleImageUpload(event)}
-                      disabled={isUploadingImage}
-                      className="block w-full cursor-pointer text-sm text-[#d3d8e8] file:mr-4 file:rounded-lg file:border-0 file:bg-[#7658ff] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[#8a63ff]"
-                    />
-                    <p className="mt-3 text-xs text-[#8b98a5]">
+
+                  <div className="space-y-4 rounded-[1.5rem] border border-dashed border-[#32455f] bg-[#0c1627] p-5">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Upload profile photo</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => handleImageUpload(event)}
+                        disabled={isUploadingImage}
+                        className="block w-full cursor-pointer text-sm text-[#d3d8e8] file:mr-4 file:rounded-lg file:border-0 file:bg-[#2a8fd8] file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-[#3aa1ea]"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Upload CV PDF</label>
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={handleResumeUpload}
+                        disabled={isUploadingResume}
+                        className="block w-full cursor-pointer text-sm text-[#d3d8e8] file:mr-4 file:rounded-lg file:border-0 file:bg-[#57d0a0] file:px-4 file:py-2 file:font-semibold file:text-[#07121d] hover:file:bg-[#76ddb5]"
+                      />
+                    </div>
+                    <p className="text-xs text-[#8b98a5]">
                       {isUploadingImage
                         ? "Uploading image..."
-                        : "Upload hero profile image and save when ready."}
+                        : isUploadingResume
+                          ? "Uploading resume..."
+                          : "Profile image and CV uploads are saved directly to the hero section."}
                     </p>
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
                   {[
                     ["name", "Name"],
                     ["designation", "Designation"],
@@ -541,9 +1602,9 @@ export default function AdminDashboardPage() {
                     ["heroSkillsTitle", "Skills Section Text"],
                   ].map(([key, label]) => (
                     <div key={key}>
-                      <label className="mb-2 block text-sm text-[#d3d8e8]">{label}</label>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">{label}</label>
                       <input
-                        className="w-full rounded-lg border border-[#353a52] bg-[#0b1120] px-4 py-3 text-white outline-none transition focus:border-[#16f2b3]"
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
                         value={form[key]}
                         onChange={(event) => updateField(key, event.target.value)}
                       />
@@ -551,26 +1612,10 @@ export default function AdminDashboardPage() {
                   ))}
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-dashed border-[#3d4566] bg-[#0b1120] p-4">
-                  <label className="mb-3 block text-sm text-[#d3d8e8]">Upload CV PDF</label>
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={handleResumeUpload}
-                    disabled={isUploadingResume}
-                    className="block w-full cursor-pointer text-sm text-[#d3d8e8] file:mr-4 file:rounded-lg file:border-0 file:bg-[#16f2b3] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#04111f] hover:file:bg-[#44f6c4]"
-                  />
-                  <p className="mt-3 text-xs text-[#8b98a5]">
-                    {isUploadingResume
-                      ? "Uploading CV..."
-                      : "Only PDF file allowed. Uploaded file path will be added automatically."}
-                  </p>
-                </div>
-
                 <div className="mt-4">
-                  <label className="mb-2 block text-sm text-[#d3d8e8]">Description</label>
+                  <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Description</label>
                   <textarea
-                    className="min-h-[140px] w-full rounded-lg border border-[#353a52] bg-[#0b1120] px-4 py-3 text-white outline-none transition focus:border-[#16f2b3]"
+                    className="min-h-[150px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
                     value={form.description}
                     onChange={(event) => updateField("description", event.target.value)}
                   />
@@ -578,11 +1623,11 @@ export default function AdminDashboardPage() {
 
                 <div className="mt-6">
                   <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">Hero Skills</h3>
+                    <h4 className="text-lg font-semibold text-white">Hero Skills</h4>
                     <button
                       type="button"
                       onClick={addHeroSkill}
-                      className="rounded-lg border border-[#16f2b3] px-4 py-2 text-sm text-[#16f2b3] transition hover:bg-[#16f2b3] hover:text-[#04111f]"
+                      className="rounded-xl border border-[#4dc4ff] px-4 py-2 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
                     >
                       Add Skill
                     </button>
@@ -592,16 +1637,14 @@ export default function AdminDashboardPage() {
                     {form.heroSkills.map((skill, index) => (
                       <div
                         key={`hero-skill-${index}`}
-                        className="rounded-2xl border border-[#353a52] bg-[#0b1120] p-4"
+                        className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4"
                       >
                         <div className="mb-4 flex items-center justify-between">
-                          <p className="text-sm font-medium text-[#d3d8e8]">
-                            Skill {index + 1}
-                          </p>
+                          <p className="text-sm font-medium text-[#d3d8e8]">Skill {index + 1}</p>
                           <button
                             type="button"
                             onClick={() => removeHeroSkill(index)}
-                            className="text-sm text-[#ff8c8c] transition hover:text-[#ffb3b3]"
+                            className="text-sm text-[#ffb6c6] transition hover:text-[#ffd1db]"
                           >
                             Remove
                           </button>
@@ -620,29 +1663,23 @@ export default function AdminDashboardPage() {
                           </div>
 
                           <div>
-                            <label className="mb-2 block text-sm text-[#d3d8e8]">Skill Name</label>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Skill Name</label>
                             <input
-                              className="w-full rounded-lg border border-[#353a52] bg-[#11172b] px-4 py-3 text-white outline-none transition focus:border-[#16f2b3]"
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
                               value={skill.name}
-                              onChange={(event) =>
-                                updateHeroSkill(index, "name", event.target.value)
-                              }
+                              onChange={(event) => updateHeroSkill(index, "name", event.target.value)}
                             />
                           </div>
                         </div>
 
                         <div className="mt-4">
-                          <label className="mb-2 block text-sm text-[#d3d8e8]">
-                            Upload skill image
-                          </label>
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Upload skill image</label>
                           <input
                             type="file"
                             accept="image/*"
-                            onChange={(event) =>
-                              handleImageUpload(event, { type: "skill", index })
-                            }
+                            onChange={(event) => handleImageUpload(event, { type: "skill", index })}
                             disabled={isUploadingImage}
-                            className="block w-full cursor-pointer text-sm text-[#d3d8e8] file:mr-4 file:rounded-lg file:border-0 file:bg-[#7658ff] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[#8a63ff]"
+                            className="block w-full cursor-pointer text-sm text-[#d3d8e8] file:mr-4 file:rounded-lg file:border-0 file:bg-[#2a8fd8] file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-[#3aa1ea]"
                           />
                         </div>
                       </div>
@@ -653,7 +1690,7 @@ export default function AdminDashboardPage() {
 
               <div className="flex justify-end">
                 <button
-                  className="rounded-lg bg-gradient-to-r from-pink-500 to-violet-600 px-6 py-3 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
                   disabled={isSaving}
                   type="submit"
                 >
@@ -665,15 +1702,16 @@ export default function AdminDashboardPage() {
 
           {activeTab === "social" && (
             <form className="space-y-6" onSubmit={handleSocialSave}>
-              <section className="rounded-2xl border border-[#2a2e5a] bg-[#10172d] p-6">
-                <h2 className="mb-4 text-2xl font-semibold">Social Links</h2>
-
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Header Social Items</h3>
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Social Links</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Header and footer social items</h3>
+                  </div>
                   <button
                     type="button"
                     onClick={addSocialLink}
-                    className="rounded-lg border border-[#16f2b3] px-4 py-2 text-sm text-[#16f2b3] transition hover:bg-[#16f2b3] hover:text-[#04111f]"
+                    className="rounded-xl border border-[#4dc4ff] px-4 py-2 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
                   >
                     Add New
                   </button>
@@ -683,16 +1721,14 @@ export default function AdminDashboardPage() {
                   {form.socialLinks.map((item, index) => (
                     <div
                       key={`social-link-${index}`}
-                      className="rounded-2xl border border-[#353a52] bg-[#0b1120] p-4"
+                      className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4"
                     >
                       <div className="mb-4 flex items-center justify-between">
-                        <p className="text-sm font-medium text-[#d3d8e8]">
-                          Social Link {index + 1}
-                        </p>
+                        <p className="text-sm font-medium text-[#d3d8e8]">Social Link {index + 1}</p>
                         <button
                           type="button"
                           onClick={() => removeSocialLink(index)}
-                          className="text-sm text-[#ff8c8c] transition hover:text-[#ffb3b3]"
+                          className="text-sm text-[#ffb6c6] transition hover:text-[#ffd1db]"
                         >
                           Remove
                         </button>
@@ -700,10 +1736,10 @@ export default function AdminDashboardPage() {
 
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                          <label className="mb-2 block text-sm text-[#d3d8e8]">Select Icon</label>
-                          <div className="rounded-lg border border-[#353a52] bg-[#0b1120] p-3">
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Select Icon</label>
+                          <div className="rounded-xl border border-[#2c3852] bg-[#101b2d] p-3">
                             <input
-                              className="mb-3 w-full rounded-lg border border-[#353a52] bg-[#11172b] px-4 py-3 text-sm text-white outline-none transition focus:border-[#16f2b3]"
+                              className="mb-3 w-full rounded-xl border border-[#2c3852] bg-[#0d1728] px-4 py-3 text-sm text-white outline-none transition focus:border-[#49c1ff]"
                               placeholder="Search icon like github, instagram, website..."
                               value={socialSearch[index] || ""}
                               onChange={(event) =>
@@ -715,55 +1751,50 @@ export default function AdminDashboardPage() {
                             />
 
                             <div className="grid max-h-[15rem] grid-cols-3 gap-2 overflow-y-auto pr-1">
-                            {searchSocialIcons(socialSearch[index]).map((option) => {
-                              const Icon = option.icon;
-                              const isActive = item.icon === option.value;
+                              {searchSocialIcons(socialSearch[index]).map((option) => {
+                                const Icon = option.icon;
+                                const isActive = item.icon === option.value;
 
-                              return (
-                                <button
-                                  key={option.value}
-                                  type="button"
-                                  onClick={() => updateSocialLink(index, "icon", option.value)}
-                                  className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs transition ${
-                                    isActive
-                                      ? "border-[#16f2b3] bg-[#11172b] text-white"
-                                      : "border-[#353a52] bg-[#11172b] text-[#d3d8e8] hover:border-[#16f2b3]"
-                                  }`}
-                                >
-                                  <Icon size={18} />
-                                  <span className="mt-2 text-center leading-4">{option.label}</span>
-                                </button>
-                              );
-                            })}
+                                return (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => updateSocialLink(index, "icon", option.value)}
+                                    className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs transition ${
+                                      isActive
+                                        ? "border-[#49c1ff] bg-[#12243b] text-white"
+                                        : "border-[#2c3852] bg-[#0d1728] text-[#d3d8e8] hover:border-[#49c1ff]"
+                                    }`}
+                                  >
+                                    <Icon size={18} />
+                                    <span className="mt-2 text-center leading-4">{option.label}</span>
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
 
                         <div>
-                          <label className="mb-2 block text-sm text-[#d3d8e8]">Platform Name</label>
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Platform Name</label>
                           <input
-                            className="w-full rounded-lg border border-[#353a52] bg-[#0b1120] px-4 py-3 text-white outline-none transition focus:border-[#16f2b3]"
+                            className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
                             placeholder={getSocialIconOption(item.icon)?.label || "Platform name"}
                             value={item.label}
-                            onChange={(event) =>
-                              updateSocialLink(index, "label", event.target.value)
-                            }
+                            onChange={(event) => updateSocialLink(index, "label", event.target.value)}
                           />
                         </div>
 
                         <div className="md:col-span-2">
-                          <label className="mb-2 block text-sm text-[#d3d8e8]">Link</label>
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Link</label>
                           <input
-                            className="w-full rounded-lg border border-[#353a52] bg-[#0b1120] px-4 py-3 text-white outline-none transition focus:border-[#16f2b3]"
+                            className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
                             placeholder="https://..."
                             value={item.link}
-                            onChange={(event) =>
-                              updateSocialLink(index, "link", event.target.value)
-                            }
+                            onChange={(event) => updateSocialLink(index, "link", event.target.value)}
                           />
                         </div>
                       </div>
-
                     </div>
                   ))}
                 </div>
@@ -771,7 +1802,7 @@ export default function AdminDashboardPage() {
 
               <div className="flex justify-end">
                 <button
-                  className="rounded-lg bg-gradient-to-r from-pink-500 to-violet-600 px-6 py-3 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
                   disabled={isSaving}
                   type="submit"
                 >
@@ -783,18 +1814,16 @@ export default function AdminDashboardPage() {
 
           {activeTab === "counter" && (
             <form className="space-y-6" onSubmit={handleCounterSave}>
-              <section className="rounded-2xl border border-[#2a2e5a] bg-[#10172d] p-6">
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-semibold">Stats Counter</h2>
-                    <p className="mt-2 text-sm text-[#8b98a5]">
-                      Hero section-এর নিচে এই counter cards show হবে।
-                    </p>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Stats Counter</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Homepage metrics cards</h3>
                   </div>
                   <button
                     type="button"
                     onClick={addCounterItem}
-                    className="rounded-lg border border-[#16f2b3] px-4 py-2 text-sm text-[#16f2b3] transition hover:bg-[#16f2b3] hover:text-[#04111f]"
+                    className="rounded-xl border border-[#4dc4ff] px-4 py-2 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
                   >
                     Add New
                   </button>
@@ -804,16 +1833,14 @@ export default function AdminDashboardPage() {
                   {form.statsCounters.map((item, index) => (
                     <div
                       key={`counter-item-${index}`}
-                      className="rounded-2xl border border-[#353a52] bg-[#0b1120] p-4"
+                      className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4"
                     >
                       <div className="mb-4 flex items-center justify-between">
-                        <p className="text-sm font-medium text-[#d3d8e8]">
-                          Counter Item {index + 1}
-                        </p>
+                        <p className="text-sm font-medium text-[#d3d8e8]">Counter Item {index + 1}</p>
                         <button
                           type="button"
                           onClick={() => removeCounterItem(index)}
-                          className="text-sm text-[#ff8c8c] transition hover:text-[#ffb3b3]"
+                          className="text-sm text-[#ffb6c6] transition hover:text-[#ffd1db]"
                         >
                           Remove
                         </button>
@@ -821,86 +1848,112 @@ export default function AdminDashboardPage() {
 
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
-                          <label className="mb-2 block text-sm text-[#d3d8e8]">Label</label>
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Label</label>
                           <input
-                            className="w-full rounded-lg border border-[#353a52] bg-[#11172b] px-4 py-3 text-white outline-none transition focus:border-[#16f2b3]"
+                            className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
                             value={item.label}
-                            onChange={(event) =>
-                              updateCounterItem(index, "label", event.target.value)
-                            }
+                            onChange={(event) => updateCounterItem(index, "label", event.target.value)}
                           />
                         </div>
 
                         <div>
-                          <label className="mb-2 block text-sm text-[#d3d8e8]">Highlight</label>
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Highlight</label>
                           <input
-                            className="w-full rounded-lg border border-[#353a52] bg-[#11172b] px-4 py-3 text-white outline-none transition focus:border-[#16f2b3]"
+                            className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
                             value={item.highlight}
-                            onChange={(event) =>
-                              updateCounterItem(index, "highlight", event.target.value)
-                            }
+                            onChange={(event) => updateCounterItem(index, "highlight", event.target.value)}
                           />
                         </div>
 
                         <div>
-                          <label className="mb-2 block text-sm text-[#d3d8e8]">Count</label>
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Count</label>
                           <input
-                            className="w-full rounded-lg border border-[#353a52] bg-[#11172b] px-4 py-3 text-white outline-none transition focus:border-[#16f2b3]"
+                            className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
                             value={item.count}
-                            onChange={(event) =>
-                              updateCounterItem(index, "count", event.target.value)
-                            }
+                            onChange={(event) => updateCounterItem(index, "count", event.target.value)}
                           />
                         </div>
 
                         <div>
-                          <label className="mb-2 block text-sm text-[#d3d8e8]">Icon</label>
-                          <div className="grid grid-cols-3 gap-2 rounded-lg border border-[#353a52] bg-[#11172b] p-3">
-                            {statsIconOptions.map((option) => {
-                              const Icon = option.icon;
-                              const isActive = item.icon === option.value;
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Icon</label>
+                          <div className="rounded-xl border border-[#2c3852] bg-[#101b2d] p-3">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenCounterIconIndex((current) => (current === index ? null : index))
+                              }
+                              className="flex w-full items-center justify-between rounded-xl border border-[#2c3852] bg-[#0d1728] px-4 py-3 text-left text-white transition hover:border-[#49c1ff]"
+                            >
+                              <span className="flex items-center gap-3">
+                                {(() => {
+                                  const selectedIcon = getStatsIconOption(item.icon);
+                                  const Icon = selectedIcon.icon;
+                                  return (
+                                    <>
+                                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#29405d] bg-[#11253a] text-[#8fdcff]">
+                                        <Icon size={18} />
+                                      </span>
+                                      <span>
+                                        <span className="block font-medium">{selectedIcon.label}</span>
+                                        <span className="block text-xs uppercase tracking-[0.24em] text-[#89a2bd]">
+                                          {selectedIcon.value}
+                                        </span>
+                                      </span>
+                                    </>
+                                  );
+                                })()}
+                              </span>
+                              <span className="text-sm text-[#8fdcff]">
+                                {openCounterIconIndex === index ? "Hide" : "Choose"}
+                              </span>
+                            </button>
 
-                              return (
-                                <button
-                                  key={option.value}
-                                  type="button"
-                                  onClick={() => updateCounterItem(index, "icon", option.value)}
-                                  className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs transition ${
-                                    isActive
-                                      ? "border-[#16f2b3] bg-[#18203b] text-white"
-                                      : "border-[#353a52] bg-[#11172b] text-[#d3d8e8] hover:border-[#16f2b3]"
-                                  }`}
-                                >
-                                  <Icon size={18} />
-                                  <span className="mt-2 text-center leading-4">{option.label}</span>
-                                </button>
-                              );
-                            })}
+                            {openCounterIconIndex === index ? (
+                              <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+                                {statsIconOptions.map((option) => {
+                                  const Icon = option.icon;
+                                  const isActive = item.icon === option.value;
+
+                                  return (
+                                    <button
+                                      key={option.value}
+                                      type="button"
+                                      onClick={() => {
+                                        updateCounterItem(index, "icon", option.value);
+                                        setOpenCounterIconIndex(null);
+                                      }}
+                                      className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs transition ${
+                                        isActive
+                                          ? "border-[#49c1ff] bg-[#12243b] text-white"
+                                          : "border-[#2c3852] bg-[#0d1728] text-[#d3d8e8] hover:border-[#49c1ff]"
+                                      }`}
+                                    >
+                                      <Icon size={18} />
+                                      <span className="mt-2 text-center leading-4">{option.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       </div>
 
-                      <div className="mt-4 rounded-2xl border border-[#273056] bg-[#11172b] p-4">
-                        <p className="mb-3 text-xs uppercase tracking-[0.25em] text-[#8b98a5]">
-                          Preview
-                        </p>
+                      <div className="mt-4 rounded-[1.25rem] border border-[#273056] bg-[#11172b] p-4">
+                        <p className="mb-3 text-xs uppercase tracking-[0.25em] text-[#8b98a5]">Preview</p>
                         <div className="flex items-center gap-4">
-                          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#7c3aed,#ec4899)] text-white">
+                          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] text-white">
                             {(() => {
                               const Icon = getStatsIconOption(item.icon)?.icon;
                               return <Icon size={18} />;
                             })()}
                           </span>
                           <div>
-                            <p className="text-xs uppercase tracking-[0.22em] text-[#f0d7a1]">
+                            <p className="text-xs uppercase tracking-[0.22em] text-[#8fdcff]">
                               {item.highlight || "Highlight"}
                             </p>
-                            <p className="mt-1 text-2xl font-semibold text-white">
-                              {item.count || "0"}
-                            </p>
-                            <p className="mt-1 text-sm text-[#c9cfde]">
-                              {item.label || "Counter label"}
-                            </p>
+                            <p className="mt-1 text-2xl font-semibold text-white">{item.count || "0"}</p>
+                            <p className="mt-1 text-sm text-[#c9cfde]">{item.label || "Counter label"}</p>
                           </div>
                         </div>
                       </div>
@@ -911,7 +1964,7 @@ export default function AdminDashboardPage() {
 
               <div className="flex justify-end">
                 <button
-                  className="rounded-lg bg-gradient-to-r from-pink-500 to-violet-600 px-6 py-3 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
                   disabled={isSaving}
                   type="submit"
                 >
@@ -921,16 +1974,687 @@ export default function AdminDashboardPage() {
             </form>
           )}
 
+          {activeTab === "projects" && (
+            <form className="space-y-6" onSubmit={handleProjectsSave}>
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Project Section</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Project create, edit, and delete</h3>
+                    <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                      Keep project cards compact here, then open the popup to manage image, counters, tools, and multiple buttons.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addProjectItem}
+                    className="rounded-xl border border-[#4dc4ff] px-4 py-3 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                  >
+                    Add Project
+                  </button>
+                </div>
+
+                <div className="mt-8 grid gap-4">
+                  {form.projects.length === 0 ? (
+                    <div className="rounded-[1.5rem] border border-dashed border-[#2b3b55] bg-[#0c1627] p-8 text-center text-sm text-[#95a9bf]">
+                      No projects added yet.
+                    </div>
+                  ) : (
+                    form.projects.map((project, index) => (
+                      <div
+                        key={`project-${index}`}
+                        className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-5"
+                      >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-[#2e5074] bg-[#10243a] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#8ad7ff]">
+                                {project.role || "Role"}
+                              </span>
+                              <span className="rounded-full border border-[#32445d] bg-[#111d31] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#b3c2d4]">
+                                {Number(project.views) || 0} views
+                              </span>
+                              <span className="rounded-full border border-[#32445d] bg-[#111d31] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#b3c2d4]">
+                                {Number(project.impressionCount) || 0} impressions
+                              </span>
+                            </div>
+                            <h4 className="mt-4 text-xl font-semibold text-white">
+                              {project.name || "Untitled project"}
+                            </h4>
+                            <p className="mt-3 line-clamp-2 text-sm leading-7 text-[#9fb1c7]">
+                              {project.description || "No description added yet."}
+                            </p>
+                            <div className="mt-4 flex flex-wrap gap-3 text-xs text-[#bfd0e2]">
+                              <span>{(project.tools || []).filter(Boolean).length} tools</span>
+                              <span>{(project.buttons || []).filter((item) => item?.text && item?.link).length} buttons</span>
+                              <span>{project.image ? "Image ready" : "No image"}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => openEditProjectModal(index)}
+                              className="rounded-xl border border-[#36557e] px-4 py-2 text-sm text-[#9ae2ff] transition hover:bg-[#12243b]"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeProjectItem(index)}
+                              className="rounded-xl border border-[#5a3040] px-4 py-2 text-sm text-[#ffb6c6] transition hover:bg-[#2b1420]"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <div className="flex justify-end">
+                <button
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isSaving}
+                  type="submit"
+                >
+                  {isSaving ? "Saving..." : "Save Projects"}
+                </button>
+              </div>
+
+              {isProjectModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+                  <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+                    <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Project Form</p>
+                        <h4 className="mt-2 text-2xl font-semibold text-white">
+                          {editingProjectIndex >= 0 ? "Edit Project" : "Create New Project"}
+                        </h4>
+                        <p className="mt-2 text-sm text-[#97a9be]">
+                          Add project details, image, links, and multiple custom buttons from one place.
+                        </p>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={closeProjectModal}
+                          className="rounded-xl border border-[#334862] px-4 py-2 text-sm text-[#c1cfde] transition hover:border-[#4a678b]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveProjectDraft}
+                          className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-5 py-2 text-sm font-semibold text-[#08111d] transition hover:opacity-90"
+                        >
+                          {editingProjectIndex >= 0 ? "Update Project" : "Add Project"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-5 xl:grid-cols-[320px_minmax(0,1.15fr)]">
+                      <div className="space-y-5">
+                        <div className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4">
+                          <p className="text-sm uppercase tracking-[0.24em] text-[#79d4ff]">Preview</p>
+                          <div className="mt-4 overflow-hidden rounded-[1.25rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0c1523)]">
+                            <div className="relative h-44 w-full border-b border-[#24344d] bg-[#09111d]">
+                              {projectDraft.image ? (
+                                <Image
+                                  src={projectDraft.image}
+                                  alt={projectDraft.name || "Project preview"}
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
+                                />
+                              ) : (
+                                <div className="flex h-full items-center justify-center text-sm text-[#7e92a8]">
+                                  Project image preview
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-4">
+                              <h6 className="text-lg font-semibold text-white">
+                                {projectDraft.name || "Project title"}
+                              </h6>
+                              <p className="mt-2 text-sm text-[#8fdcff]">{projectDraft.role || "Project role"}</p>
+                              <p className="mt-3 text-sm leading-7 text-[#9fb1c7]">
+                                {projectDraft.description || "Project summary preview."}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4">
+                          <p className="text-sm uppercase tracking-[0.24em] text-[#79d4ff]">Links</p>
+                          <div className="mt-4 space-y-4">
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Code Link</label>
+                              <input
+                                className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                                placeholder="https://github.com/..."
+                                value={projectDraft.code}
+                                onChange={(event) => updateProjectDraft("code", event.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Demo Link</label>
+                              <input
+                                className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                                placeholder="https://project-demo.com"
+                                value={projectDraft.demo}
+                                onChange={(event) => updateProjectDraft("demo", event.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-5">
+                        <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                          <div className="mb-5 flex items-center justify-between">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Core Details</p>
+                              <h5 className="mt-2 text-lg font-semibold text-white">Project information</h5>
+                            </div>
+                            <span className="rounded-full border border-[#2b4c70] bg-[#10233a] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#8ad7ff]">
+                              {editingProjectIndex >= 0 ? "Editing" : "New"}
+                            </span>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Project Name</label>
+                              <input
+                                className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                                placeholder="Travel Agency App"
+                                value={projectDraft.name}
+                                onChange={(event) =>
+                                  setProjectDraft((current) => ({
+                                    ...current,
+                                    name: event.target.value,
+                                    slug: slugify(event.target.value),
+                                  }))
+                                }
+                              />
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Slug</label>
+                              <input
+                                className="w-full rounded-xl border border-[#2c3852] bg-[#0d1728] px-4 py-3 text-[#9fb1c7] outline-none"
+                                value={projectDraft.slug || slugify(projectDraft.name)}
+                                readOnly
+                              />
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Role</label>
+                              <input
+                                className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                                placeholder="Full Stack Developer"
+                                value={projectDraft.role}
+                                onChange={(event) => updateProjectDraft("role", event.target.value)}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Project Image</label>
+                              <div className="rounded-xl border border-[#2c3852] bg-[#101b2d] p-3">
+                                <div className="flex flex-wrap items-center gap-3">
+                                  <label className="inline-flex cursor-pointer items-center rounded-xl border border-[#4dc4ff] px-4 py-2 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white">
+                                    {isUploadingImage ? "Uploading..." : "Upload Image"}
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(event) => handleImageUpload(event, { type: "project" })}
+                                      disabled={isUploadingImage}
+                                    />
+                                  </label>
+                                  <input
+                                    className="min-w-0 flex-1 rounded-xl border border-[#2c3852] bg-[#0d1728] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                                    placeholder="/uploads/project-cover.png"
+                                    value={projectDraft.image}
+                                    onChange={(event) => updateProjectDraft("image", event.target.value)}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Description</label>
+                              <textarea
+                                className="min-h-[130px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                                placeholder="Write a clear summary of the project."
+                                value={projectDraft.description}
+                                onChange={(event) => updateProjectDraft("description", event.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                          <div className="mb-4 flex items-center justify-between">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Project Tools</p>
+                              <p className="mt-1 text-sm text-[#9fb1c7]">Each tool will be shown as a stack item.</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={addProjectTool}
+                              className="rounded-xl border border-[#4dc4ff] px-4 py-2 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                            >
+                              Add Tool
+                            </button>
+                          </div>
+
+                          <div className="space-y-3">
+                            {(projectDraft.tools || [""]).map((tool, index) => (
+                              <div key={`project-tool-${index}`} className="flex gap-3">
+                                <input
+                                  className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                                  placeholder={`Tool ${index + 1}`}
+                                  value={tool}
+                                  onChange={(event) => updateProjectTool(index, event.target.value)}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeProjectTool(index)}
+                                  className="rounded-xl border border-[#5a3040] px-4 py-3 text-sm text-[#ffb6c6] transition hover:bg-[#2b1420]"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                          <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Project Content</p>
+                              <h5 className="mt-2 text-lg font-semibold text-white">Detailed project story</h5>
+                            </div>
+                            <p className="text-sm text-[#97a9be]">
+                              This content appears after the tools section on the public detail page.
+                            </p>
+                          </div>
+
+                          <RichTextEditor
+                            id="project-content-editor"
+                            label="Content"
+                            value={projectDraft.content}
+                            onChange={(nextValue) => updateProjectDraft("content", nextValue)}
+                          />
+                        </div>
+
+                        <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                          <div className="mb-4 flex items-center justify-between">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Buttons</p>
+                              <p className="mt-1 text-sm text-[#9fb1c7]">Add multiple custom button text and link pairs.</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={addProjectButton}
+                              className="rounded-xl border border-[#4dc4ff] px-4 py-2 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                            >
+                              Add Button
+                            </button>
+                          </div>
+
+                          <div className="space-y-3">
+                            {(projectDraft.buttons || [emptyProjectButton()]).map((button, index) => (
+                              <div key={`project-button-${index}`} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+                                <input
+                                  className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                                  placeholder="Button text"
+                                  value={button.text}
+                                  onChange={(event) => updateProjectButton(index, "text", event.target.value)}
+                                />
+                                <input
+                                  className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                                  placeholder="https://example.com"
+                                  value={button.link}
+                                  onChange={(event) => updateProjectButton(index, "link", event.target.value)}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeProjectButton(index)}
+                                  className="rounded-xl border border-[#5a3040] px-4 py-3 text-sm text-[#ffb6c6] transition hover:bg-[#2b1420]"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              )}
+            </form>
+          )}
+
+          {activeTab === "pricing" && (
+            <form className="space-y-6" onSubmit={handlePricingSave}>
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Pricing Section</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Pricing plans and package settings</h3>
+                    <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                      Plans stay compact in this list, and the full create form opens in a popup so the admin page stays clean.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addPricingItem}
+                    className="rounded-xl border border-[#4dc4ff] px-4 py-3 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                  >
+                    Add Pricing
+                  </button>
+                </div>
+
+                <div className="mt-8 grid gap-4">
+                  {form.pricings.length === 0 ? (
+                    <div className="rounded-[1.5rem] border border-dashed border-[#2b3b55] bg-[#0c1627] p-8 text-center text-sm text-[#95a9bf]">
+                      No pricing plans added yet.
+                    </div>
+                  ) : (
+                    form.pricings.map((pricing, index) => (
+                      <div
+                        key={`pricing-${index}`}
+                        className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-5"
+                      >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-[#2e5074] bg-[#10243a] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#8ad7ff]">
+                                {pricing.duration || "Monthly"}
+                              </span>
+                              {pricing.isPopular ? (
+                                <span className="rounded-full border border-[#4e4630] bg-[#221a0f] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#ffd37a]">
+                                  Popular
+                                </span>
+                              ) : null}
+                              <span className="rounded-full border border-[#32445d] bg-[#111d31] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#b3c2d4]">
+                                {pricing.status ? "Live" : "Hidden"}
+                              </span>
+                            </div>
+                            <h4 className="mt-4 text-xl font-semibold text-white">
+                              {pricing.name || "Untitled plan"}
+                            </h4>
+                            <p className="mt-2 text-2xl font-semibold text-[#9ae2ff]">
+                              ${Number(pricing.price || 0).toFixed(2)}
+                            </p>
+                            <p className="mt-3 line-clamp-2 text-sm leading-7 text-[#9fb1c7]">
+                              {pricing.description || "No description added yet."}
+                            </p>
+                            <div className="mt-4 flex flex-wrap gap-3 text-xs text-[#bfd0e2]">
+                              <span>{pricing.slug || "no-slug"}</span>
+                              <span>{(pricing.features || []).filter(Boolean).length} features</span>
+                              <span>{pricing.duration || "Custom duration"}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => openEditPricingModal(index)}
+                              className="rounded-xl border border-[#36557e] px-4 py-2 text-sm text-[#9ae2ff] transition hover:bg-[#12243b]"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removePricingItem(index)}
+                              className="rounded-xl border border-[#5a3040] px-4 py-2 text-sm text-[#ffb6c6] transition hover:bg-[#2b1420]"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <div className="flex justify-end">
+                <button
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isSaving}
+                  type="submit"
+                >
+                  {isSaving ? "Saving..." : "Save Pricing Section"}
+                </button>
+              </div>
+
+              {isPricingModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+                  <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+                    <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Pricing Form</p>
+                        <h4 className="mt-2 text-2xl font-semibold text-white">
+                          {editingPricingIndex >= 0 ? "Edit Pricing Plan" : "Create New Pricing Plan"}
+                        </h4>
+                        <p className="mt-2 text-sm text-[#97a9be]">
+                          Add the plan details here, including the duration, feature list, and whether it should be highlighted as popular.
+                        </p>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={closePricingModal}
+                          className="rounded-xl border border-[#334862] px-4 py-2 text-sm text-[#c1cfde] transition hover:border-[#4a678b]"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={savePricingDraft}
+                          className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-5 py-2 text-sm font-semibold text-[#08111d] transition hover:opacity-90"
+                        >
+                          {editingPricingIndex >= 0 ? "Update Pricing" : "Add Pricing"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_320px]">
+                      <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                        <div className="mb-5 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Core Details</p>
+                            <h5 className="mt-2 text-lg font-semibold text-white">Pricing information</h5>
+                          </div>
+                          <span className="rounded-full border border-[#2b4c70] bg-[#10233a] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#8ad7ff]">
+                            {pricingDraft.status ? "Published" : "Draft"}
+                          </span>
+                        </div>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div className="lg:col-span-2">
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Plan Name</label>
+                        <input
+                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          placeholder="Starter Plan"
+                          value={pricingDraft.name}
+                          onChange={(event) =>
+                            setPricingDraft((current) => {
+                              const nextName = event.target.value;
+                              const shouldSyncSlug =
+                                !current.slug || slugify(current.slug) === slugify(current.name);
+
+                              return {
+                                ...current,
+                                name: nextName,
+                                slug: shouldSyncSlug ? slugify(nextName) : current.slug,
+                              };
+                            })
+                          }
+                        />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Slug</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="starter-plan"
+                              value={pricingDraft.slug}
+                              onChange={(event) => updatePricingDraft("slug", slugify(event.target.value))}
+                            />
+                          </div>
+
+                          <div>
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Price</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          placeholder="99"
+                          value={pricingDraft.price}
+                          onChange={(event) => updatePricingDraft("price", event.target.value)}
+                        />
+                          </div>
+
+                          <div>
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Duration</label>
+                        <select
+                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          value={pricingDraft.duration}
+                          onChange={(event) => updatePricingDraft("duration", event.target.value)}
+                        >
+                          {["Hourly", "Weekly", "Monthly", "Quarterly", "Semi-Annual", "Annual"].map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                          </div>
+
+                          <div className="lg:col-span-2">
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Description</label>
+                        <textarea
+                          className="min-h-[120px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          placeholder="Write a short plan summary..."
+                          value={pricingDraft.description}
+                          onChange={(event) => updatePricingDraft("description", event.target.value)}
+                        />
+                          </div>
+
+                          <div className="lg:col-span-2">
+                            <RichTextEditor
+                              id="pricing-content-editor"
+                              label="Content"
+                              value={pricingDraft.content}
+                              onChange={(nextValue) => updatePricingDraft("content", nextValue)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-5">
+                        <div className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4">
+                        <div className="mb-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm uppercase tracking-[0.24em] text-[#79d4ff]">Features</p>
+                            <p className="mt-1 text-sm text-[#9fb1c7]">Each feature will be saved as a list item.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={addPricingFeature}
+                            className="rounded-xl border border-[#4dc4ff] px-4 py-2 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                          >
+                            Add Feature
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          {(pricingDraft.features || [""]).map((feature, index) => (
+                            <div key={`pricing-feature-${index}`} className="flex gap-3">
+                              <input
+                                className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                                placeholder={`Feature ${index + 1}`}
+                                value={feature}
+                                onChange={(event) => updatePricingFeature(index, event.target.value)}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removePricingFeature(index)}
+                                className="rounded-xl border border-[#5a3040] px-4 py-3 text-sm text-[#ffb6c6] transition hover:bg-[#2b1420]"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        </div>
+
+                        <div className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4">
+                          <p className="text-sm uppercase tracking-[0.24em] text-[#79d4ff]">Visibility</p>
+                          <div className="mt-4 space-y-3">
+                            <label className="flex items-center gap-3 rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-sm text-[#d3d8e8]">
+                              <input
+                                type="checkbox"
+                                checked={pricingDraft.status}
+                                onChange={(event) => updatePricingDraft("status", event.target.checked)}
+                              />
+                              Show this plan publicly
+                            </label>
+
+                            <label className="flex items-center gap-3 rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-sm text-[#d3d8e8]">
+                              <input
+                                type="checkbox"
+                                checked={pricingDraft.isPopular}
+                                onChange={(event) => updatePricingDraft("isPopular", event.target.checked)}
+                              />
+                              Mark as popular
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4">
+                          <p className="text-sm uppercase tracking-[0.24em] text-[#79d4ff]">Preview</p>
+                          <p className="mt-3 text-xs uppercase tracking-[0.22em] text-[#8fa4bb]">
+                            /pricing/{pricingDraft.slug || "your-plan-slug"}
+                          </p>
+                          <p className="mt-3 text-xl font-semibold text-white">
+                            {pricingDraft.name || "Untitled plan"}
+                          </p>
+                          <p className="mt-2 text-2xl font-semibold text-[#9ae2ff]">
+                            ${Number(pricingDraft.price || 0).toFixed(2)}
+                          </p>
+                          <p className="mt-3 text-sm leading-7 text-[#9fb1c7]">
+                            {pricingDraft.description || "No description added yet."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </form>
+          )}
+
           {activeTab === "messages" && (
-            <section className="rounded-2xl border border-[#2a2e5a] bg-[#10172d] p-6">
-              <h2 className="mb-4 text-2xl font-semibold">Recent Contact Messages</h2>
-              <div className="space-y-4">
+            <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+              <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Inbox</p>
+              <h3 className="mt-2 text-2xl font-semibold text-white">Recent contact messages</h3>
+              <div className="mt-6 space-y-4">
                 {messages.length === 0 && (
                   <p className="text-sm text-[#8b98a5]">No messages found yet.</p>
                 )}
                 {messages.map((message) => (
                   <div
-                    className="rounded-xl border border-[#2f3552] bg-[#0b1120] p-4"
+                    className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4"
                     key={message.id}
                   >
                     <div className="mb-2 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
@@ -939,8 +2663,8 @@ export default function AdminDashboardPage() {
                         {new Date(message.createdAt).toLocaleString()}
                       </p>
                     </div>
-                    <p className="mb-2 text-sm text-[#16f2b3]">{message.email}</p>
-                    <p className="text-sm text-[#d3d8e8]">{message.message}</p>
+                    <p className="mb-2 text-sm text-[#6bd4ff]">{message.email}</p>
+                    <p className="text-sm leading-7 text-[#d3d8e8]">{message.message}</p>
                   </div>
                 ))}
               </div>
@@ -950,4 +2674,8 @@ export default function AdminDashboardPage() {
       </div>
     </div>
   );
+}
+
+export default function AdminDashboardPage() {
+  return <AdminSectionPage section="services" />;
 }
