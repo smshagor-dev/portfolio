@@ -1,11 +1,13 @@
 import Image from "next/image";
-import { BsPersonWorkspace } from "react-icons/bs";
-import experience from '../../../assets/lottie/code.json';
+import experienceAnimation from "../../../assets/lottie/code.json";
 import AnimationLottie from "../../helper/animation-lottie";
-import GlowCard from "../../helper/glow-card";
 import SectionHeading from "../section-heading";
 
 function Experience({ experiences = [] }) {
+  if (!experiences.length) {
+    return null;
+  }
+
   return (
     <div id="experience" className="relative z-50 my-12 lg:my-24">
       <Image
@@ -25,55 +27,84 @@ function Experience({ experiences = [] }) {
             className="mb-8"
           />
 
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-16">
-            <div className="flex items-start justify-center">
-              <div className="w-full rounded-[1.75rem] border border-[#24344d] bg-[linear-gradient(180deg,#0e1830,#0b1325)] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.2)]">
-                <AnimationLottie animationPath={experience} />
-              </div>
-            </div>
+          <div className="flex flex-col gap-8 lg:gap-10">
+            {experiences.map((item, index) => {
+              const isReversed = index % 2 === 1;
 
-            <div>
-              <div className="flex flex-col gap-6">
-                {
-                  experiences.map(experience => (
-                    <GlowCard key={experience.id} identifier={`experience-${experience.id}`}>
-                      <div className="relative p-4">
-                        <Image
-                          src="/blur-23.svg"
-                          alt="Hero"
-                          width={1080}
-                          height={200}
-                          className="absolute bottom-0 opacity-80"
-                        />
-                        <div className="flex justify-center">
-                          <p className="text-xs sm:text-sm text-[#16f2b3]">
-                            {experience.duration}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-x-8 px-3 py-5">
-                          <div className="rounded-2xl border border-[#3a3560] bg-[#17112f] p-3 text-violet-400 transition-all duration-300 hover:scale-110">
-                            <BsPersonWorkspace size={30} />
-                          </div>
-                          <div>
-                            <p className="mb-2 text-base font-medium uppercase sm:text-xl">
-                              {experience.title}
-                            </p>
-                            <p className="text-sm sm:text-base text-[#c9d3e3]">
-                              {experience.company}
-                            </p>
+              return (
+                <article
+                  key={item.id}
+                  className="overflow-hidden rounded-[1.9rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] shadow-[0_20px_55px_rgba(0,0,0,0.2)]"
+                >
+                  <div className="grid items-stretch gap-0 lg:grid-cols-2">
+                    <div
+                      className={`relative flex border-b border-[#24344d] p-5 lg:border-b-0 ${
+                        isReversed ? "lg:order-2 lg:border-l" : "lg:order-1 lg:border-r"
+                      }`}
+                    >
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(122,97,255,0.16),transparent_40%),radial-gradient(circle_at_bottom,rgba(34,211,238,0.14),transparent_42%)]" />
+                      <div className="relative flex w-full">
+                        <div className="flex h-full min-h-[320px] w-full flex-col rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.92),rgba(11,19,37,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5 lg:min-h-0">
+                          <div className="flex flex-1 items-center justify-center">
+                            <div className="w-full max-w-[520px]">
+                              <AnimationLottie animationPath={experienceAnimation} />
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </GlowCard>
-                  ))
-                }
-              </div>
-            </div>
+                    </div>
+
+                    <div className={`relative p-5 lg:p-7 ${isReversed ? "lg:order-1" : "lg:order-2"}`}>
+                      <Image
+                        src="/blur-23.svg"
+                        alt="Experience"
+                        width={1080}
+                        height={200}
+                        className="absolute bottom-0 right-0 opacity-70"
+                      />
+
+                      <div className="relative h-full rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.88),rgba(11,19,37,0.96))] p-5">
+                        <div className="flex flex-col gap-5 border-b border-[#263953] pb-5 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0">
+                            <h3 className="mt-2 text-2xl font-semibold text-white">
+                              {item.title}
+                            </h3>
+
+                            <p className="mt-4 text-base text-[#d2dceb]">{item.company}</p>
+                          </div>
+
+                          <div className="grid gap-4 text-left lg:min-w-[220px] lg:text-right">
+                            <div>
+                              <p className="text-sm text-[#d2dceb]">
+                                {item.location || "Not specified"}
+                              </p>
+                            </div>
+
+                            <div>
+                              <p className="text-sm text-[#16f2b3]">{item.duration}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {item.description ? (
+                          <div className="mt-5">
+                            <div
+                              className="experience-content text-sm leading-7 text-[#d6dfec] [&_ol]:ml-6 [&_ol]:list-decimal [&_ol]:space-y-2 [&_p]:mb-4 [&_p:last-child]:mb-0 [&_strong]:text-white [&_ul]:ml-6 [&_ul]:list-disc [&_ul]:space-y-2"
+                              dangerouslySetInnerHTML={{ __html: item.description }}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </div>
       </div>
     </div>
   );
-};
+}
 
 export default Experience;

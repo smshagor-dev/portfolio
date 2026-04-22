@@ -22,11 +22,18 @@ function buildDatabaseUrl() {
   return `mysql://${auth}@${db.host}:${db.port}/${db.database}`;
 }
 
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = buildDatabaseUrl();
+function isMysqlDatabaseUrl(value) {
+  return String(value || "").trim().toLowerCase().startsWith("mysql://");
+}
+
+const builtDatabaseUrl = buildDatabaseUrl();
+
+if (!isMysqlDatabaseUrl(process.env.DATABASE_URL)) {
+  process.env.DATABASE_URL = builtDatabaseUrl;
 }
 
 module.exports = {
   buildDatabaseUrl,
   getDbConfig,
+  isMysqlDatabaseUrl,
 };

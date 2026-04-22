@@ -1,11 +1,13 @@
 import Image from "next/image";
-import { BsPersonWorkspace } from "react-icons/bs";
-import lottieFile from '../../../assets/lottie/study.json';
+import lottieFile from "../../../assets/lottie/study.json";
 import AnimationLottie from "../../helper/animation-lottie";
-import GlowCard from "../../helper/glow-card";
 import SectionHeading from "../section-heading";
 
 function Education({ educations = [] }) {
+  if (!educations.length) {
+    return null;
+  }
+
   return (
     <div id="education" className="relative z-50 my-12 lg:my-24">
       <Image
@@ -25,55 +27,81 @@ function Education({ educations = [] }) {
             className="mb-8"
           />
 
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-16">
-            <div>
-              <div className="flex flex-col gap-6">
-                {
-                  educations.map(education => (
-                    <GlowCard key={education.id} identifier={`education-${education.id}`}>
-                      <div className="relative p-4 text-white">
-                        <Image
-                          src="/blur-23.svg"
-                          alt="Hero"
-                          width={1080}
-                          height={200}
-                          className="absolute bottom-0 opacity-80"
-                        />
-                        <div className="flex justify-center">
-                          <p className="text-xs sm:text-sm text-[#16f2b3]">
-                            {education.duration}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-x-8 px-3 py-5">
-                          <div className="rounded-2xl border border-[#244f46] bg-[#0f241f] text-[#16f2b3] transition-all duration-300 hover:scale-110 p-3">
-                            <BsPersonWorkspace size={30} />
-                          </div>
-                          <div>
-                            <p className="mb-2 text-base font-medium uppercase sm:text-xl">
-                              {education.title}
-                            </p>
-                            <p className="text-sm sm:text-base text-[#c9d3e3]">{education.institution}</p>
+          <div className="flex flex-col gap-8 lg:gap-10">
+            {educations.map((item, index) => {
+              const isReversed = index % 2 === 1;
+
+              return (
+                <article
+                  key={item.id}
+                  className="overflow-hidden rounded-[1.9rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] shadow-[0_20px_55px_rgba(0,0,0,0.2)]"
+                >
+                  <div className="grid gap-0 lg:grid-cols-[minmax(260px,0.88fr)_minmax(0,1.12fr)] lg:items-stretch">
+                    <div
+                      className={`relative flex border-b border-[#24344d] p-5 lg:border-b-0 ${
+                        isReversed ? "lg:order-2 lg:border-l" : "lg:order-1 lg:border-r"
+                      }`}
+                    >
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(22,242,179,0.16),transparent_40%),radial-gradient(circle_at_bottom,rgba(112,213,255,0.14),transparent_42%)]" />
+                      <div className="relative flex w-full self-stretch">
+                        <div className="flex w-full flex-col justify-center rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.92),rgba(11,19,37,0.98))] px-3 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] min-h-[220px] sm:min-h-[260px] lg:min-h-0 lg:px-4">
+                          <div className="flex flex-1 items-center justify-center">
+                            <div className="w-full max-w-[300px] sm:max-w-[340px] lg:max-w-[380px]">
+                              <AnimationLottie animationPath={lottieFile} />
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </GlowCard>
-                  ))
-                }
-              </div>
-            </div>
+                    </div>
 
-            <div className="flex items-start justify-center">
-              <div className="w-full rounded-[1.75rem] border border-[#24344d] bg-[linear-gradient(180deg,#0e1830,#0b1325)] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.2)]">
-                <div className="mx-auto w-3/4">
-                  <AnimationLottie animationPath={lottieFile} />
-                </div>
-              </div>
-            </div>
+                    <div className={`relative flex p-5 lg:p-7 ${isReversed ? "lg:order-1" : "lg:order-2"}`}>
+                      <Image
+                        src="/blur-23.svg"
+                        alt="Education"
+                        width={1080}
+                        height={200}
+                        className="absolute bottom-0 right-0 opacity-70"
+                      />
+
+                      <div className="relative w-full rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.88),rgba(11,19,37,0.96))] p-5 lg:p-6">
+                        <div className="flex flex-col gap-5 border-b border-[#263953] pb-5 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0">
+                            <h3 className="text-2xl font-semibold text-white">{item.title}</h3>
+                            <p className="mt-4 text-base text-[#d2dceb]">{item.institution}</p>
+                          </div>
+
+                          <div className="grid gap-4 text-left lg:min-w-[220px] lg:text-right">
+                            <div>
+                              <p className="text-sm text-[#d2dceb]">
+                                {item.department || "Not specified"}
+                              </p>
+                            </div>
+
+                            <div>
+                              <p className="text-sm text-[#16f2b3]">{item.duration}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {item.achievement ? (
+                          <div className="mt-5">
+                            <div
+                              className="education-content text-sm leading-7 text-[#d6dfec] [&_ol]:ml-6 [&_ol]:list-decimal [&_ol]:space-y-2 [&_p]:mb-4 [&_p:last-child]:mb-0 [&_strong]:text-white [&_ul]:ml-6 [&_ul]:list-disc [&_ul]:space-y-2"
+                              dangerouslySetInnerHTML={{ __html: item.achievement }}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </div>
       </div>
     </div>
   );
-};
+}
 
 export default Education;

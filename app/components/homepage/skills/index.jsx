@@ -1,61 +1,116 @@
-import { skillsImage } from "@/utils/skill-image";
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
-import Marquee from "react-fast-marquee";
+import { FiChevronDown, FiChevronUp } from "react-icons/fi";
+import { skillsImage } from "@/utils/skill-image";
 import SectionHeading from "../section-heading";
 
-function Skills({ skills = [] }) {
-  return (
-    <section id="skills" className="my-12 lg:my-20">
-      <div className="overflow-hidden rounded-[2rem] border border-[#24344d] bg-[radial-gradient(circle_at_top,rgba(124,240,183,0.1),transparent_30%),linear-gradient(180deg,#10192b,#09111d)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:p-8">
-        <SectionHeading
-          label="Skills"
-          title="Tools and technologies I use to design, build, and ship modern products"
-          description="A practical stack shaped by product delivery, frontend systems, backend architecture, and long-term maintainability."
-        />
+function normalizeSkills(skills = []) {
+  return skills
+    .map((skill, index) => {
+      const name = skill?.name?.trim?.() || "";
+      const image = skill?.image?.trim?.() || "";
+      const percentage = Math.max(0, Math.min(100, Number(skill?.percentage) || 0));
 
-        <div className="w-full mt-10">
-          <Marquee
-            gradient={false}
-            speed={80}
-            pauseOnHover={true}
-            pauseOnClick={true}
-            delay={0}
-            play={true}
-            direction="left"
-          >
-            {skills.map((skill, id) => (
-              <div
-                className="m-3 flex h-fit min-w-fit w-36 cursor-pointer flex-col items-center justify-center rounded-lg transition-all duration-500 group relative hover:scale-[1.12] sm:m-5"
-                key={id}
+      if (!name) {
+        return null;
+      }
+
+      return {
+        id: skill?.id || `${name}-${index}`,
+        name,
+        image: image || skillsImage(name)?.src || "/profile.png",
+        percentage,
+      };
+    })
+    .filter(Boolean);
+}
+
+function Skills({ skills = [] }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const items = normalizeSkills(skills);
+  const previewCount = 8;
+  const visibleItems = isExpanded ? items : items.slice(0, previewCount);
+  const hasMoreItems = items.length > previewCount;
+
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <section id="skills" className="relative z-50 my-12 lg:my-24">
+      <Image
+        src="/section.svg"
+        alt="Skills section background"
+        width={1572}
+        height={795}
+        className="absolute top-0 -z-10 opacity-70"
+      />
+
+      <div className="overflow-hidden rounded-[2rem] border border-[#25213b] bg-[radial-gradient(circle_at_top,rgba(122,97,255,0.14),transparent_28%),linear-gradient(180deg,rgba(16,23,45,0.96),rgba(9,14,28,0.98))] px-5 py-8 shadow-[0_24px_70px_rgba(0,0,0,0.25)] md:px-8">
+        <div className="py-8">
+          <SectionHeading
+            label="Skills"
+            title="Core tools and technologies I use to design, ship, and keep products moving"
+            description="A practical snapshot of the stack I reach for most often, along with the level of confidence built through repeated delivery."
+            className="mb-8"
+          />
+
+          <div id="skills-grid" className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {visibleItems.map((skill) => (
+              <article
+                key={skill.id}
+                className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.18)]"
               >
-                <div className="h-full w-full overflow-hidden rounded-[1.4rem] border border-[#2b3f58] bg-[linear-gradient(180deg,#10192b,#09111d)] shadow-[0_18px_40px_rgba(0,0,0,0.2)] transition-all duration-500 group-hover:border-[#7cf0b7]">
-                  <div className="flex -translate-y-[1px] justify-center">
-                    <div className="w-3/4">
-                      <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-[#70d5ff] to-transparent" />
-                    </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.2rem] border border-[#314768] bg-[#0d1728] p-3">
+                    <Image
+                      src={skill.image}
+                      alt={skill.name}
+                      width={44}
+                      height={44}
+                      className="h-11 w-11 object-contain"
+                      unoptimized
+                    />
                   </div>
-                  <div className="flex flex-col items-center justify-center gap-3 p-6">
-                    <div className="h-8 sm:h-10">
-                      <Image
-                        src={skillsImage(skill?.name)?.src}
-                        alt={skill?.name}
-                        width={40}
-                        height={40}
-                        className="h-full w-auto rounded-lg"
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-4">
+                      <h3 className="truncate text-lg font-semibold text-white">{skill.name}</h3>
+                      <span className="text-sm font-medium text-[#7dd3fc]">{skill.percentage}%</span>
+                    </div>
+
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#16233a]">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#38bdf8] via-[#7c3aed] to-[#f472b6]"
+                        style={{ width: `${skill.percentage}%` }}
                       />
                     </div>
-                    <p className="text-sm text-white sm:text-lg">
-                      {skill?.name}
-                    </p>
                   </div>
                 </div>
-              </div>
+              </article>
             ))}
-          </Marquee>
+          </div>
+
+          {hasMoreItems ? (
+            <div className="mt-8 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setIsExpanded((current) => !current)}
+                className="inline-flex items-center gap-3 rounded-full border border-[#314768] bg-[#0d1728] px-5 py-3 text-sm font-medium text-[#d7dfec] transition hover:border-[#4c6d98] hover:bg-[#12203a]"
+                aria-expanded={isExpanded}
+                aria-controls="skills-grid"
+              >
+                <span>{isExpanded ? "Show less" : "Show more"}</span>
+                {isExpanded ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>
   );
-};
+}
 
 export default Skills;

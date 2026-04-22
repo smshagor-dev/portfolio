@@ -36,6 +36,8 @@ model Profile {
 model Skill {
   id        Int      @id
   name      String   @unique
+  image     String   @default("")
+  percentage Int     @default(0)
   sortOrder Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -45,7 +47,9 @@ model Experience {
   id        Int      @id
   title     String
   company   String
+  location  String
   duration  String
+  description String @db.LongText
   sortOrder Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -56,6 +60,8 @@ model Education {
   title       String
   duration    String
   institution String
+  department  String
+  achievement String   @db.LongText
   sortOrder   Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

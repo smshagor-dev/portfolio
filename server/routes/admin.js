@@ -531,6 +531,8 @@ router.put("/content", requireAdmin, async (request, response) => {
       return {
         id: index + 1,
         name,
+        image: normalizeString(item?.image),
+        percentage: Math.max(0, Math.min(100, Number.parseInt(item?.percentage, 10) || 0)),
         sortOrder: index + 1,
       };
     });
@@ -539,7 +541,9 @@ router.put("/content", requireAdmin, async (request, response) => {
       id: index + 1,
       title: normalizeString(item.title),
       company: normalizeString(item.company),
+      location: normalizeString(item.location),
       duration: normalizeString(item.duration),
+      description: String(item?.description || "").trim(),
       sortOrder: index + 1,
     }));
 
@@ -548,6 +552,8 @@ router.put("/content", requireAdmin, async (request, response) => {
       title: normalizeString(item.title),
       duration: normalizeString(item.duration),
       institution: normalizeString(item.institution),
+      department: normalizeString(item.department),
+      achievement: String(item?.achievement || "").trim(),
       sortOrder: index + 1,
     }));
 

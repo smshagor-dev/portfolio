@@ -5,9 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
-import { FiBarChart2, FiDollarSign, FiFolder, FiLogOut, FiMail, FiSettings } from "react-icons/fi";
+import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiFolder, FiLogOut, FiMail, FiSettings } from "react-icons/fi";
 import { getSocialIconOption, searchSocialIcons } from "@/utils/social-icons";
 import { getServiceIconOption, serviceIconOptions } from "@/utils/service-icons";
 import { getStatsIconOption, statsIconOptions } from "@/utils/stats-icons";
@@ -20,6 +21,18 @@ const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000
 
 function emptyHeroSkill() {
   return { name: "", image: "" };
+}
+
+function emptySkillItem() {
+  return { name: "", image: "", percentage: 80 };
+}
+
+function emptyExperienceItem() {
+  return { title: "", company: "", location: "", duration: "", description: "" };
+}
+
+function emptyEducationItem() {
+  return { title: "", institution: "", department: "", duration: "", achievement: "" };
 }
 
 function emptySocialLink() {
@@ -104,6 +117,65 @@ function cloneServiceItem(service) {
 
 function cloneProjectItem(project) {
   return JSON.parse(JSON.stringify(project));
+}
+
+function hasCommentContent(comment) {
+  return Boolean(comment?.id || String(comment?.comment || "").trim());
+}
+
+function hasReplyContent(reply) {
+  return Boolean(reply?.id || String(reply?.reply || "").trim());
+}
+
+function mergeLiveServiceComment(services, serviceSlug, nextComment) {
+  return services.map((service) => {
+    if (service.slug !== serviceSlug) {
+      return service;
+    }
+
+    const currentComments = (service.comments || []).filter(hasCommentContent);
+    if (currentComments.some((item) => item.id === nextComment.id)) {
+      return service;
+    }
+
+    return {
+      ...service,
+      comments: [
+        ...currentComments,
+        {
+          ...nextComment,
+          replies: (nextComment.replies || []).filter(hasReplyContent),
+        },
+      ],
+    };
+  });
+}
+
+function mergeLiveServiceReply(services, serviceSlug, commentId, nextReply) {
+  return services.map((service) => {
+    if (service.slug !== serviceSlug) {
+      return service;
+    }
+
+    return {
+      ...service,
+      comments: (service.comments || []).map((comment) => {
+        if (comment.id !== commentId) {
+          return comment;
+        }
+
+        const currentReplies = (comment.replies || []).filter(hasReplyContent);
+        if (currentReplies.some((item) => item.id === nextReply.id)) {
+          return comment;
+        }
+
+        return {
+          ...comment,
+          replies: [...currentReplies, nextReply],
+        };
+      }),
+    };
+  });
 }
 
 function slugify(value) {
@@ -216,6 +288,46 @@ function buildPricingPayload(sourceForm) {
   };
 }
 
+function buildSkillsPayload(sourceForm) {
+  return {
+    skills: sourceForm.skills
+      .map((item) => ({
+        name: item.name.trim(),
+        image: item.image.trim(),
+        percentage: Math.max(0, Math.min(100, Number(item.percentage) || 0)),
+      }))
+      .filter((item) => item.name),
+  };
+}
+
+function buildExperiencesPayload(sourceForm) {
+  return {
+    experiences: sourceForm.experiences
+      .map((item) => ({
+        title: item.title.trim(),
+        company: item.company.trim(),
+        location: item.location.trim(),
+        duration: item.duration.trim(),
+        description: item.description,
+      }))
+      .filter((item) => item.title && item.company && item.duration),
+  };
+}
+
+function buildEducationsPayload(sourceForm) {
+  return {
+    educations: sourceForm.educations
+      .map((item) => ({
+        title: item.title.trim(),
+        institution: item.institution.trim(),
+        department: item.department.trim(),
+        duration: item.duration.trim(),
+        achievement: item.achievement,
+      }))
+      .filter((item) => item.title && item.institution && item.duration),
+  };
+}
+
 function buildProjectsPayload(sourceForm) {
   return {
     projects: sourceForm.projects
@@ -281,6 +393,9 @@ function buildServicePayload(sourceForm) {
 
 const tabs = [
   { id: "hero", label: "Hero", icon: HiOutlineSparkles, href: "/admin/hero" },
+  { id: "skills", label: "Skills", icon: FiCode, href: "/admin/skills" },
+  { id: "experience", label: "Experience", icon: FiBriefcase, href: "/admin/experience" },
+  { id: "education", label: "Education", icon: FiBookOpen, href: "/admin/education" },
   { id: "services", label: "Services", icon: HiOutlineViewGrid, href: "/admin/services" },
   { id: "projects", label: "Projects", icon: FiFolder, href: "/admin/projects" },
   { id: "pricing", label: "Pricing", icon: FiDollarSign, href: "/admin/pricing" },
@@ -317,6 +432,9 @@ export function AdminSectionPage({ section = "services" }) {
     description: "",
     resume: "",
     statsCounters: [emptyCounterItem()],
+    skills: [emptySkillItem()],
+    experiences: [emptyExperienceItem()],
+    educations: [emptyEducationItem()],
     pricings: [],
     projects: [],
     socialLinks: [emptySocialLink()],
@@ -327,6 +445,10 @@ export function AdminSectionPage({ section = "services" }) {
     services: [emptyServiceItem()],
   });
   const activeTab = section;
+  const serviceSocketSlugs = form.services
+    .map((service) => String(service?.slug || "").trim().toLowerCase())
+    .filter(Boolean);
+  const serviceSocketKey = serviceSocketSlugs.join("|");
 
   const loadDashboard = useCallback(
     async (authToken) => {
@@ -361,6 +483,34 @@ export function AdminSectionPage({ section = "services" }) {
                   icon: item?.icon || "projects",
                 }))
               : [emptyCounterItem()],
+          skills:
+            Array.isArray(data.skills) && data.skills.length
+              ? data.skills.map((item) => ({
+                  name: item?.name || "",
+                  image: item?.image || "",
+                  percentage: item?.percentage || 0,
+                }))
+              : [emptySkillItem()],
+          experiences:
+            Array.isArray(data.experiences) && data.experiences.length
+              ? data.experiences.map((item) => ({
+                  title: item?.title || "",
+                  company: item?.company || "",
+                  location: item?.location || "",
+                  duration: item?.duration || "",
+                  description: item?.description || "",
+                }))
+              : [emptyExperienceItem()],
+          educations:
+            Array.isArray(data.educations) && data.educations.length
+              ? data.educations.map((item) => ({
+                  title: item?.title || "",
+                  institution: item?.institution || "",
+                  department: item?.department || "",
+                  duration: item?.duration || "",
+                  achievement: item?.achievement || "",
+                }))
+              : [emptyEducationItem()],
           pricings:
             Array.isArray(data.pricings) && data.pricings.length
               ? data.pricings.map((item) => ({
@@ -487,6 +637,88 @@ export function AdminSectionPage({ section = "services" }) {
     loadDashboard(savedToken);
   }, [loadDashboard, router]);
 
+  useEffect(() => {
+    if (activeTab !== "services") {
+      return undefined;
+    }
+
+    const serviceSlugs = serviceSocketKey ? serviceSocketKey.split("|").filter(Boolean) : [];
+
+    if (!serviceSlugs.length) {
+      return undefined;
+    }
+
+    const socket = io(backendUrl, {
+      transports: ["websocket", "polling"],
+    });
+
+    serviceSlugs.forEach((slug) => {
+      socket.emit("service:join", slug);
+    });
+
+    socket.on("service:comment_created", (payload) => {
+      const normalizedSlug = String(payload?.serviceSlug || "").trim().toLowerCase();
+      if (!normalizedSlug || !payload?.comment) {
+        return;
+      }
+
+      setForm((current) => ({
+        ...current,
+        services: mergeLiveServiceComment(current.services, normalizedSlug, payload.comment),
+      }));
+
+      setServiceDraft((current) => {
+        if (String(current?.slug || "").trim().toLowerCase() !== normalizedSlug) {
+          return current;
+        }
+
+        return {
+          ...current,
+          comments: mergeLiveServiceComment(
+            [{ ...current, comments: current.comments || [] }],
+            normalizedSlug,
+            payload.comment,
+          )[0].comments,
+        };
+      });
+    });
+
+    socket.on("service:reply_created", (payload) => {
+      const normalizedSlug = String(payload?.serviceSlug || "").trim().toLowerCase();
+      if (!normalizedSlug || !payload?.reply || !payload?.commentId) {
+        return;
+      }
+
+      setForm((current) => ({
+        ...current,
+        services: mergeLiveServiceReply(current.services, normalizedSlug, payload.commentId, payload.reply),
+      }));
+
+      setServiceDraft((current) => {
+        if (String(current?.slug || "").trim().toLowerCase() !== normalizedSlug) {
+          return current;
+        }
+
+        return {
+          ...current,
+          comments: mergeLiveServiceReply(
+            [{ ...current, comments: current.comments || [] }],
+            normalizedSlug,
+            payload.commentId,
+            payload.reply,
+          )[0].comments,
+        };
+      });
+    });
+
+    return () => {
+      serviceSlugs.forEach((slug) => {
+        socket.emit("service:leave", slug);
+      });
+      socket.disconnect();
+    };
+  }, [activeTab, serviceSocketKey]);
+
   function updateField(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -513,6 +745,33 @@ export function AdminSectionPage({ section = "services" }) {
     setForm((current) => ({
       ...current,
       statsCounters: current.statsCounters.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [key]: value } : item,
+      ),
+    }));
+  }
+
+  function updateSkillItem(index, key, value) {
+    setForm((current) => ({
+      ...current,
+      skills: current.skills.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [key]: value } : item,
+      ),
+    }));
+  }
+
+  function updateExperienceItem(index, key, value) {
+    setForm((current) => ({
+      ...current,
+      experiences: current.experiences.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [key]: value } : item,
+      ),
+    }));
+  }
+
+  function updateEducationItem(index, key, value) {
+    setForm((current) => ({
+      ...current,
+      educations: current.educations.map((item, itemIndex) =>
         itemIndex === index ? { ...item, [key]: value } : item,
       ),
     }));
@@ -591,6 +850,57 @@ export function AdminSectionPage({ section = "services" }) {
       ...current,
       statsCounters: [...current.statsCounters, emptyCounterItem()],
     }));
+  }
+
+  function addSkillItem() {
+    setForm((current) => ({
+      ...current,
+      skills: [...current.skills, emptySkillItem()],
+    }));
+  }
+
+  function addExperienceItem() {
+    setForm((current) => ({
+      ...current,
+      experiences: [...current.experiences, emptyExperienceItem()],
+    }));
+  }
+
+  function addEducationItem() {
+    setForm((current) => ({
+      ...current,
+      educations: [...current.educations, emptyEducationItem()],
+    }));
+  }
+
+  function removeSkillItem(index) {
+    setForm((current) => {
+      const nextSkills = current.skills.filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...current,
+        skills: nextSkills.length ? nextSkills : [emptySkillItem()],
+      };
+    });
+  }
+
+  function removeExperienceItem(index) {
+    setForm((current) => {
+      const nextExperiences = current.experiences.filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...current,
+        experiences: nextExperiences.length ? nextExperiences : [emptyExperienceItem()],
+      };
+    });
+  }
+
+  function removeEducationItem(index) {
+    setForm((current) => {
+      const nextEducations = current.educations.filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...current,
+        educations: nextEducations.length ? nextEducations : [emptyEducationItem()],
+      };
+    });
   }
 
   function addPricingItem() {
@@ -953,6 +1263,27 @@ export function AdminSectionPage({ section = "services" }) {
     } catch {}
   }
 
+  async function handleSkillsSave(event) {
+    event.preventDefault();
+    try {
+      await persistContent(buildSkillsPayload(form), "Skills section updated.");
+    } catch {}
+  }
+
+  async function handleExperiencesSave(event) {
+    event.preventDefault();
+    try {
+      await persistContent(buildExperiencesPayload(form), "Experience section updated.");
+    } catch {}
+  }
+
+  async function handleEducationsSave(event) {
+    event.preventDefault();
+    try {
+      await persistContent(buildEducationsPayload(form), "Education section updated.");
+    } catch {}
+  }
+
   async function handlePricingSave(event) {
     event.preventDefault();
     try {
@@ -1004,6 +1335,13 @@ export function AdminSectionPage({ section = "services" }) {
         nextForm = {
           ...form,
           heroSkills: form.heroSkills.map((item, itemIndex) =>
+            itemIndex === options.index ? { ...item, image: data.path } : item,
+          ),
+        };
+      } else if (options.type === "real-skill") {
+        nextForm = {
+          ...form,
+          skills: form.skills.map((item, itemIndex) =>
             itemIndex === options.index ? { ...item, image: data.path } : item,
           ),
         };
@@ -1090,6 +1428,18 @@ export function AdminSectionPage({ section = "services" }) {
   const activeServices = form.services.filter((item) => item.status).length;
   const featuredServices = form.services.filter((item) => item.isFeatured).length;
   const totalServices = form.services.length;
+  const totalSkills = form.skills.filter((item) => item.name.trim()).length;
+  const totalExperiences = form.experiences.filter((item) => item.title.trim()).length;
+  const experiencesWithDescription = form.experiences.filter((item) => stripHtml(item.description).trim()).length;
+  const totalEducations = form.educations.filter((item) => item.title.trim()).length;
+  const educationsWithAchievement = form.educations.filter((item) => stripHtml(item.achievement).trim()).length;
+  const customSkillImages = form.skills.filter((item) => item.image.trim()).length;
+  const averageSkillPercentage = totalSkills
+    ? Math.round(
+        form.skills.reduce((sum, item) => sum + Math.max(0, Math.min(100, Number(item.percentage) || 0)), 0) /
+          totalSkills,
+      )
+    : 0;
   const totalProjects = form.projects.length;
   const totalProjectViews = form.projects.reduce((sum, item) => sum + (Number(item.views) || 0), 0);
   const totalProjectImpressions = form.projects.reduce(
@@ -1106,6 +1456,24 @@ export function AdminSectionPage({ section = "services" }) {
           { label: "Popular Plans", value: popularPricings, icon: HiOutlineSparkles },
           { label: "Total Plans", value: totalPricings, icon: FiBarChart2 },
         ]
+      : activeTab === "education"
+        ? [
+            { label: "Total Education", value: totalEducations, icon: FiBookOpen },
+            { label: "With Achievement", value: educationsWithAchievement, icon: HiOutlineUsers },
+            { label: "Rich Entries", value: `${totalEducations ? Math.round((educationsWithAchievement / totalEducations) * 100) : 0}%`, icon: FiBarChart2 },
+          ]
+      : activeTab === "experience"
+        ? [
+            { label: "Total Roles", value: totalExperiences, icon: FiBriefcase },
+            { label: "With Details", value: experiencesWithDescription, icon: HiOutlineUsers },
+            { label: "Rich Entries", value: `${totalExperiences ? Math.round((experiencesWithDescription / totalExperiences) * 100) : 0}%`, icon: FiBarChart2 },
+          ]
+      : activeTab === "skills"
+        ? [
+            { label: "Total Skills", value: totalSkills, icon: FiCode },
+            { label: "Custom Images", value: customSkillImages, icon: HiOutlineUsers },
+            { label: "Avg. Level", value: `${averageSkillPercentage}%`, icon: FiBarChart2 },
+          ]
       : activeTab === "projects"
         ? [
             { label: "Total Projects", value: totalProjects, icon: FiFolder },
@@ -2338,6 +2706,344 @@ export function AdminSectionPage({ section = "services" }) {
                   </div>
                 </div>
               )}
+            </form>
+          )}
+
+          {activeTab === "skills" && (
+            <form className="space-y-6" onSubmit={handleSkillsSave}>
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Skills Section</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Homepage skills cards</h3>
+                    <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                      These items power the real skills marquee section on the homepage. Hero skills are not affected here.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addSkillItem}
+                    className="rounded-xl border border-[#4dc4ff] px-4 py-2 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                  >
+                    Add Skill
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {form.skills.map((skill, index) => (
+                    <div
+                      key={`real-skill-${index}`}
+                      className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.18)]"
+                    >
+                      <div className="mb-4 flex items-center justify-between">
+                        <p className="text-sm font-medium text-[#d3d8e8]">Skill {index + 1}</p>
+                        <button
+                          type="button"
+                          onClick={() => removeSkillItem(index)}
+                          className="text-sm text-[#ffb6c6] transition hover:text-[#ffd1db]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="grid gap-4 xl:grid-cols-[140px_minmax(0,1fr)]">
+                        <div className="space-y-3">
+                          <div className="overflow-hidden rounded-[1.25rem] border border-[#324760] bg-[radial-gradient(circle_at_top,rgba(112,213,255,0.18),transparent_55%),#0f192a] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                            <Image
+                              src={skill.image || "/profile.png"}
+                              alt={skill.name || `Skill ${index + 1}`}
+                              width={140}
+                              height={140}
+                              className="h-[140px] w-full object-contain p-4"
+                              unoptimized
+                            />
+                          </div>
+                          <div className="rounded-[1rem] border border-[#253953] bg-[#0d1728] px-4 py-3">
+                            <p className="text-[11px] uppercase tracking-[0.24em] text-[#87a2bd]">Preview</p>
+                            <p className="mt-2 truncate text-sm font-medium text-white">
+                              {skill.name || `Skill ${index + 1}`}
+                            </p>
+                            <p className="mt-1 text-xs text-[#8fb3cf]">
+                              {Math.max(0, Math.min(100, Number(skill.percentage) || 0))}% proficiency
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Skill Name</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="React"
+                              value={skill.name}
+                              onChange={(event) => updateSkillItem(index, "name", event.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Percentage</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="80"
+                              value={skill.percentage}
+                              onChange={(event) => updateSkillItem(index, "percentage", event.target.value)}
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Image URL</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="https://cdn.simpleicons.org/react"
+                              value={skill.image}
+                              onChange={(event) => updateSkillItem(index, "image", event.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 rounded-[1.25rem] border border-dashed border-[#304764] bg-[#0c1627] p-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                          <div>
+                            <label className="mb-1 block text-sm font-medium text-[#d7dfec]">Upload skill image</label>
+                            <p className="text-xs leading-6 text-[#8b98a5]">
+                              Use upload for the safest result, or paste a direct image URL above.
+                            </p>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) => handleImageUpload(event, { type: "real-skill", index })}
+                            disabled={isUploadingImage}
+                            className="block w-full cursor-pointer text-sm text-[#d3d8e8] lg:max-w-[340px] file:mr-4 file:rounded-lg file:border-0 file:bg-[#2a8fd8] file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-[#3aa1ea]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <div className="flex justify-end">
+                <button
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isSaving}
+                  type="submit"
+                >
+                  {isSaving ? "Saving..." : "Save Skills Section"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {activeTab === "experience" && (
+            <form className="space-y-6" onSubmit={handleExperiencesSave}>
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Experience Section</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Homepage experience timeline</h3>
+                    <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                      Manage each role, company, location or workplace, duration, and the long-form description shown on the public homepage.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addExperienceItem}
+                    className="rounded-xl border border-[#4dc4ff] px-4 py-2 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                  >
+                    Add Experience
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {form.experiences.map((item, index) => (
+                    <div
+                      key={`experience-${index}`}
+                      className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.18)]"
+                    >
+                      <div className="mb-4 flex items-center justify-between">
+                        <p className="text-sm font-medium text-[#d3d8e8]">Experience {index + 1}</p>
+                        <button
+                          type="button"
+                          onClick={() => removeExperienceItem(index)}
+                          className="text-sm text-[#ffb6c6] transition hover:text-[#ffd1db]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Title</label>
+                          <input
+                            className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                            placeholder="Senior Frontend Developer"
+                            value={item.title}
+                            onChange={(event) => updateExperienceItem(index, "title", event.target.value)}
+                          />
+                        </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Company</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="Acme Studio"
+                              value={item.company}
+                              onChange={(event) => updateExperienceItem(index, "company", event.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Location / Workplace</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="Remote or Dhaka, Bangladesh"
+                              value={item.location}
+                              onChange={(event) => updateExperienceItem(index, "location", event.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Duration</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="Jan 2023 - Present"
+                              value={item.duration}
+                            onChange={(event) => updateExperienceItem(index, "duration", event.target.value)}
+                          />
+                        </div>
+
+                        <div className="lg:col-span-2">
+                          <RichTextEditor
+                            id={`experience-description-${index}`}
+                            label="Description"
+                            value={item.description}
+                            onChange={(nextValue) => updateExperienceItem(index, "description", nextValue)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <div className="flex justify-end">
+                <button
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isSaving}
+                  type="submit"
+                >
+                  {isSaving ? "Saving..." : "Save Experience Section"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {activeTab === "education" && (
+            <form className="space-y-6" onSubmit={handleEducationsSave}>
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Education Section</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Homepage education timeline</h3>
+                    <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                      Manage each education entry, including institution, department, duration, and achievement details.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addEducationItem}
+                    className="rounded-xl border border-[#4dc4ff] px-4 py-2 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                  >
+                    Add Education
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {form.educations.map((item, index) => (
+                    <div
+                      key={`education-${index}`}
+                      className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.18)]"
+                    >
+                      <div className="mb-4 flex items-center justify-between">
+                        <p className="text-sm font-medium text-[#d3d8e8]">Education {index + 1}</p>
+                        <button
+                          type="button"
+                          onClick={() => removeEducationItem(index)}
+                          className="text-sm text-[#ffb6c6] transition hover:text-[#ffd1db]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Title</label>
+                          <input
+                            className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                            placeholder="Bachelor of Science"
+                            value={item.title}
+                            onChange={(event) => updateEducationItem(index, "title", event.target.value)}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Institution</label>
+                          <input
+                            className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                            placeholder="University name"
+                            value={item.institution}
+                            onChange={(event) => updateEducationItem(index, "institution", event.target.value)}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Department</label>
+                          <input
+                            className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                            placeholder="Computer Science"
+                            value={item.department}
+                            onChange={(event) => updateEducationItem(index, "department", event.target.value)}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Duration</label>
+                          <input
+                            className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                            placeholder="2020 - 2024"
+                            value={item.duration}
+                            onChange={(event) => updateEducationItem(index, "duration", event.target.value)}
+                          />
+                        </div>
+
+                        <div className="lg:col-span-2">
+                          <RichTextEditor
+                            id={`education-achievement-${index}`}
+                            label="Achievement"
+                            value={item.achievement}
+                            onChange={(nextValue) => updateEducationItem(index, "achievement", nextValue)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <div className="flex justify-end">
+                <button
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isSaving}
+                  type="submit"
+                >
+                  {isSaving ? "Saving..." : "Save Education Section"}
+                </button>
+              </div>
             </form>
           )}
 

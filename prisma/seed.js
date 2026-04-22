@@ -78,48 +78,59 @@ const skills = [
 ].map((name, index) => ({
   id: index + 1,
   name,
+  image: "",
+  percentage: 80,
   sortOrder: index + 1,
 }));
 
 const experiences = [
   {
     id: 1,
-    title: "Software Engineer I",
-    company: "Teton Private Ltd.",
-    duration: "(Jan 2022 - Present)",
+    title: "Web Developer (Remote)",
+    company: "Explo-IT.",
+    location: "Dhaka, Bangladesh",
+    duration: "2023 - 2025",
+    description:
+      "<p>Worked across product delivery, backend features, and frontend improvements while collaborating closely with stakeholders and engineering teammates.</p>",
   },
   {
     id: 2,
-    title: "FullStack Developer",
-    company: "Fiverr (freelance)",
-    duration: "(Jun 2021 - Jan 2022)",
+    title: "Web Developer (Onsite)",
+    company: "DataSoft LTD.",
+    location: "Dhaka, Bangladesh",
+    duration: "2021 - 2022",
+    description:
+      "<p>Delivered freelance web projects end to end, including API work, UI implementation, deployment support, and client communication.</p>",
   },
   {
     id: 3,
-    title: "Self Employed",
-    company: "Code and build something in everyday.",
-    duration: "(Jan 2018 - Present)",
+    title: "Internship in Python",
+    company: "Global IT.",
+    location: "Dhaka, Bangladesh",
+    duration: "2020-2020",
+    description:
+      "<p>Built personal products and experiments to sharpen engineering judgment, explore new stacks, and stay consistent with hands-on practice.</p>",
   },
 ].map((item, index) => ({ ...item, sortOrder: index + 1 }));
 
 const educations = [
   {
     id: 1,
-    title: "Bachelor Degree",
-    duration: "2020 - Present",
-    institution: "National University of Bangladesh",
+    title: "Bachelor of Science",
+    duration: "2023 - Present",
+    institution: "Voronezh State University of Foriestry and Technology, Russia",
+    department: "Software Engineering",
+    achievement:
+      "<ul><li>Focused on programming fundamentals, software architecture, and system design.</li><li>Worked on academic and self-driven projects while building stronger problem-solving habits.</li></ul>",
   },
   {
     id: 2,
-    title: "Higher Secondary Certificate",
+    title: "Diploma In Engineering",
     duration: "2018 - 2020",
-    institution: "Noakhali Islamia Kamil Madrasah",
-  },
-  {
-    id: 3,
-    title: "Secondary School Certificate",
-    duration: "2008 - 2018",
-    institution: "Baitus Saif Islamia Madrasah",
+    institution: "Dhaka Politechnic Institute, Bangladesh",
+    department: "Computer Technology",
+    achievement:
+      "<ul><li>Built a solid practical foundation in hardware, networking, and software development.</li><li>Completed technical coursework with hands-on lab and project experience.</li></ul>",
   },
 ].map((item, index) => ({ ...item, sortOrder: index + 1 }));
 
