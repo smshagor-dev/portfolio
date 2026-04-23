@@ -6,6 +6,7 @@ import { getHomePageData, getSiteSettings } from "@/lib/api";
 import Footer from "./components/footer";
 import LayoutClientChrome from "./components/layout-client-chrome";
 import LayoutShell from "./components/layout-shell";
+import SiteAnalyticsTracker from "./components/site-analytics-tracker";
 import "./css/card.scss";
 import "./css/globals.scss";
 const inter = Inter({ subsets: ["latin"] });
@@ -101,6 +102,7 @@ export default async function RootLayout({ children }) {
           scrollToTop={<LayoutClientChrome kind="scrollToTop" />}
         >
           <LayoutClientChrome kind="toast" />
+          <SiteAnalyticsTracker />
           {children}
         </LayoutShell>
         {googleTagManagerId ? <GoogleTagManager gtmId={googleTagManagerId} /> : null}

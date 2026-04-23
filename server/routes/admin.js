@@ -2,6 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const bcrypt = require("bcryptjs");
+const { google } = require("googleapis");
 const multer = require("multer");
 const prisma = require("../lib/prisma");
 const { requireAdmin, signAdminToken } = require("../lib/auth");
@@ -329,6 +330,179 @@ function normalizeCollection(items, mapper) {
   return (items || []).map((item, index) => mapper(item, index)).filter(Boolean);
 }
 
+function stripHtml(value) {
+  return String(value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function countFilled(items, predicate) {
+  return (items || []).filter(predicate).length;
+}
+
+function buildDashboardSummary(data) {
+  const services = data.services || [];
+  const projects = data.projects || [];
+  const pricings = data.pricings || [];
+  const testimonials = data.testimonials || [];
+  const skills = data.skills || [];
+  const experiences = data.experiences || [];
+  const educations = data.educations || [];
+  const achievements = data.achievements || [];
+  const statsCounters = data.statsCounters || [];
+  const messages = data.messages || [];
+  const siteSettings = data.siteSettings || {};
+  const profile = data.profile || {};
+
+  const activeServices = countFilled(services, (item) => item?.status);
+  const featuredServices = countFilled(services, (item) => item?.isFeatured);
+  const totalProjects = projects.length;
+  const totalProjectViews = projects.reduce((sum, item) => sum + (Number(item?.views) || 0), 0);
+  const totalProjectImpressions = projects.reduce((sum, item) => sum + (Number(item?.impressionCount) || 0), 0);
+  const activePricings = countFilled(pricings, (item) => item?.status);
+  const popularPricings = countFilled(pricings, (item) => item?.isPopular);
+  const activeTestimonials = countFilled(testimonials, (item) => item?.status);
+  const totalSkills = countFilled(skills, (item) => normalizeString(item?.name));
+  const averageSkillPercentage = totalSkills
+    ? Math.round(
+        skills.reduce((sum, item) => sum + Math.max(0, Math.min(100, Number(item?.percentage) || 0)), 0) /
+          totalSkills,
+      )
+    : 0;
+  const socialLinksCount = countFilled(profile?.socialLinks || [], (item) => normalizeString(item?.link));
+  const settingsCompletionCount = [
+    siteSettings.websiteTitle,
+    siteSettings.contactEmail,
+    siteSettings.canonicalUrl,
+    siteSettings.googleAnalyticsId || siteSettings.googleTagManagerId,
+    siteSettings.smtpHost,
+  ].filter((item) => normalizeString(item)).length;
+  const settingsCompletionPercentage = Math.round((settingsCompletionCount / 5) * 100);
+  const totalContentItems =
+    services.length +
+    projects.length +
+    pricings.length +
+    testimonials.length +
+    skills.length +
+    experiences.length +
+    educations.length +
+    achievements.length +
+    statsCounters.length;
+  const topService = [...services].sort((a, b) => (Number(b?.views) || 0) - (Number(a?.views) || 0))[0];
+  const topProject = [...projects].sort((a, b) => (Number(b?.views) || 0) - (Number(a?.views) || 0))[0];
+  const latestMessage = messages[0];
+  const latestPublishedTestimonial = testimonials.find((item) => item?.status);
+
+  return {
+    configuredPercentage: settingsCompletionPercentage,
+    workspace: {
+      title: profile?.name
+        ? `${profile.name}'s portfolio command center`
+        : "Portfolio command center",
+      description: [
+        `${totalContentItems} content items are available across your portfolio.`,
+        topProject?.name ? `Top project: ${topProject.name}.` : null,
+        topService?.name ? `Top service: ${topService.name}.` : null,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      badge: siteSettings?.websiteTitle || "Portfolio Admin",
+    },
+    quickActions: [
+      {
+        label: topService?.name ? `Service: ${topService.name}` : "Manage services",
+        description: topService?.name
+          ? `${Number(topService.views) || 0} views and ${Number(topService.impressionCount) || 0} impressions`
+          : `${activeServices}/${services.length || 0} services are live`,
+        href: "/admin/services",
+        icon: "services",
+      },
+      {
+        label: topProject?.name ? `Project: ${topProject.name}` : "Review projects",
+        description: topProject?.name
+          ? `${Number(topProject.views) || 0} views and ${Number(topProject.impressionCount) || 0} impressions`
+          : `${totalProjectViews} tracked views across ${totalProjects} projects`,
+        href: "/admin/projects",
+        icon: "projects",
+      },
+      {
+        label: latestMessage?.name ? `Inbox: ${latestMessage.name}` : "Open inbox",
+        description: latestMessage?.email
+          ? `${latestMessage.email} sent the latest contact message`
+          : `${messages.length} contact messages collected from the site`,
+        href: "/admin/messages",
+        icon: "messages",
+      },
+      {
+        label: latestPublishedTestimonial?.name
+          ? `Review: ${latestPublishedTestimonial.name}`
+          : "Check settings",
+        description: latestPublishedTestimonial?.company
+          ? `${latestPublishedTestimonial.company} review is currently published`
+          : `${settingsCompletionPercentage}% of key site settings are configured`,
+        href: latestPublishedTestimonial?.name ? "/admin/testimonials" : "/admin/settings",
+        icon: latestPublishedTestimonial?.name ? "testimonials" : "settings",
+      },
+    ],
+    statusCards: [
+      {
+        label: "Tracking IDs",
+        value: siteSettings.googleAnalyticsId || siteSettings.googleTagManagerId ? "Saved" : "Missing",
+        detail:
+          siteSettings.googleAnalyticsId || siteSettings.googleTagManagerId || "GA4 or GTM is not configured yet",
+      },
+      {
+        label: "Mail Delivery",
+        value: siteSettings.smtpHost ? "Configured" : "Pending",
+        detail: siteSettings.smtpFromEmail || "SMTP sender email is not saved yet",
+      },
+      {
+        label: "Testimonials",
+        value: `${activeTestimonials}/${testimonials.length || 0}`,
+        detail: `${countFilled(testimonials, (item) => normalizeString(item?.image))} testimonials include a client image`,
+      },
+      {
+        label: "Featured Services",
+        value: `${featuredServices}`,
+        detail: `${services.length || 0} total services available on the portfolio`,
+      },
+    ],
+    collectionHealth: [
+      {
+        label: "Services",
+        value: activeServices,
+        total: services.length,
+        accentClass: "from-[#38bdf8] to-[#0ea5e9]",
+      },
+      {
+        label: "Projects",
+        value: totalProjects,
+        total: totalProjects,
+        accentClass: "from-[#22c55e] to-[#14b8a6]",
+      },
+      {
+        label: "Pricing",
+        value: activePricings,
+        total: pricings.length,
+        accentClass: "from-[#f59e0b] to-[#f97316]",
+      },
+      {
+        label: "Testimonials",
+        value: activeTestimonials,
+        total: testimonials.length,
+        accentClass: "from-[#a78bfa] to-[#6366f1]",
+      },
+    ],
+    snapshot: [
+      { label: "Content library", value: totalContentItems },
+      { label: "Project impressions", value: totalProjectImpressions },
+      { label: "Average skill strength", value: `${averageSkillPercentage}%` },
+      { label: "Social links", value: socialLinksCount },
+      { label: "Popular pricing plans", value: popularPricings },
+      { label: "Stats counters", value: statsCounters.length },
+    ],
+    recentMessages: messages.slice(0, 4),
+  };
+}
+
 function hasPricingModel() {
   return Boolean(prisma?.pricing && typeof prisma.pricing.findMany === "function");
 }
@@ -413,7 +587,7 @@ async function getDashboardData() {
     prisma.contactMessage.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
   ]);
 
-  return {
+  const data = {
     profile,
     siteSettings: serializeSiteSettings(siteSettings, { includeSensitive: true }),
     serviceSection,
@@ -428,6 +602,329 @@ async function getDashboardData() {
     testimonials,
     messages,
   };
+
+  return {
+    ...data,
+    dashboardSummary: buildDashboardSummary({
+      ...data,
+      siteSettings: serializeSiteSettings(siteSettings, { includeSensitive: true }),
+    }),
+  };
+}
+
+function parsePrivateKey(value) {
+  return String(value || "").replace(/\\n/g, "\n").trim();
+}
+
+function formatIsoDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatShortDateLabel(date) {
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function formatWeekdayLabel(date) {
+  return date.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+}
+
+function seededValue(seed, min, max) {
+  const raw = Math.sin(seed) * 10000;
+  const normalized = raw - Math.floor(raw);
+  return Math.round(min + normalized * (max - min));
+}
+
+function buildFallbackAnalytics(reason = "Google Analytics credentials are not configured.") {
+  const today = new Date();
+  const growth = [];
+
+  for (let offset = 29; offset >= 0; offset -= 1) {
+    const date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - offset));
+    const trendBase = 90 + (29 - offset) * 4;
+    const users = trendBase + seededValue(offset + 11, 0, 34);
+    growth.push({
+      date: formatIsoDate(date),
+      label: formatShortDateLabel(date),
+      users,
+    });
+  }
+
+  const weekly = growth.slice(-7).map((entry) => {
+    const date = new Date(`${entry.date}T00:00:00.000Z`);
+    return {
+      label: formatWeekdayLabel(date),
+      users: entry.users,
+    };
+  });
+
+  return {
+    source: "simulated",
+    connected: false,
+    propertyId: process.env.GA4_PROPERTY_ID || "",
+    measurementId: "",
+    activeUsers: growth[growth.length - 1]?.users || 0,
+    todayUsers: growth[growth.length - 1]?.users || 0,
+    last7DaysUsers: growth.slice(-7).reduce((sum, item) => sum + item.users, 0),
+    last30DaysUsers: growth.reduce((sum, item) => sum + item.users, 0),
+    growth,
+    weekly,
+    visitors: [],
+    fetchedAt: new Date().toISOString(),
+    note: reason,
+  };
+}
+
+function getUtcDateOnly(date = new Date()) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function addUtcDays(date, days) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+}
+
+async function getInternalAnalyticsData() {
+  const now = new Date();
+  const today = getUtcDateOnly(now);
+  const thirtyDaysAgo = addUtcDays(today, -29);
+  const sevenDaysAgo = addUtcDays(today, -6);
+  const activeThreshold = new Date(now.getTime() - 5 * 60 * 1000);
+
+  try {
+    const [activeUsers, todayUsers, last7DaysUsers, last30DaysUsers, growthRows, visitors] = await Promise.all([
+      prisma.analyticsSession.count({
+        where: {
+          lastSeenAt: {
+            gte: activeThreshold,
+          },
+        },
+      }),
+      prisma.analyticsDailyVisit.count({
+        where: {
+          visitDate: today,
+        },
+      }),
+      prisma.analyticsDailyVisit.count({
+        where: {
+          visitDate: {
+            gte: sevenDaysAgo,
+          },
+        },
+      }),
+      prisma.analyticsDailyVisit.count({
+        where: {
+          visitDate: {
+            gte: thirtyDaysAgo,
+          },
+        },
+      }),
+      prisma.analyticsDailyVisit.groupBy({
+        by: ["visitDate"],
+        where: {
+          visitDate: {
+            gte: thirtyDaysAgo,
+          },
+        },
+        _count: {
+          id: true,
+        },
+        orderBy: {
+          visitDate: "asc",
+        },
+      }),
+      prisma.analyticsSession.findMany({
+        orderBy: {
+          lastSeenAt: "desc",
+        },
+        take: 20,
+        include: {
+          pageViews: {
+            orderBy: {
+              lastViewedAt: "desc",
+            },
+          },
+        },
+      }),
+    ]);
+
+    const growthMap = new Map(
+      growthRows.map((row) => [formatIsoDate(new Date(row.visitDate)), row._count.id]),
+    );
+    const growth = [];
+
+    for (let offset = 0; offset < 30; offset += 1) {
+      const date = addUtcDays(thirtyDaysAgo, offset);
+      const key = formatIsoDate(date);
+      growth.push({
+        date: key,
+        label: formatShortDateLabel(date),
+        users: growthMap.get(key) || 0,
+      });
+    }
+
+    const weekly = growth.slice(-7).map((entry) => {
+      const date = new Date(`${entry.date}T00:00:00.000Z`);
+      return {
+        label: formatWeekdayLabel(date),
+        users: entry.users,
+      };
+    });
+
+    return {
+      source: "internal",
+      connected: true,
+      propertyId: "",
+      measurementId: "",
+      activeUsers,
+      todayUsers,
+      last7DaysUsers,
+      last30DaysUsers,
+      growth,
+      weekly,
+      visitors: visitors.map((visitor) => ({
+        id: visitor.id,
+        userId: visitor.sessionId,
+        ipAddress: visitor.ipAddress || "",
+        country: visitor.country || "",
+        location: [visitor.city, visitor.region].filter(Boolean).join(", "),
+        lastSeenAt: visitor.lastSeenAt,
+        createdAt: visitor.createdAt,
+        pageViews: (visitor.pageViews || []).map((page) => ({
+          id: page.id,
+          path: page.path,
+          firstViewedAt: page.firstViewedAt,
+          lastViewedAt: page.lastViewedAt,
+          viewCount: page.viewCount,
+        })),
+      })),
+      fetchedAt: now.toISOString(),
+      note: "Live traffic data collected directly from your portfolio frontend.",
+    };
+  } catch (error) {
+    if (error?.code === "P2021") {
+      return buildFallbackAnalytics("Apply the latest Prisma migration to enable internal analytics tracking.");
+    }
+
+    throw error;
+  }
+}
+
+function getMetricValue(result) {
+  return Number.parseInt(result?.data?.rows?.[0]?.metricValues?.[0]?.value || "0", 10) || 0;
+}
+
+function mapDateRow(row) {
+  const raw = String(row?.dimensionValues?.[0]?.value || "");
+  const year = raw.slice(0, 4);
+  const month = raw.slice(4, 6);
+  const day = raw.slice(6, 8);
+  const date = new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+
+  return {
+    date: formatIsoDate(date),
+    label: formatShortDateLabel(date),
+    users: Number.parseInt(row?.metricValues?.[0]?.value || "0", 10) || 0,
+  };
+}
+
+async function getAnalyticsData() {
+  const propertyId = String(process.env.GA4_PROPERTY_ID || "").trim();
+  const clientEmail = String(process.env.GA4_CLIENT_EMAIL || "").trim();
+  const privateKey = parsePrivateKey(process.env.GA4_PRIVATE_KEY);
+  const siteSettings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+  const measurementId = siteSettings?.googleAnalyticsId || "";
+
+  if (!propertyId || !clientEmail || !privateKey) {
+    return getInternalAnalyticsData().catch(() =>
+      buildFallbackAnalytics(
+      measurementId
+        ? "GA4 measurement ID is saved, but Data API credentials are missing."
+        : "Connect GA4 credentials or use internal analytics tracking for live data.",
+    ));
+  }
+
+  try {
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey,
+      scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
+    });
+
+    await auth.authorize();
+
+    const analyticsdata = google.analyticsdata({
+      version: "v1beta",
+      auth,
+    });
+    const property = `properties/${propertyId}`;
+
+    const [realtime, today, last7Days, last30Days, growthReport] = await Promise.all([
+      analyticsdata.properties.runRealtimeReport({
+        property,
+        requestBody: {
+          metrics: [{ name: "activeUsers" }],
+        },
+      }),
+      analyticsdata.properties.runReport({
+        property,
+        requestBody: {
+          dateRanges: [{ startDate: "today", endDate: "today" }],
+          metrics: [{ name: "activeUsers" }],
+        },
+      }),
+      analyticsdata.properties.runReport({
+        property,
+        requestBody: {
+          dateRanges: [{ startDate: "6daysAgo", endDate: "today" }],
+          metrics: [{ name: "activeUsers" }],
+        },
+      }),
+      analyticsdata.properties.runReport({
+        property,
+        requestBody: {
+          dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],
+          metrics: [{ name: "activeUsers" }],
+        },
+      }),
+      analyticsdata.properties.runReport({
+        property,
+        requestBody: {
+          dateRanges: [{ startDate: "29daysAgo", endDate: "today" }],
+          dimensions: [{ name: "date" }],
+          metrics: [{ name: "activeUsers" }],
+          orderBys: [{ dimension: { dimensionName: "date" } }],
+        },
+      }),
+    ]);
+
+    const growth = (growthReport?.data?.rows || []).map(mapDateRow);
+    const weekly = growth.slice(-7).map((entry) => {
+      const date = new Date(`${entry.date}T00:00:00.000Z`);
+      return {
+        label: formatWeekdayLabel(date),
+        users: entry.users,
+      };
+    });
+
+    return {
+      source: "ga4",
+      connected: true,
+      propertyId,
+      measurementId,
+      activeUsers: getMetricValue(realtime),
+      todayUsers: getMetricValue(today),
+      last7DaysUsers: getMetricValue(last7Days),
+      last30DaysUsers: getMetricValue(last30Days),
+      growth,
+      weekly,
+      fetchedAt: new Date().toISOString(),
+      note: "Live data from the Google Analytics Data API.",
+    };
+  } catch (error) {
+    console.error("Failed to load Google Analytics data:", error.message);
+    return getInternalAnalyticsData().catch(() =>
+      buildFallbackAnalytics("Google Analytics data is unavailable right now, so simulated data is shown."),
+    );
+  }
 }
 
 router.post("/login", async (request, response) => {
@@ -492,6 +989,15 @@ router.get("/dashboard", requireAdmin, async (_request, response) => {
   } catch (error) {
     console.error("Failed to load dashboard:", error.message);
     return response.status(500).json({ message: "Failed to load dashboard data." });
+  }
+});
+
+router.get("/analytics", requireAdmin, async (_request, response) => {
+  try {
+    return response.json(await getAnalyticsData());
+  } catch (error) {
+    console.error("Failed to load analytics:", error.message);
+    return response.status(500).json({ message: "Failed to load analytics data." });
   }
 });
 

@@ -263,3 +263,44 @@ model SiteSettings {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
+
+model AnalyticsSession {
+  id          Int                  @id @default(autoincrement())
+  sessionId   String               @unique
+  firstPath   String               @default("/")
+  lastPath    String               @default("/")
+  ipAddress   String               @default("")
+  country     String               @default("")
+  region      String               @default("")
+  city        String               @default("")
+  userAgent   String?              @db.Text
+  createdAt   DateTime             @default(now())
+  lastSeenAt  DateTime             @default(now())
+  dailyVisits AnalyticsDailyVisit[]
+  pageViews   AnalyticsPageView[]
+}
+
+model AnalyticsDailyVisit {
+  id         Int              @id @default(autoincrement())
+  sessionRef Int
+  visitDate  DateTime         @db.Date
+  path       String           @default("/")
+  createdAt  DateTime         @default(now())
+  session    AnalyticsSession @relation(fields: [sessionRef], references: [id], onDelete: Cascade)
+
+  @@unique([sessionRef, visitDate])
+  @@index([visitDate])
+}
+
+model AnalyticsPageView {
+  id           Int              @id @default(autoincrement())
+  sessionRef    Int
+  path         String           @default("/")
+  firstViewedAt DateTime        @default(now())
+  lastViewedAt DateTime         @default(now())
+  viewCount    Int              @default(1)
+  session      AnalyticsSession @relation(fields: [sessionRef], references: [id], onDelete: Cascade)
+
+  @@unique([sessionRef, path])
+  @@index([lastViewedAt])
+}

@@ -16,6 +16,19 @@ import { getStatsIconOption, statsIconOptions } from "@/utils/stats-icons";
 const RichTextEditor = dynamic(() => import("@/app/components/admin/rich-text-editor"), {
   ssr: false,
 });
+const AdminAnalyticsCharts = dynamic(() => import("@/app/components/admin/admin-analytics-charts"), {
+  ssr: false,
+  loading: () => (
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,1fr)]">
+      {[0, 1].map((item) => (
+        <div
+          key={item}
+          className="h-[420px] animate-pulse rounded-[1.75rem] border border-white/10 bg-white/[0.04]"
+        />
+      ))}
+    </div>
+  ),
+});
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
@@ -154,6 +167,44 @@ function emptySiteSettings() {
     smtpFromName: "",
     smtpReplyToEmail: "",
     smtpToEmail: "",
+  };
+}
+
+function emptyAnalytics() {
+  return {
+    source: "simulated",
+    connected: false,
+    propertyId: "",
+    measurementId: "",
+    activeUsers: 0,
+    todayUsers: 0,
+    last7DaysUsers: 0,
+    last30DaysUsers: 0,
+    growth: [],
+    weekly: [],
+    visitors: [],
+    fetchedAt: "",
+    note: "Analytics are loading.",
+  };
+}
+
+function formatMetricValue(value) {
+  return Number(value || 0).toLocaleString("en-US");
+}
+
+function emptyDashboardSummary() {
+  return {
+    configuredPercentage: 0,
+    workspace: {
+      title: "Portfolio command center",
+      description: "Dashboard data is loading from your portfolio content.",
+      badge: "Portfolio Admin",
+    },
+    quickActions: [],
+    statusCards: [],
+    collectionHealth: [],
+    snapshot: [],
+    recentMessages: [],
   };
 }
 
@@ -500,22 +551,23 @@ function buildSiteSettingsPayload(sourceForm) {
 }
 
 const tabs = [
-  { id: "settings", label: "Settings", icon: FiSettings, href: "/admin/settings" },
+  { id: "dashboard", label: "Dashboard", icon: FiBarChart2, href: "/admin/dashboard" },
   { id: "hero", label: "Hero", icon: HiOutlineSparkles, href: "/admin/hero" },
-  { id: "achievement", label: "Achievement", icon: HiOutlineUsers, href: "/admin/achievement" },
+  { id: "services", label: "Services", icon: HiOutlineViewGrid, href: "/admin/services" },
+  { id: "projects", label: "Projects", icon: FiFolder, href: "/admin/projects" },
+  { id: "pricing", label: "Pricing", icon: FiDollarSign, href: "/admin/pricing" },
   { id: "testimonials", label: "Testimonials", icon: FiMessageSquare, href: "/admin/testimonials" },
   { id: "skills", label: "Skills", icon: FiCode, href: "/admin/skills" },
   { id: "experience", label: "Experience", icon: FiBriefcase, href: "/admin/experience" },
   { id: "education", label: "Education", icon: FiBookOpen, href: "/admin/education" },
-  { id: "services", label: "Services", icon: HiOutlineViewGrid, href: "/admin/services" },
-  { id: "projects", label: "Projects", icon: FiFolder, href: "/admin/projects" },
-  { id: "pricing", label: "Pricing", icon: FiDollarSign, href: "/admin/pricing" },
+  { id: "achievement", label: "Achievements", icon: HiOutlineUsers, href: "/admin/achievement" },
   { id: "counter", label: "Counters", icon: FiBarChart2, href: "/admin/counters" },
   { id: "social", label: "Social", icon: HiOutlineUsers, href: "/admin/social" },
   { id: "messages", label: "Messages", icon: FiMail, href: "/admin/messages" },
+  { id: "settings", label: "Settings", icon: FiSettings, href: "/admin/settings" },
 ];
 
-export function AdminSectionPage({ section = "services" }) {
+export function AdminSectionPage({ section = "dashboard" }) {
   const router = useRouter();
   const [token, setToken] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -524,6 +576,10 @@ export function AdminSectionPage({ section = "services" }) {
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [admin, setAdmin] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [analytics, setAnalytics] = useState(emptyAnalytics());
+  const [dashboardSummary, setDashboardSummary] = useState(emptyDashboardSummary());
+  const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
+  const [selectedAnalyticsVisitor, setSelectedAnalyticsVisitor] = useState(null);
   const [socialSearch, setSocialSearch] = useState({});
   const [openCounterIconIndex, setOpenCounterIconIndex] = useState(null);
   const [isServiceIconDropdownOpen, setIsServiceIconDropdownOpen] = useState(false);
@@ -585,6 +641,10 @@ export function AdminSectionPage({ section = "services" }) {
         const heroSkills = normalizeHeroSkills(data.profile?.heroSkills);
 
         setMessages(data.messages || []);
+        setDashboardSummary({
+          ...emptyDashboardSummary(),
+          ...(data.dashboardSummary || {}),
+        });
         setForm({
           name: data.profile?.name || "",
           profile: data.profile?.profile || "",
@@ -773,6 +833,40 @@ export function AdminSectionPage({ section = "services" }) {
     [router],
   );
 
+  const loadAnalytics = useCallback(
+    async (authToken) => {
+      try {
+        setIsAnalyticsLoading(true);
+        const response = await fetch(`${backendUrl}/api/admin/analytics`, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to load analytics.");
+        }
+
+        setAnalytics({
+          ...emptyAnalytics(),
+          ...data,
+          growth: Array.isArray(data.growth) ? data.growth : [],
+          weekly: Array.isArray(data.weekly) ? data.weekly : [],
+          visitors: Array.isArray(data.visitors) ? data.visitors : [],
+        });
+      } catch (error) {
+        setAnalytics((current) => ({
+          ...current,
+          note: error.message || "Failed to load analytics.",
+        }));
+      } finally {
+        setIsAnalyticsLoading(false);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     const savedToken = localStorage.getItem("portfolio_admin_token");
     const savedAdmin = localStorage.getItem("portfolio_admin_user");
@@ -789,7 +883,20 @@ export function AdminSectionPage({ section = "services" }) {
     }
 
     loadDashboard(savedToken);
-  }, [loadDashboard, router]);
+    loadAnalytics(savedToken);
+  }, [loadAnalytics, loadDashboard, router]);
+
+  useEffect(() => {
+    if (!token) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => {
+      loadAnalytics(token);
+    }, 60000);
+
+    return () => window.clearInterval(interval);
+  }, [loadAnalytics, token]);
 
   useEffect(() => {
     if (activeTab !== "services") {
@@ -1763,8 +1870,30 @@ export function AdminSectionPage({ section = "services" }) {
     form.siteSettings.seoImage,
     form.siteSettings.websiteIcon,
   ].filter((item) => String(item || "").trim()).length;
+  const dashboardQuickActionIcons = {
+    services: HiOutlineViewGrid,
+    projects: FiFolder,
+    messages: FiMail,
+    settings: FiSettings,
+    testimonials: FiMessageSquare,
+  };
+  const dashboardStatusCards = [
+    {
+      label: "Analytics Source",
+      value: analytics.connected ? "Google Analytics 4" : "Demo dataset",
+      detail: analytics.propertyId ? `Property ${analytics.propertyId}` : "No property connected",
+    },
+    ...(dashboardSummary.statusCards || []),
+  ];
   const dashboardHighlights =
-    activeTab === "settings"
+    activeTab === "dashboard"
+      ? [
+          { label: "Current Active Users", value: formatMetricValue(analytics.activeUsers), icon: HiOutlineUsers },
+          { label: "Today Total Users", value: formatMetricValue(analytics.todayUsers), icon: FiBarChart2 },
+          { label: "Last 7 Days Users", value: formatMetricValue(analytics.last7DaysUsers), icon: FiFolder },
+          { label: "Last 30 Days Users", value: formatMetricValue(analytics.last30DaysUsers), icon: FiBriefcase },
+        ]
+      : activeTab === "settings"
       ? [
           { label: "SEO Assets", value: settingsImagesCount, icon: FiSettings },
           { label: "Analytics", value: form.siteSettings.googleAnalyticsId || form.siteSettings.googleTagManagerId ? "Connected" : "Pending", icon: FiBarChart2 },
@@ -1819,18 +1948,18 @@ export function AdminSectionPage({ section = "services" }) {
         ];
 
   return (
-    <div className="mx-auto max-w-[1600px]">
-      <div className="grid gap-6 xl:grid-cols-[290px_minmax(0,1fr)]">
-        <aside className="rounded-[2rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(16,27,43,0.96),rgba(10,19,34,0.96))] p-5 shadow-[0_26px_70px_rgba(0,0,0,0.35)] xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:overflow-y-auto">
-          <div className="rounded-[1.5rem] border border-[#28405f] bg-[radial-gradient(circle_at_top,rgba(107,212,255,0.18),transparent_50%),#0d1728] p-5">
+    <div className="w-full">
+      <div className="grid gap-5 2xl:grid-cols-[350px_minmax(0,1fr)]">
+        <aside className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.88),rgba(7,12,23,0.82))] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-2xl 2xl:sticky 2xl:top-6 2xl:h-[calc(100vh-3rem)] 2xl:overflow-y-auto">
+          <div className="rounded-[1.6rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.18),transparent_52%),rgba(255,255,255,0.03)] p-5">
             <p className="text-xs uppercase tracking-[0.32em] text-[#8fdcff]">Control Center</p>
             <h1 className="mt-3 text-2xl font-semibold text-white">Portfolio Admin</h1>
             <p className="mt-2 text-sm leading-6 text-[#9fb1c7]">
-              Manage hero content, social links, counters, services, projects, and pricing from one place.
+              A focused workspace for your portfolio content, analytics, and site settings.
             </p>
           </div>
 
-          <div className="mt-6 space-y-2">
+          <div className="mt-6 grid gap-2 sm:grid-cols-2 2xl:grid-cols-1">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
               const Icon = tab.icon;
@@ -1839,10 +1968,10 @@ export function AdminSectionPage({ section = "services" }) {
                 <Link
                   key={tab.id}
                   href={tab.href}
-                  className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                  className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition duration-300 ${
                     isActive
-                      ? "border-[#4dc4ff] bg-[#11243b] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                      : "border-[#23324a] bg-[#0d1728] text-[#bfd0e2] hover:border-[#36557e] hover:text-white"
+                      ? "border-[#4dc4ff]/60 bg-[linear-gradient(135deg,rgba(32,77,121,0.45),rgba(17,34,59,0.82))] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_16px_40px_rgba(0,0,0,0.2)]"
+                      : "border-white/8 bg-white/[0.03] text-[#bfd0e2] hover:border-[#36557e] hover:bg-white/[0.05] hover:text-white"
                   }`}
                 >
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#132339] text-[#7fdcff]">
@@ -1854,7 +1983,7 @@ export function AdminSectionPage({ section = "services" }) {
             })}
           </div>
 
-          <div className="mt-6 rounded-[1.5rem] border border-[#23324a] bg-[#0c1627] p-4">
+          <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
             <p className="text-xs uppercase tracking-[0.28em] text-[#8b98a5]">Signed In</p>
             <p className="mt-3 font-medium text-white">{admin?.name || "Admin"}</p>
             <p className="mt-1 text-sm text-[#a7b7ca]">{admin?.email || "support@smshagor.com"}</p>
@@ -1870,29 +1999,40 @@ export function AdminSectionPage({ section = "services" }) {
         </aside>
 
         <div className="space-y-6">
-          <section className="rounded-[2rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(15,26,42,0.96),rgba(11,20,34,0.96))] p-6 shadow-[0_28px_70px_rgba(0,0,0,0.35)]">
+          <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.18),transparent_28%),radial-gradient(circle_at_top_left,rgba(110,231,183,0.12),transparent_24%),linear-gradient(180deg,rgba(15,26,42,0.94),rgba(11,20,34,0.92))] p-6 shadow-[0_28px_70px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.3em] text-[#6bd4ff]">Admin Workspace</p>
-                <h2 className="mt-2 text-3xl font-semibold text-white">Clean content management for your portfolio</h2>
+                <h2 className="mt-2 text-3xl font-semibold text-white">
+                  {activeTab === "dashboard" ? dashboardSummary.workspace?.title || "Portfolio command center" : "Clean content management for your portfolio"}
+                </h2>
                 <p className="mt-3 max-w-3xl text-sm leading-7 text-[#a8b8ca]">
-                  The admin area now runs on its own layout, with dedicated service, project, and pricing workflows plus a cleaner editorial flow.
+                  {activeTab === "dashboard"
+                    ? dashboardSummary.workspace?.description || "Monitor activity, review analytics, and move between core portfolio sections with a cleaner SaaS-style interface."
+                    : "The admin area now runs on its own layout, with dedicated service, project, and pricing workflows plus a cleaner editorial flow."}
                 </p>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#27435f] bg-[#102237] px-4 py-2 text-sm text-[#dce8f6]">
-                <FiSettings size={15} />
-                {tabs.find((tab) => tab.id === activeTab)?.label}
+              <div className="flex flex-col items-start gap-2 lg:items-end">
+                <p className="text-xs uppercase tracking-[0.24em] text-[#8ea7c2]">
+                  Last update: {analytics.fetchedAt ? new Date(analytics.fetchedAt).toLocaleString() : "Waiting for sync"}
+                </p>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-[#dce8f6] backdrop-blur-xl">
+                  <FiSettings size={15} />
+                  {activeTab === "dashboard"
+                    ? dashboardSummary.workspace?.badge || "Portfolio Admin"
+                    : tabs.find((tab) => tab.id === activeTab)?.label || activeTab}
+                </div>
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className={`mt-6 grid gap-4 ${activeTab === "dashboard" ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-3"}`}>
               {dashboardHighlights.map((item) => {
                 const Icon = item.icon;
 
                 return (
                   <div
                     key={item.label}
-                    className="rounded-[1.5rem] border border-[#24344d] bg-[#0c1627] p-5"
+                    className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl"
                   >
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-[#9fb1c7]">{item.label}</p>
@@ -1906,6 +2046,309 @@ export function AdminSectionPage({ section = "services" }) {
               })}
             </div>
           </section>
+
+          {activeTab === "dashboard" && (
+            <div className="space-y-6">
+              <section className="grid gap-5 2xl:grid-cols-[minmax(0,1.42fr)_430px]">
+                <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Analytics Overview</p>
+                      <h3 className="mt-2 text-2xl font-semibold text-white">Traffic trends and current activity</h3>
+                      <p className="mt-2 max-w-2xl text-sm leading-7 text-[#9fb1c7]">
+                        {analytics.note}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-[#d4e2f0]">
+                      <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">Source</p>
+                      <p className="mt-2 font-medium text-white">
+                        {analytics.connected ? "Google Analytics 4" : "Simulated Demo Data"}
+                      </p>
+                      <p className="mt-1 text-xs text-[#8ea7c2]">
+                        {analytics.propertyId ? `Property ${analytics.propertyId}` : "No property connected"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    {isAnalyticsLoading ? (
+                      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,1fr)]">
+                        {[0, 1].map((item) => (
+                          <div
+                            key={item}
+                            className="h-[420px] animate-pulse rounded-[1.75rem] border border-white/10 bg-white/[0.04]"
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <AdminAnalyticsCharts growth={analytics.growth} weekly={analytics.weekly} />
+                    )}
+                  </div>
+
+                  <div className="mt-6 rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.24em] text-[#6bd4ff]">Visitor Activity</p>
+                        <h4 className="mt-2 text-xl font-semibold text-white">Recent tracked users</h4>
+                      </div>
+                      <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">
+                        {(analytics.visitors || []).length} visitors
+                      </span>
+                    </div>
+
+                    <div className="mt-5 overflow-x-auto">
+                      <table className="min-w-full border-separate border-spacing-y-3">
+                        <thead>
+                          <tr>
+                            {["User ID", "IP", "Country", "Location", "Viewed Pages"].map((label) => (
+                              <th
+                                key={label}
+                                className="px-3 text-left text-xs uppercase tracking-[0.22em] text-[#8ea7c2]"
+                              >
+                                {label}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(analytics.visitors || []).length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={5}
+                                className="rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-6 text-center text-sm text-[#8ea7c2]"
+                              >
+                                No tracked visitors yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            analytics.visitors.map((visitor) => (
+                              <tr key={visitor.id} className="rounded-[1.2rem]">
+                                <td className="rounded-l-[1.2rem] border border-white/10 border-r-0 bg-white/[0.03] px-3 py-4 text-sm text-white">
+                                  <span className="block max-w-[180px] truncate">{visitor.userId}</span>
+                                </td>
+                                <td className="border border-white/10 border-l-0 border-r-0 bg-white/[0.03] px-3 py-4 text-sm text-[#d4e2f0]">
+                                  {visitor.ipAddress || "Unknown"}
+                                </td>
+                                <td className="border border-white/10 border-l-0 border-r-0 bg-white/[0.03] px-3 py-4 text-sm text-[#d4e2f0]">
+                                  {visitor.country || "Unknown"}
+                                </td>
+                                <td className="border border-white/10 border-l-0 border-r-0 bg-white/[0.03] px-3 py-4 text-sm text-[#d4e2f0]">
+                                  {visitor.location || "Unknown"}
+                                </td>
+                                <td className="rounded-r-[1.2rem] border border-white/10 border-l-0 bg-white/[0.03] px-3 py-4 text-sm">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedAnalyticsVisitor(visitor)}
+                                    className="rounded-xl border border-[#36557e] px-3 py-2 text-xs uppercase tracking-[0.18em] text-[#9fdcff] transition hover:bg-white/[0.05] hover:text-white"
+                                  >
+                                    View ({visitor.pageViews?.length || 0})
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Workspace Status</p>
+                    <div className="mt-5 space-y-3">
+                      {dashboardStatusCards.map((item) => (
+                        <div
+                          key={item.label}
+                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <p className="text-sm text-[#8ea7c2]">{item.label}</p>
+                              <p className="mt-1 truncate text-sm text-[#bfd0e2]">{item.detail}</p>
+                            </div>
+                            <span className="shrink-0 text-sm font-medium text-white">{item.value}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Quick Actions</p>
+                        <h3 className="mt-2 text-xl font-semibold text-white">Jump into the next task</h3>
+                      </div>
+                      <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">
+                        {(dashboardSummary.snapshot || []).length} live metrics
+                      </span>
+                    </div>
+                    <div className="mt-5 grid gap-3">
+                      {dashboardSummary.quickActions.map((item) => {
+                        const Icon = dashboardQuickActionIcons[item.icon] || FiSettings;
+
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            className="flex flex-col gap-4 rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-4 py-4 transition hover:border-[#36557e] hover:bg-white/[0.05] sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div className="flex min-w-0 items-start gap-3">
+                              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#132339] text-[#7fdcff]">
+                                <Icon size={18} />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="break-words font-medium text-white">{item.label}</p>
+                                <p className="mt-1 break-words text-sm leading-6 text-[#8ea7c2]">{item.description}</p>
+                              </div>
+                            </div>
+                            <span className="shrink-0 self-start text-xs uppercase tracking-[0.2em] text-[#9fdcff] sm:self-center">Open</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </section>
+                </div>
+              </section>
+
+              <section className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Content Health</p>
+                      <h3 className="mt-2 text-2xl font-semibold text-white">Publishing mix across sections</h3>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-right">
+                      <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">Configured</p>
+                      <p className="mt-2 text-2xl font-semibold text-white">
+                        {dashboardSummary.configuredPercentage || 0}%
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-6 space-y-4">
+                    {dashboardSummary.collectionHealth.map((item) => {
+                      const total = Math.max(item.total || 0, 1);
+                      const progress = Math.min(100, Math.round((item.value / total) * 100));
+
+                      return (
+                        <div key={item.label} className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="font-medium text-white">{item.label}</p>
+                            <p className="text-sm text-[#8ea7c2]">
+                              {item.value}/{item.total || 0}
+                            </p>
+                          </div>
+                          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/10">
+                            <div
+                              className={`h-full rounded-full bg-gradient-to-r ${item.accentClass}`}
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Portfolio Snapshot</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">Operational summary</h3>
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    {dashboardSummary.snapshot.map((item) => (
+                      <div key={item.label} className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
+                        <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">{item.label}</p>
+                        <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Recent Messages</p>
+                      <h3 className="mt-2 text-2xl font-semibold text-white">Latest inbox activity</h3>
+                    </div>
+                    <Link
+                      href="/admin/messages"
+                      className="text-xs uppercase tracking-[0.22em] text-[#9fdcff] transition hover:text-white"
+                    >
+                      View all
+                    </Link>
+                  </div>
+                  <div className="mt-6 space-y-3">
+                    {dashboardSummary.recentMessages.length === 0 ? (
+                      <div className="rounded-[1.4rem] border border-dashed border-white/10 bg-white/[0.03] p-5 text-sm text-[#8ea7c2]">
+                        No messages have arrived yet.
+                      </div>
+                    ) : (
+                      dashboardSummary.recentMessages.map((message) => (
+                        <div key={message.id} className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-white">{message.name}</p>
+                              <p className="truncate text-sm text-[#7fdcff]">{message.email}</p>
+                            </div>
+                            <span className="shrink-0 text-xs text-[#8ea7c2]">
+                              {message.createdAt ? new Date(message.createdAt).toLocaleDateString() : ""}
+                            </span>
+                          </div>
+                          <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#9fb1c7]">
+                            {message.message}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </section>
+              </section>
+            </div>
+          )}
+
+          {selectedAnalyticsVisitor && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+              <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+                <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Viewed Pages</p>
+                    <h4 className="mt-2 text-2xl font-semibold text-white">{selectedAnalyticsVisitor.userId}</h4>
+                    <p className="mt-2 text-sm text-[#97a9be]">
+                      {selectedAnalyticsVisitor.ipAddress || "Unknown IP"} • {selectedAnalyticsVisitor.country || "Unknown country"} • {selectedAnalyticsVisitor.location || "Unknown location"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAnalyticsVisitor(null)}
+                    className="rounded-xl border border-[#334862] px-4 py-2 text-sm text-[#c1cfde] transition hover:border-[#4a678b]"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {(selectedAnalyticsVisitor.pageViews || []).length === 0 ? (
+                    <div className="rounded-[1.4rem] border border-dashed border-white/10 bg-white/[0.03] p-5 text-sm text-[#8ea7c2]">
+                      No pages tracked for this visitor yet.
+                    </div>
+                  ) : (
+                    selectedAnalyticsVisitor.pageViews.map((page) => (
+                      <div key={page.id} className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="break-all font-medium text-white">{page.path}</p>
+                          <span className="text-sm text-[#9fdcff]">{page.viewCount} views</span>
+                        </div>
+                        <div className="mt-3 grid gap-2 text-sm text-[#8ea7c2] sm:grid-cols-2">
+                          <p>First viewed: {page.firstViewedAt ? new Date(page.firstViewedAt).toLocaleString() : "Unknown"}</p>
+                          <p>Last viewed: {page.lastViewedAt ? new Date(page.lastViewedAt).toLocaleString() : "Unknown"}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {activeTab === "settings" && (
             <form className="space-y-6" onSubmit={handleSettingsSave}>
@@ -4364,5 +4807,5 @@ export function AdminSectionPage({ section = "services" }) {
 }
 
 export default function AdminDashboardPage() {
-  return <AdminSectionPage section="services" />;
+  return <AdminSectionPage section="dashboard" />;
 }

@@ -19,6 +19,7 @@ const io = new Server(server, {
   },
 });
 
+app.set("trust proxy", true);
 app.set("io", io);
 
 app.use(

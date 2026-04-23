@@ -81,6 +81,99 @@ function normalizeString(value) {
   return String(value || "").trim();
 }
 
+function normalizeTrackingPath(value) {
+  const pathValue = String(value || "").trim();
+  if (!pathValue || !pathValue.startsWith("/")) {
+    return "/";
+  }
+
+  return pathValue.slice(0, 191);
+}
+
+function normalizeTrackingSessionId(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 120);
+}
+
+function getUtcDateOnly(date = new Date()) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function getRequestIp(request) {
+  const forwarded = String(request.headers["x-forwarded-for"] || "").trim();
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+
+  const realIp = String(request.headers["x-real-ip"] || "").trim();
+  if (realIp) {
+    return realIp;
+  }
+
+  const socketAddress = String(request.socket?.remoteAddress || "").trim();
+  return socketAddress.replace(/^::ffff:/, "");
+}
+
+function isPublicIp(ip) {
+  if (!ip) {
+    return false;
+  }
+
+  const value = ip.replace(/^::ffff:/, "");
+  return !(
+    value === "127.0.0.1" ||
+    value === "::1" ||
+    value.startsWith("10.") ||
+    value.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(value)
+  );
+}
+
+async function lookupGeoDetails(request, ipAddress) {
+  const headerCountry = normalizeString(request.headers["x-vercel-ip-country"]);
+  const headerRegion = normalizeString(request.headers["x-vercel-ip-country-region"]);
+  const headerCity = normalizeString(request.headers["x-vercel-ip-city"]);
+
+  if (headerCountry || headerRegion || headerCity) {
+    return {
+      country: headerCountry,
+      region: headerRegion,
+      city: headerCity,
+    };
+  }
+
+  if (!isPublicIp(ipAddress)) {
+    return { country: "", region: "", city: "" };
+  }
+
+  try {
+    const geoResponse = await fetch(`https://ipwho.is/${encodeURIComponent(ipAddress)}`, {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!geoResponse.ok) {
+      return { country: "", region: "", city: "" };
+    }
+
+    const geoData = await geoResponse.json();
+    if (!geoData?.success) {
+      return { country: "", region: "", city: "" };
+    }
+
+    return {
+      country: normalizeString(geoData.country),
+      region: normalizeString(geoData.region),
+      city: normalizeString(geoData.city),
+    };
+  } catch (_error) {
+    return { country: "", region: "", city: "" };
+  }
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -936,6 +1029,101 @@ router.get("/settings", async (_request, response) => {
   } catch (error) {
     console.error("Failed to load site settings:", error.message);
     return response.status(500).json({ message: "Failed to load site settings." });
+  }
+});
+
+router.post("/analytics/heartbeat", async (request, response) => {
+  try {
+    const sessionId = normalizeTrackingSessionId(request.body?.sessionId);
+    const path = normalizeTrackingPath(request.body?.path);
+    const eventType = normalizeString(request.body?.eventType).toLowerCase() || "heartbeat";
+
+    if (!sessionId) {
+      return response.status(400).json({ message: "Session id is required." });
+    }
+
+    const now = new Date();
+    const today = getUtcDateOnly(now);
+    const userAgent = String(request.headers["user-agent"] || "").slice(0, 2000);
+    const ipAddress = getRequestIp(request).slice(0, 191);
+    const geoDetails = await lookupGeoDetails(request, ipAddress);
+
+    const session = await prisma.analyticsSession.upsert({
+      where: { sessionId },
+      update: {
+        lastPath: path,
+        lastSeenAt: now,
+        userAgent: userAgent || undefined,
+        ipAddress,
+        country: geoDetails.country,
+        region: geoDetails.region,
+        city: geoDetails.city,
+      },
+      create: {
+        sessionId,
+        firstPath: path,
+        lastPath: path,
+        lastSeenAt: now,
+        userAgent: userAgent || undefined,
+        ipAddress,
+        country: geoDetails.country,
+        region: geoDetails.region,
+        city: geoDetails.city,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await prisma.analyticsDailyVisit.upsert({
+      where: {
+        sessionRef_visitDate: {
+          sessionRef: session.id,
+          visitDate: today,
+        },
+      },
+      update: {
+        path,
+      },
+      create: {
+        sessionRef: session.id,
+        visitDate: today,
+        path,
+      },
+    });
+
+    if (eventType === "pageview") {
+      await prisma.analyticsPageView.upsert({
+        where: {
+          sessionRef_path: {
+            sessionRef: session.id,
+            path,
+          },
+        },
+        update: {
+          lastViewedAt: now,
+          viewCount: {
+            increment: 1,
+          },
+        },
+        create: {
+          sessionRef: session.id,
+          path,
+          firstViewedAt: now,
+          lastViewedAt: now,
+          viewCount: 1,
+        },
+      });
+    }
+
+    return response.status(201).json({ success: true });
+  } catch (error) {
+    if (error?.code === "P2021") {
+      return response.status(202).json({ success: false, message: "Analytics tables are not ready yet." });
+    }
+
+    console.error("Failed to track analytics heartbeat:", error.message);
+    return response.status(500).json({ message: "Failed to track analytics heartbeat." });
   }
 });
 
