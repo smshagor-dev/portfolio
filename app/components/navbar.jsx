@@ -14,8 +14,10 @@ const navItems = [
   { label: "Contact", href: "/contact" },
 ];
 
-function Navbar({ profile }) {
+function Navbar({ profile, settings }) {
   const pathname = usePathname();
+  const brandTitle = settings?.websiteTitle || "SHAGOR";
+  const brandSubtitle = profile?.designation || settings?.websiteDescription || "Software Developer";
   const socialLinks = (profile?.socialLinks || [])
     .map((item) => {
       const config = getSocialIconOption(item?.icon);
@@ -55,13 +57,13 @@ function Navbar({ profile }) {
                 className="text-[2.55rem] leading-none tracking-tight text-[#f3ede2]"
                 style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
               >
-                SHAGOR
+                {brandTitle}
               </span>
               <span
                 className="pb-1 text-[1rem] text-[#b8b0a4] lg:text-[1.15rem]"
                 style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
               >
-                Software Developer
+                {brandSubtitle}
               </span>
             </Link>
 

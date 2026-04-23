@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
-import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiFolder, FiLogOut, FiMail, FiSettings } from "react-icons/fi";
+import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiFolder, FiLogOut, FiMail, FiMessageSquare, FiSettings } from "react-icons/fi";
 import { getSocialIconOption, searchSocialIcons } from "@/utils/social-icons";
 import { getServiceIconOption, serviceIconOptions } from "@/utils/service-icons";
 import { getStatsIconOption, statsIconOptions } from "@/utils/stats-icons";
@@ -41,6 +41,10 @@ function emptySocialLink() {
 
 function emptyCounterItem() {
   return { label: "", highlight: "", count: "", icon: "projects" };
+}
+
+function emptyAchievementItem() {
+  return { title: "", issuer: "", date: "", type: "", image: "" };
 }
 
 function emptyPricingItem() {
@@ -108,6 +112,48 @@ function emptyServiceReply() {
   return {
     reply: "",
     impression: "",
+  };
+}
+
+function emptyTestimonialItem() {
+  return {
+    name: "",
+    content: "",
+    image: "/profile.png",
+    company: "",
+    position: "",
+    stars: 5,
+    status: true,
+  };
+}
+
+function emptySiteSettings() {
+  return {
+    websiteTitle: "",
+    websiteDescription: "",
+    seoTitle: "",
+    seoDescription: "",
+    seoKeywords: "",
+    seoImage: "",
+    websiteIcon: "",
+    contactEmail: "",
+    mobileNumber: "",
+    footerText: "",
+    canonicalUrl: "",
+    googleSiteVerification: "",
+    googleAnalyticsId: "",
+    googleTagManagerId: "",
+    robotsIndexingEnabled: true,
+    robotsFollowEnabled: true,
+    smtpHost: "",
+    smtpPort: 587,
+    smtpUser: "",
+    smtpPass: "",
+    smtpSecure: false,
+    smtpFromEmail: "",
+    smtpFromName: "",
+    smtpReplyToEmail: "",
+    smtpToEmail: "",
   };
 }
 
@@ -391,8 +437,73 @@ function buildServicePayload(sourceForm) {
   };
 }
 
+function buildTestimonialsPayload(sourceForm) {
+  return {
+    testimonials: sourceForm.testimonials
+      .map((item) => ({
+        name: item.name.trim(),
+        content: item.content,
+        image: item.image.trim(),
+        company: item.company.trim(),
+        position: item.position.trim(),
+        stars: Math.max(1, Math.min(5, Number(item.stars) || 5)),
+        status: Boolean(item.status),
+      }))
+      .filter((item) => item.name && item.content && item.company),
+  };
+}
+
+function buildAchievementsPayload(sourceForm) {
+  return {
+    achievements: sourceForm.achievements
+      .map((item) => ({
+        title: item.title.trim(),
+        issuer: item.issuer.trim(),
+        date: item.date.trim(),
+        type: item.type.trim(),
+        image: item.image.trim(),
+      }))
+      .filter((item) => item.title && item.issuer && item.date && item.type),
+  };
+}
+
+function buildSiteSettingsPayload(sourceForm) {
+  return {
+    siteSettings: {
+      websiteTitle: sourceForm.siteSettings.websiteTitle.trim(),
+      websiteDescription: sourceForm.siteSettings.websiteDescription.trim(),
+      seoTitle: sourceForm.siteSettings.seoTitle.trim(),
+      seoDescription: sourceForm.siteSettings.seoDescription.trim(),
+      seoKeywords: sourceForm.siteSettings.seoKeywords.trim(),
+      seoImage: sourceForm.siteSettings.seoImage.trim(),
+      websiteIcon: sourceForm.siteSettings.websiteIcon.trim(),
+      contactEmail: sourceForm.siteSettings.contactEmail.trim(),
+      mobileNumber: sourceForm.siteSettings.mobileNumber.trim(),
+      footerText: sourceForm.siteSettings.footerText.trim(),
+      canonicalUrl: sourceForm.siteSettings.canonicalUrl.trim(),
+      googleSiteVerification: sourceForm.siteSettings.googleSiteVerification.trim(),
+      googleAnalyticsId: sourceForm.siteSettings.googleAnalyticsId.trim(),
+      googleTagManagerId: sourceForm.siteSettings.googleTagManagerId.trim(),
+      robotsIndexingEnabled: Boolean(sourceForm.siteSettings.robotsIndexingEnabled),
+      robotsFollowEnabled: Boolean(sourceForm.siteSettings.robotsFollowEnabled),
+      smtpHost: sourceForm.siteSettings.smtpHost.trim(),
+      smtpPort: Number(sourceForm.siteSettings.smtpPort) || 587,
+      smtpUser: sourceForm.siteSettings.smtpUser.trim(),
+      smtpPass: sourceForm.siteSettings.smtpPass,
+      smtpSecure: Boolean(sourceForm.siteSettings.smtpSecure),
+      smtpFromEmail: sourceForm.siteSettings.smtpFromEmail.trim(),
+      smtpFromName: sourceForm.siteSettings.smtpFromName.trim(),
+      smtpReplyToEmail: sourceForm.siteSettings.smtpReplyToEmail.trim(),
+      smtpToEmail: sourceForm.siteSettings.smtpToEmail.trim(),
+    },
+  };
+}
+
 const tabs = [
+  { id: "settings", label: "Settings", icon: FiSettings, href: "/admin/settings" },
   { id: "hero", label: "Hero", icon: HiOutlineSparkles, href: "/admin/hero" },
+  { id: "achievement", label: "Achievement", icon: HiOutlineUsers, href: "/admin/achievement" },
+  { id: "testimonials", label: "Testimonials", icon: FiMessageSquare, href: "/admin/testimonials" },
   { id: "skills", label: "Skills", icon: FiCode, href: "/admin/skills" },
   { id: "experience", label: "Experience", icon: FiBriefcase, href: "/admin/experience" },
   { id: "education", label: "Education", icon: FiBookOpen, href: "/admin/education" },
@@ -422,6 +533,9 @@ export function AdminSectionPage({ section = "services" }) {
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [editingPricingIndex, setEditingPricingIndex] = useState(-1);
   const [pricingDraft, setPricingDraft] = useState(emptyPricingItem());
+  const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
+  const [editingTestimonialIndex, setEditingTestimonialIndex] = useState(-1);
+  const [testimonialDraft, setTestimonialDraft] = useState(emptyTestimonialItem());
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProjectIndex, setEditingProjectIndex] = useState(-1);
   const [projectDraft, setProjectDraft] = useState(emptyProjectItem());
@@ -432,10 +546,12 @@ export function AdminSectionPage({ section = "services" }) {
     description: "",
     resume: "",
     statsCounters: [emptyCounterItem()],
+    achievements: [emptyAchievementItem()],
     skills: [emptySkillItem()],
     experiences: [emptyExperienceItem()],
     educations: [emptyEducationItem()],
     pricings: [],
+    testimonials: [],
     projects: [],
     socialLinks: [emptySocialLink()],
     heroSkillsTitle: "",
@@ -443,6 +559,7 @@ export function AdminSectionPage({ section = "services" }) {
     serviceSectionTitle: "",
     serviceSectionSubtitle: "",
     services: [emptyServiceItem()],
+    siteSettings: emptySiteSettings(),
   });
   const activeTab = section;
   const serviceSocketSlugs = form.services
@@ -474,6 +591,21 @@ export function AdminSectionPage({ section = "services" }) {
           designation: data.profile?.designation || "",
           description: data.profile?.description || "",
           resume: data.profile?.resume || "",
+          siteSettings: {
+            ...emptySiteSettings(),
+            ...(data.siteSettings || {}),
+            smtpPort: data.siteSettings?.smtpPort || 587,
+            robotsIndexingEnabled:
+              typeof data.siteSettings?.robotsIndexingEnabled === "boolean"
+                ? data.siteSettings.robotsIndexingEnabled
+                : true,
+            robotsFollowEnabled:
+              typeof data.siteSettings?.robotsFollowEnabled === "boolean"
+                ? data.siteSettings.robotsFollowEnabled
+                : true,
+            smtpSecure:
+              typeof data.siteSettings?.smtpSecure === "boolean" ? data.siteSettings.smtpSecure : false,
+          },
           statsCounters:
             Array.isArray(data.statsCounters) && data.statsCounters.length
               ? data.statsCounters.map((item) => ({
@@ -483,6 +615,16 @@ export function AdminSectionPage({ section = "services" }) {
                   icon: item?.icon || "projects",
                 }))
               : [emptyCounterItem()],
+          achievements:
+            Array.isArray(data.achievements) && data.achievements.length
+              ? data.achievements.map((item) => ({
+                  title: item?.title || "",
+                  issuer: item?.issuer || "",
+                  date: item?.date || "",
+                  type: item?.type || "",
+                  image: item?.image || "",
+                }))
+              : [emptyAchievementItem()],
           skills:
             Array.isArray(data.skills) && data.skills.length
               ? data.skills.map((item) => ({
@@ -524,6 +666,18 @@ export function AdminSectionPage({ section = "services" }) {
                     Array.isArray(item?.features) && item.features.length ? item.features : [""],
                   status: typeof item?.status === "boolean" ? item.status : true,
                   isPopular: Boolean(item?.isPopular),
+                }))
+              : [],
+          testimonials:
+            Array.isArray(data.testimonials) && data.testimonials.length
+              ? data.testimonials.map((item) => ({
+                  name: item?.name || "",
+                  content: item?.content || "",
+                  image: item?.image || "/profile.png",
+                  company: item?.company || "",
+                  position: item?.position || "",
+                  stars: item?.stars || 5,
+                  status: typeof item?.status === "boolean" ? item.status : true,
                 }))
               : [],
           projects:
@@ -723,6 +877,16 @@ export function AdminSectionPage({ section = "services" }) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function updateSiteSettingsField(key, value) {
+    setForm((current) => ({
+      ...current,
+      siteSettings: {
+        ...current.siteSettings,
+        [key]: value,
+      },
+    }));
+  }
+
   function updateHeroSkill(index, key, value) {
     setForm((current) => ({
       ...current,
@@ -745,6 +909,15 @@ export function AdminSectionPage({ section = "services" }) {
     setForm((current) => ({
       ...current,
       statsCounters: current.statsCounters.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [key]: value } : item,
+      ),
+    }));
+  }
+
+  function updateAchievementItem(index, key, value) {
+    setForm((current) => ({
+      ...current,
+      achievements: current.achievements.map((item, itemIndex) =>
         itemIndex === index ? { ...item, [key]: value } : item,
       ),
     }));
@@ -779,6 +952,10 @@ export function AdminSectionPage({ section = "services" }) {
 
   function updatePricingDraft(key, value) {
     setPricingDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateTestimonialDraft(key, value) {
+    setTestimonialDraft((current) => ({ ...current, [key]: value }));
   }
 
   function updateProjectDraft(key, value) {
@@ -852,6 +1029,13 @@ export function AdminSectionPage({ section = "services" }) {
     }));
   }
 
+  function addAchievementItem() {
+    setForm((current) => ({
+      ...current,
+      achievements: [...current.achievements, emptyAchievementItem()],
+    }));
+  }
+
   function addSkillItem() {
     setForm((current) => ({
       ...current,
@@ -909,6 +1093,12 @@ export function AdminSectionPage({ section = "services" }) {
     setIsPricingModalOpen(true);
   }
 
+  function addTestimonialItem() {
+    setEditingTestimonialIndex(-1);
+    setTestimonialDraft(emptyTestimonialItem());
+    setIsTestimonialModalOpen(true);
+  }
+
   function removePricingItem(index) {
     setForm((current) => {
       const nextPricings = current.pricings.filter((_, itemIndex) => itemIndex !== index);
@@ -917,6 +1107,13 @@ export function AdminSectionPage({ section = "services" }) {
         pricings: nextPricings,
       };
     });
+  }
+
+  function removeTestimonialItem(index) {
+    setForm((current) => ({
+      ...current,
+      testimonials: current.testimonials.filter((_, itemIndex) => itemIndex !== index),
+    }));
   }
 
   function addProjectItem() {
@@ -1006,6 +1203,21 @@ export function AdminSectionPage({ section = "services" }) {
     setPricingDraft(emptyPricingItem());
   }
 
+  function openEditTestimonialModal(index) {
+    setEditingTestimonialIndex(index);
+    setTestimonialDraft({
+      ...form.testimonials[index],
+      image: form.testimonials[index]?.image || "/profile.png",
+    });
+    setIsTestimonialModalOpen(true);
+  }
+
+  function closeTestimonialModal() {
+    setIsTestimonialModalOpen(false);
+    setEditingTestimonialIndex(-1);
+    setTestimonialDraft(emptyTestimonialItem());
+  }
+
   function addPricingFeature() {
     setPricingDraft((current) => ({
       ...current,
@@ -1029,6 +1241,16 @@ export function AdminSectionPage({ section = "services" }) {
       return {
         ...current,
         statsCounters: nextCounters.length ? nextCounters : [emptyCounterItem()],
+      };
+    });
+  }
+
+  function removeAchievementItem(index) {
+    setForm((current) => {
+      const nextAchievements = current.achievements.filter((_, itemIndex) => itemIndex !== index);
+      return {
+        ...current,
+        achievements: nextAchievements.length ? nextAchievements : [emptyAchievementItem()],
       };
     });
   }
@@ -1165,6 +1387,41 @@ export function AdminSectionPage({ section = "services" }) {
     closePricingModal();
   }
 
+  function saveTestimonialDraft() {
+    const normalizedDraft = {
+      ...testimonialDraft,
+      name: testimonialDraft.name.trim(),
+      content: testimonialDraft.content,
+      image: testimonialDraft.image.trim() || "/profile.png",
+      company: testimonialDraft.company.trim(),
+      position: testimonialDraft.position.trim(),
+      stars: Math.max(1, Math.min(5, Number(testimonialDraft.stars) || 5)),
+      status: Boolean(testimonialDraft.status),
+    };
+
+    if (!normalizedDraft.name || !normalizedDraft.content || !normalizedDraft.company) {
+      toast.error("Testimonial name, company, and content are required.");
+      return;
+    }
+
+    setForm((current) => {
+      const nextTestimonials = [...current.testimonials];
+
+      if (editingTestimonialIndex >= 0) {
+        nextTestimonials[editingTestimonialIndex] = normalizedDraft;
+      } else {
+        nextTestimonials.push(normalizedDraft);
+      }
+
+      return {
+        ...current,
+        testimonials: nextTestimonials,
+      };
+    });
+
+    closeTestimonialModal();
+  }
+
   function saveProjectDraft() {
     const normalizedDraft = {
       ...projectDraft,
@@ -1263,6 +1520,13 @@ export function AdminSectionPage({ section = "services" }) {
     } catch {}
   }
 
+  async function handleAchievementsSave(event) {
+    event.preventDefault();
+    try {
+      await persistContent(buildAchievementsPayload(form), "Achievement section updated.");
+    } catch {}
+  }
+
   async function handleSkillsSave(event) {
     event.preventDefault();
     try {
@@ -1291,6 +1555,13 @@ export function AdminSectionPage({ section = "services" }) {
     } catch {}
   }
 
+  async function handleTestimonialsSave(event) {
+    event.preventDefault();
+    try {
+      await persistContent(buildTestimonialsPayload(form), "Testimonials section updated.");
+    } catch {}
+  }
+
   async function handleProjectsSave(event) {
     event.preventDefault();
     try {
@@ -1302,6 +1573,13 @@ export function AdminSectionPage({ section = "services" }) {
     event.preventDefault();
     try {
       await persistContent(buildServicePayload(form), "Services section updated.");
+    } catch {}
+  }
+
+  async function handleSettingsSave(event) {
+    event.preventDefault();
+    try {
+      await persistContent(buildSiteSettingsPayload(form), "Website settings updated.");
     } catch {}
   }
 
@@ -1338,6 +1616,13 @@ export function AdminSectionPage({ section = "services" }) {
             itemIndex === options.index ? { ...item, image: data.path } : item,
           ),
         };
+      } else if (options.type === "achievement") {
+        nextForm = {
+          ...form,
+          achievements: form.achievements.map((item, itemIndex) =>
+            itemIndex === options.index ? { ...item, image: data.path } : item,
+          ),
+        };
       } else if (options.type === "real-skill") {
         nextForm = {
           ...form,
@@ -1345,12 +1630,26 @@ export function AdminSectionPage({ section = "services" }) {
             itemIndex === options.index ? { ...item, image: data.path } : item,
           ),
         };
+      } else if (options.type === "testimonial") {
+        setTestimonialDraft((current) => ({
+          ...current,
+          image: data.path,
+        }));
+        return;
       } else if (options.type === "project") {
         setProjectDraft((current) => ({
           ...current,
           image: data.path,
         }));
         return;
+      } else if (options.type === "site-setting") {
+        nextForm = {
+          ...form,
+          siteSettings: {
+            ...form.siteSettings,
+            [options.key]: data.path,
+          },
+        };
       } else {
         nextForm = {
           ...form,
@@ -1359,7 +1658,13 @@ export function AdminSectionPage({ section = "services" }) {
       }
 
       setForm(nextForm);
-      await persistContent(buildHeroPayload(nextForm), "Image uploaded and saved.");
+      if (options.type === "site-setting") {
+        await persistContent(buildSiteSettingsPayload(nextForm), "Image uploaded and saved.");
+      } else if (options.type === "achievement") {
+        await persistContent(buildAchievementsPayload(nextForm), "Image uploaded and saved.");
+      } else {
+        await persistContent(buildHeroPayload(nextForm), "Image uploaded and saved.");
+      }
     } catch (error) {
       toast.error(error.message || "Image upload failed.");
     } finally {
@@ -1429,6 +1734,8 @@ export function AdminSectionPage({ section = "services" }) {
   const featuredServices = form.services.filter((item) => item.isFeatured).length;
   const totalServices = form.services.length;
   const totalSkills = form.skills.filter((item) => item.name.trim()).length;
+  const totalAchievements = form.achievements.filter((item) => item.title.trim()).length;
+  const achievementsWithImage = form.achievements.filter((item) => item.image.trim()).length;
   const totalExperiences = form.experiences.filter((item) => item.title.trim()).length;
   const experiencesWithDescription = form.experiences.filter((item) => stripHtml(item.description).trim()).length;
   const totalEducations = form.educations.filter((item) => item.title.trim()).length;
@@ -1449,12 +1756,37 @@ export function AdminSectionPage({ section = "services" }) {
   const activePricings = form.pricings.filter((item) => item.status).length;
   const popularPricings = form.pricings.filter((item) => item.isPopular).length;
   const totalPricings = form.pricings.length;
+  const activeTestimonials = form.testimonials.filter((item) => item.status).length;
+  const totalTestimonials = form.testimonials.length;
+  const testimonialsWithImage = form.testimonials.filter((item) => item.image.trim()).length;
+  const settingsImagesCount = [
+    form.siteSettings.seoImage,
+    form.siteSettings.websiteIcon,
+  ].filter((item) => String(item || "").trim()).length;
   const dashboardHighlights =
-    activeTab === "pricing"
+    activeTab === "settings"
+      ? [
+          { label: "SEO Assets", value: settingsImagesCount, icon: FiSettings },
+          { label: "Analytics", value: form.siteSettings.googleAnalyticsId || form.siteSettings.googleTagManagerId ? "Connected" : "Pending", icon: FiBarChart2 },
+          { label: "SMTP", value: form.siteSettings.smtpHost ? "Configured" : "Pending", icon: FiMail },
+        ]
+      : activeTab === "achievement"
+      ? [
+          { label: "Total Achievements", value: totalAchievements, icon: HiOutlineUsers },
+          { label: "With Image", value: achievementsWithImage, icon: HiOutlineSparkles },
+          { label: "Rich Entries", value: `${totalAchievements ? Math.round((achievementsWithImage / totalAchievements) * 100) : 0}%`, icon: FiBarChart2 },
+        ]
+      : activeTab === "pricing"
       ? [
           { label: "Active Plans", value: activePricings, icon: FiDollarSign },
           { label: "Popular Plans", value: popularPricings, icon: HiOutlineSparkles },
           { label: "Total Plans", value: totalPricings, icon: FiBarChart2 },
+        ]
+      : activeTab === "testimonials"
+      ? [
+          { label: "Published", value: activeTestimonials, icon: FiMessageSquare },
+          { label: "With Image", value: testimonialsWithImage, icon: HiOutlineUsers },
+          { label: "Total Entries", value: totalTestimonials, icon: FiBarChart2 },
         ]
       : activeTab === "education"
         ? [
@@ -1574,6 +1906,278 @@ export function AdminSectionPage({ section = "services" }) {
               })}
             </div>
           </section>
+
+          {activeTab === "settings" && (
+            <form className="space-y-6" onSubmit={handleSettingsSave}>
+              <section className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Website Basics</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">Brand, contact, and footer settings</h3>
+                  <div className="mt-6 grid gap-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Website Title</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={form.siteSettings.websiteTitle}
+                        onChange={(event) => updateSiteSettingsField("websiteTitle", event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Website Description</label>
+                      <textarea
+                        className="min-h-[120px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={form.siteSettings.websiteDescription}
+                        onChange={(event) => updateSiteSettingsField("websiteDescription", event.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Contact Email</label>
+                        <input
+                          type="email"
+                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          value={form.siteSettings.contactEmail}
+                          onChange={(event) => updateSiteSettingsField("contactEmail", event.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Mobile Number</label>
+                        <input
+                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          value={form.siteSettings.mobileNumber}
+                          onChange={(event) => updateSiteSettingsField("mobileNumber", event.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Footer Text</label>
+                      <textarea
+                        className="min-h-[100px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={form.siteSettings.footerText}
+                        onChange={(event) => updateSiteSettingsField("footerText", event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Canonical URL</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        placeholder="https://yourdomain.com"
+                        value={form.siteSettings.canonicalUrl}
+                        onChange={(event) => updateSiteSettingsField("canonicalUrl", event.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">SEO & Indexing</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">Search metadata, analytics, and robots</h3>
+                  <div className="mt-6 grid gap-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">SEO Title</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={form.siteSettings.seoTitle}
+                        onChange={(event) => updateSiteSettingsField("seoTitle", event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">SEO Description</label>
+                      <textarea
+                        className="min-h-[120px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={form.siteSettings.seoDescription}
+                        onChange={(event) => updateSiteSettingsField("seoDescription", event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">SEO Keywords</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        placeholder="portfolio, developer, next.js"
+                        value={form.siteSettings.seoKeywords}
+                        onChange={(event) => updateSiteSettingsField("seoKeywords", event.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Google Verification</label>
+                        <input
+                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          value={form.siteSettings.googleSiteVerification}
+                          onChange={(event) => updateSiteSettingsField("googleSiteVerification", event.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Google Analytics ID</label>
+                        <input
+                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          placeholder="G-XXXXXXXXXX"
+                          value={form.siteSettings.googleAnalyticsId}
+                          onChange={(event) => updateSiteSettingsField("googleAnalyticsId", event.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Google Tag Manager ID</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        placeholder="GTM-XXXXXXX"
+                        value={form.siteSettings.googleTagManagerId}
+                        onChange={(event) => updateSiteSettingsField("googleTagManagerId", event.target.value)}
+                      />
+                    </div>
+                    <div className="grid gap-3">
+                      <label className="flex items-center gap-3 rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-sm text-[#d3d8e8]">
+                        <input
+                          type="checkbox"
+                          checked={form.siteSettings.robotsIndexingEnabled}
+                          onChange={(event) => updateSiteSettingsField("robotsIndexingEnabled", event.target.checked)}
+                        />
+                        Allow search engines to index this website
+                      </label>
+                      <label className="flex items-center gap-3 rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-sm text-[#d3d8e8]">
+                        <input
+                          type="checkbox"
+                          checked={form.siteSettings.robotsFollowEnabled}
+                          onChange={(event) => updateSiteSettingsField("robotsFollowEnabled", event.target.checked)}
+                        />
+                        Allow search engines to follow page links
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Brand Assets</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">SEO image and website icon</h3>
+                  <div className="mt-6 grid gap-4">
+                    {[
+                      { key: "seoImage", label: "SEO Image" },
+                      { key: "websiteIcon", label: "Website Icon" },
+                    ].map((asset) => (
+                      <div key={asset.key} className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4">
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">{asset.label}</label>
+                        <input
+                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          value={form.siteSettings[asset.key]}
+                          onChange={(event) => updateSiteSettingsField(asset.key, event.target.value)}
+                        />
+                        <label className="mt-4 inline-flex cursor-pointer items-center rounded-xl border border-[#36557e] px-4 py-3 text-sm text-[#9ae2ff] transition hover:bg-[#12243b]">
+                          {isUploadingImage ? "Uploading..." : `Upload ${asset.label}`}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(event) => handleImageUpload(event, { type: "site-setting", key: asset.key })}
+                          />
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">SMTP Settings</p>
+                <h3 className="mt-2 text-2xl font-semibold text-white">Email delivery for contact form</h3>
+                <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                  Contact messages will still save in the admin inbox. When SMTP is configured, the site will also email you and send an auto-reply to the visitor.
+                </p>
+                <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">SMTP Host</label>
+                    <input
+                      className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                      value={form.siteSettings.smtpHost}
+                      onChange={(event) => updateSiteSettingsField("smtpHost", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">SMTP Port</label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                      value={form.siteSettings.smtpPort}
+                      onChange={(event) => updateSiteSettingsField("smtpPort", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">SMTP User</label>
+                    <input
+                      className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                      value={form.siteSettings.smtpUser}
+                      onChange={(event) => updateSiteSettingsField("smtpUser", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">SMTP Password</label>
+                    <input
+                      type="password"
+                      className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                      value={form.siteSettings.smtpPass}
+                      onChange={(event) => updateSiteSettingsField("smtpPass", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">From Email</label>
+                    <input
+                      type="email"
+                      className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                      value={form.siteSettings.smtpFromEmail}
+                      onChange={(event) => updateSiteSettingsField("smtpFromEmail", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">From Name</label>
+                    <input
+                      className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                      value={form.siteSettings.smtpFromName}
+                      onChange={(event) => updateSiteSettingsField("smtpFromName", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Reply-To Email</label>
+                    <input
+                      type="email"
+                      className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                      value={form.siteSettings.smtpReplyToEmail}
+                      onChange={(event) => updateSiteSettingsField("smtpReplyToEmail", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Inbox Email</label>
+                    <input
+                      type="email"
+                      className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                      value={form.siteSettings.smtpToEmail}
+                      onChange={(event) => updateSiteSettingsField("smtpToEmail", event.target.value)}
+                    />
+                  </div>
+                </div>
+                <label className="mt-4 flex items-center gap-3 rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-sm text-[#d3d8e8]">
+                  <input
+                    type="checkbox"
+                    checked={form.siteSettings.smtpSecure}
+                    onChange={(event) => updateSiteSettingsField("smtpSecure", event.target.checked)}
+                  />
+                  Use secure SMTP connection
+                </label>
+              </section>
+
+              <div className="flex justify-end">
+                <button
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isSaving}
+                  type="submit"
+                >
+                  {isSaving ? "Saving..." : "Save Website Settings"}
+                </button>
+              </div>
+            </form>
+          )}
 
           {activeTab === "services" && (
             <form className="space-y-6" onSubmit={handleServicesSave}>
@@ -2337,6 +2941,132 @@ export function AdminSectionPage({ section = "services" }) {
                   type="submit"
                 >
                   {isSaving ? "Saving..." : "Save Counter Section"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {activeTab === "achievement" && (
+            <form className="space-y-6" onSubmit={handleAchievementsSave}>
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Achievement Section</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Awards, certificates, and recognitions</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addAchievementItem}
+                    className="rounded-xl border border-[#4dc4ff] px-4 py-2 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                  >
+                    Add New
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {form.achievements.map((item, index) => (
+                    <div
+                      key={`achievement-item-${index}`}
+                      className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4"
+                    >
+                      <div className="mb-4 flex items-center justify-between">
+                        <p className="text-sm font-medium text-[#d3d8e8]">Achievement {index + 1}</p>
+                        <button
+                          type="button"
+                          onClick={() => removeAchievementItem(index)}
+                          className="text-sm text-[#ffb6c6] transition hover:text-[#ffd1db]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      <div className="grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)]">
+                        <div className="space-y-3">
+                          <div className="overflow-hidden rounded-[1.25rem] border border-[#2c3852] bg-[#101b2d]">
+                            {item.image ? (
+                              <Image
+                                src={item.image}
+                                alt={item.title || "Achievement preview"}
+                                width={180}
+                                height={180}
+                                className="h-[180px] w-full object-cover"
+                                unoptimized
+                              />
+                            ) : (
+                              <div className="flex h-[180px] items-center justify-center text-center text-xs uppercase tracking-[0.25em] text-[#8fdcff]">
+                                {item.type || "No image"}
+                              </div>
+                            )}
+                          </div>
+                          <input
+                            className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                            placeholder="/uploads/achievement.png"
+                            value={item.image}
+                            onChange={(event) => updateAchievementItem(index, "image", event.target.value)}
+                          />
+                          <label className="block cursor-pointer rounded-xl border border-[#36557e] px-4 py-3 text-center text-sm text-[#9ae2ff] transition hover:bg-[#12243b]">
+                            {isUploadingImage ? "Uploading..." : "Upload Image"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(event) => handleImageUpload(event, { type: "achievement", index })}
+                            />
+                          </label>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="md:col-span-2">
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Title</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              value={item.title}
+                              onChange={(event) => updateAchievementItem(index, "title", event.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Issuer</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              value={item.issuer}
+                              onChange={(event) => updateAchievementItem(index, "issuer", event.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Date</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="2025"
+                              value={item.date}
+                              onChange={(event) => updateAchievementItem(index, "date", event.target.value)}
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Type</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="Award / Certificate / Competition"
+                              value={item.type}
+                              onChange={(event) => updateAchievementItem(index, "type", event.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <div className="flex justify-end">
+                <button
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isSaving}
+                  type="submit"
+                >
+                  {isSaving ? "Saving..." : "Save Achievement Section"}
                 </button>
               </div>
             </form>
@@ -3340,6 +4070,257 @@ export function AdminSectionPage({ section = "services" }) {
                           </p>
                           <p className="mt-3 text-sm leading-7 text-[#9fb1c7]">
                             {pricingDraft.description || "No description added yet."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </form>
+          )}
+
+          {activeTab === "testimonials" && (
+            <form className="space-y-6" onSubmit={handleTestimonialsSave}>
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Testimonials Section</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Client reviews and trust signals</h3>
+                    <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                      Add testimonials with rich text, image, company, and publish status. The list below lets you view, edit, and delete each entry.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addTestimonialItem}
+                    className="rounded-xl border border-[#4dc4ff] px-4 py-3 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                  >
+                    Add Testimonial
+                  </button>
+                </div>
+
+                <div className="mt-8 grid gap-4">
+                  {form.testimonials.length === 0 ? (
+                    <div className="rounded-[1.5rem] border border-dashed border-[#2b3b55] bg-[#0c1627] p-8 text-center text-sm text-[#95a9bf]">
+                      No testimonials added yet.
+                    </div>
+                  ) : (
+                    form.testimonials.map((testimonial, index) => (
+                      <div
+                        key={`testimonial-${index}`}
+                        className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-5"
+                      >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-[#2e5074] bg-[#10243a] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#8ad7ff]">
+                                {testimonial.company || "No company"}
+                              </span>
+                              <span className="rounded-full border border-[#32445d] bg-[#111d31] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#b3c2d4]">
+                                {testimonial.status ? "Published" : "Unpublished"}
+                              </span>
+                            </div>
+                            <h4 className="mt-4 text-xl font-semibold text-white">
+                              {testimonial.name || "Unnamed testimonial"}
+                            </h4>
+                            <p className="mt-2 text-xs uppercase tracking-[0.24em] text-[#7cf0b7]">
+                              {testimonial.position || "No position"}
+                            </p>
+                            <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#9fb1c7]">
+                              {stripHtml(testimonial.content) || "No content added yet."}
+                            </p>
+                            <p className="mt-3 text-sm text-[#ffd27d]">
+                              {"★".repeat(Math.max(1, Math.min(5, Number(testimonial.stars) || 5)))}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => openEditTestimonialModal(index)}
+                              className="rounded-xl border border-[#36557e] px-4 py-2 text-sm text-[#9ae2ff] transition hover:bg-[#12243b]"
+                            >
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeTestimonialItem(index)}
+                              className="rounded-xl border border-[#5a3040] px-4 py-2 text-sm text-[#ffb6c6] transition hover:bg-[#2b1420]"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <div className="flex justify-end">
+                <button
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isSaving}
+                  type="submit"
+                >
+                  {isSaving ? "Saving..." : "Save Testimonials"}
+                </button>
+              </div>
+
+              {isTestimonialModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+                  <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+                    <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Testimonial Form</p>
+                        <h4 className="mt-2 text-2xl font-semibold text-white">
+                          {editingTestimonialIndex >= 0 ? "View or Edit Testimonial" : "Create New Testimonial"}
+                        </h4>
+                        <p className="mt-2 text-sm text-[#97a9be]">
+                          Add the client name, company, rich testimonial content, image, and publication status.
+                        </p>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={closeTestimonialModal}
+                          className="rounded-xl border border-[#334862] px-4 py-2 text-sm text-[#c1cfde] transition hover:border-[#4a678b]"
+                        >
+                          Close
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveTestimonialDraft}
+                          className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-5 py-2 text-sm font-semibold text-[#08111d] transition hover:opacity-90"
+                        >
+                          {editingTestimonialIndex >= 0 ? "Update Testimonial" : "Add Testimonial"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_320px]">
+                      <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                        <div className="mb-5 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Core Details</p>
+                            <h5 className="mt-2 text-lg font-semibold text-white">Testimonial information</h5>
+                          </div>
+                          <span className="rounded-full border border-[#2b4c70] bg-[#10233a] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#8ad7ff]">
+                            {testimonialDraft.status ? "Published" : "Unpublished"}
+                          </span>
+                        </div>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Name</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="Client name"
+                              value={testimonialDraft.name}
+                              onChange={(event) => updateTestimonialDraft("name", event.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Company</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="Company name"
+                              value={testimonialDraft.company}
+                              onChange={(event) => updateTestimonialDraft("company", event.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Position</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="CEO / Product Manager"
+                              value={testimonialDraft.position}
+                              onChange={(event) => updateTestimonialDraft("position", event.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Stars</label>
+                            <select
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              value={testimonialDraft.stars}
+                              onChange={(event) => updateTestimonialDraft("stars", event.target.value)}
+                            >
+                              {[5, 4, 3, 2, 1].map((star) => (
+                                <option key={star} value={star}>
+                                  {star} Star{star > 1 ? "s" : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="lg:col-span-2">
+                            <RichTextEditor
+                              id={`testimonial-content-editor-${editingTestimonialIndex >= 0 ? editingTestimonialIndex : "new"}`}
+                              label="Content"
+                              value={testimonialDraft.content}
+                              onChange={(nextValue) => updateTestimonialDraft("content", nextValue)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                          <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Image</p>
+                          <div className="mt-4 overflow-hidden rounded-[1.2rem] border border-[#2c3852] bg-[#101b2d]">
+                            <Image
+                              src={testimonialDraft.image || "/profile.png"}
+                              alt={testimonialDraft.name || "Testimonial image"}
+                              width={280}
+                              height={220}
+                              className="h-[220px] w-full object-cover"
+                              unoptimized
+                            />
+                          </div>
+                          <div className="mt-4">
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Upload image</label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) => handleImageUpload(event, { type: "testimonial" })}
+                              disabled={isUploadingImage}
+                              className="block w-full cursor-pointer text-sm text-[#d3d8e8] file:mr-4 file:rounded-lg file:border-0 file:bg-[#2a8fd8] file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-[#3aa1ea]"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                          <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Visibility</p>
+                          <label className="mt-4 flex items-center gap-3 rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-sm text-[#d7dfec]">
+                            <input
+                              type="checkbox"
+                              checked={testimonialDraft.status}
+                              onChange={(event) => updateTestimonialDraft("status", event.target.checked)}
+                            />
+                            Show testimonial publicly
+                          </label>
+                        </div>
+
+                        <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                          <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Preview</p>
+                          <p className="mt-4 text-lg font-semibold text-white">
+                            {testimonialDraft.name || "Client name"}
+                          </p>
+                          <p className="mt-1 text-sm uppercase tracking-[0.24em] text-[#7cf0b7]">
+                            {testimonialDraft.company || "Company name"}
+                          </p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.24em] text-[#8fb3cf]">
+                            {testimonialDraft.position || "Position"}
+                          </p>
+                          <p className="mt-3 text-sm text-[#ffd27d]">
+                            {"★".repeat(Math.max(1, Math.min(5, Number(testimonialDraft.stars) || 5)))}
+                          </p>
+                          <p className="mt-4 text-sm leading-7 text-[#9fb1c7]">
+                            {stripHtml(testimonialDraft.content) || "Testimonial preview will appear here."}
                           </p>
                         </div>
                       </div>

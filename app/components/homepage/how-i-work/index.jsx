@@ -137,7 +137,7 @@ export default function HowIWorkSection() {
   }, []);
 
   return (
-    <section className="my-12 lg:my-20">
+    <section id="workflow" className="my-12 lg:my-20">
       <div
         className="relative overflow-hidden rounded-[2rem] border border-[#24344d] bg-[radial-gradient(circle_at_top,rgba(112,213,255,0.14),transparent_28%),linear-gradient(180deg,#0f192b,#09111d)] px-5 py-8 shadow-[0_18px_38px_rgba(0,0,0,0.18),0_34px_90px_rgba(0,0,0,0.28)] md:px-8 md:py-10"
         style={{ perspective: isMobile ? "none" : "1800px" }}

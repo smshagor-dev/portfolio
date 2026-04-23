@@ -96,9 +96,12 @@ function TypeLines({
 }
 
 function HeroSection({ profile }) {
+  const heroTitle = profile?.name || "Your Name";
+  const heroDescription = profile?.description || "";
+  const heroImage = profile?.profile || "/profile.png";
   const nameLines = useMemo(
-    () => splitAnimatedLines(profile?.name || "Your Name"),
-    [profile?.name]
+    () => splitAnimatedLines(heroTitle),
+    [heroTitle]
   );
   const designationLines = useMemo(
     () => [profile?.designation || "Software Developer"],
@@ -152,7 +155,7 @@ function HeroSection({ profile }) {
   })();
 
   return (
-    <section className="relative flex flex-col items-center justify-between py-4 lg:py-12">
+    <section id="hero" className="relative flex flex-col items-center justify-between py-4 lg:py-12">
       <Image
         src="/hero.svg"
         alt="Hero"
@@ -175,7 +178,7 @@ function HeroSection({ profile }) {
           <div className="order-1 border-b border-[#2b3042] bg-[#e8e2d9] p-4 lg:border-b-0 lg:border-r lg:p-5">
             <div className="relative h-full overflow-hidden rounded-[1.35rem] border border-[#c8bdaf] shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]">
               <Image
-                src={profile?.profile || "/profile.png"}
+                src={heroImage}
                 alt={profile?.name || "Profile"}
                 width={900}
                 height={980}
@@ -224,7 +227,7 @@ function HeroSection({ profile }) {
 
                 <p className="mt-5 max-w-3xl font-mono text-sm leading-7 text-[#d3d8e8] sm:text-[0.98rem] sm:leading-8 md:text-base lg:mt-6">
                   <span className="text-pink-500">&lt;p&gt;</span>
-                  <span className="mx-1">{profile?.description}</span>
+                  <span className="mx-1">{heroDescription}</span>
                   <span className="text-pink-500">&lt;/p&gt;</span>
                 </p>
 
@@ -276,15 +279,27 @@ function HeroSection({ profile }) {
                           className="mx-1.5 flex min-h-[84px] w-[92px] min-w-[92px] flex-col items-center justify-center rounded-xl border border-[#1f223c] bg-[#11152c] px-2 py-3 transition-all duration-300 hover:border-violet-500"
                           key={`${skill.name}-${index}`}
                         >
-                          <div className="flex h-[20px] items-center justify-center">
-                            <Image
-                              src={skill.image || skillsImage(skill.name)?.src || "/profile.png"}
-                              alt={skill.name}
-                              width={20}
-                              height={20}
-                              className="h-[20px] w-auto rounded object-contain"
-                            />
-                          </div>
+                          {(() => {
+                            const resolvedImage = skill.image || skillsImage(skill.name)?.src || "";
+
+                            return (
+                              <div className="flex h-[20px] items-center justify-center">
+                                {resolvedImage ? (
+                                  <Image
+                                    src={resolvedImage}
+                                    alt={skill.name}
+                                    width={20}
+                                    height={20}
+                                    className="h-[20px] w-auto object-contain"
+                                  />
+                                ) : (
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#32416f] bg-[#162243] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8fdcff]">
+                                    {skill.name.slice(0, 2)}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <p className="mt-2 text-center text-[11px] leading-4 text-white">
                             {skill.name}
                           </p>

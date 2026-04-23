@@ -5,6 +5,7 @@ const bcrypt = require("bcryptjs");
 const multer = require("multer");
 const prisma = require("../lib/prisma");
 const { requireAdmin, signAdminToken } = require("../lib/auth");
+const { normalizeSiteSettings, serializeSiteSettings } = require("../lib/site-settings");
 
 const router = express.Router();
 const uploadDirectory = path.resolve(process.cwd(), "public", "uploads");
@@ -298,6 +299,32 @@ function normalizePricings(items) {
   });
 }
 
+function normalizeTestimonials(items) {
+  return normalizeCollection(items, (item, index) => {
+    const name = normalizeString(item?.name);
+    const content = String(item?.content || "").trim();
+    const company = normalizeString(item?.company);
+    const position = normalizeString(item?.position);
+    const stars = Math.max(1, Math.min(5, Number.parseInt(item?.stars, 10) || 5));
+
+    if (!name || !content || !company) {
+      return null;
+    }
+
+    return {
+      id: index + 1,
+      name,
+      content,
+      image: normalizeString(item?.image),
+      company,
+      position,
+      stars,
+      status: typeof item?.status === "boolean" ? item.status : true,
+      sortOrder: index + 1,
+    };
+  });
+}
+
 function normalizeCollection(items, mapper) {
   return (items || []).map((item, index) => mapper(item, index)).filter(Boolean);
 }
@@ -306,9 +333,59 @@ function hasPricingModel() {
   return Boolean(prisma?.pricing && typeof prisma.pricing.findMany === "function");
 }
 
+function hasTestimonialModel() {
+  return Boolean(prisma?.testimonial && typeof prisma.testimonial.findMany === "function");
+}
+
+function isMissingTableError(error, modelName) {
+  return error?.code === "P2021" && error?.meta?.modelName === modelName;
+}
+
+async function hasAchievementTable() {
+  try {
+    await prisma.achievement.count();
+    return true;
+  } catch (error) {
+    if (isMissingTableError(error, "Achievement")) {
+      return false;
+    }
+
+    throw error;
+  }
+}
+
+async function getAchievementsSafely() {
+  try {
+    return await prisma.achievement.findMany({ orderBy: { sortOrder: "asc" } });
+  } catch (error) {
+    if (isMissingTableError(error, "Achievement")) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+async function getTestimonialsSafely() {
+  if (!hasTestimonialModel()) {
+    return [];
+  }
+
+  try {
+    return await prisma.testimonial.findMany({ orderBy: { sortOrder: "asc" } });
+  } catch (error) {
+    if (isMissingTableError(error, "Testimonial")) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
 async function getDashboardData() {
-  const [profile, serviceSection, services, statsCounters, skills, experiences, educations, projects, pricings, messages] = await Promise.all([
+  const [profile, siteSettings, serviceSection, services, statsCounters, achievements, skills, experiences, educations, projects, pricings, testimonials, messages] = await Promise.all([
     prisma.profile.findUnique({ where: { id: 1 } }),
+    prisma.siteSettings.findUnique({ where: { id: 1 } }),
     prisma.serviceSection.findUnique({ where: { id: 1 } }),
     prisma.service.findMany({
       orderBy: { sortOrder: "asc" },
@@ -324,6 +401,7 @@ async function getDashboardData() {
       },
     }),
     prisma.statsCounter.findMany({ orderBy: { sortOrder: "asc" } }),
+    getAchievementsSafely(),
     prisma.skill.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.experience.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.education.findMany({ orderBy: { sortOrder: "asc" } }),
@@ -331,19 +409,23 @@ async function getDashboardData() {
     hasPricingModel()
       ? prisma.pricing.findMany({ orderBy: { sortOrder: "asc" } })
       : Promise.resolve([]),
+    getTestimonialsSafely(),
     prisma.contactMessage.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
   ]);
 
   return {
     profile,
+    siteSettings: serializeSiteSettings(siteSettings, { includeSensitive: true }),
     serviceSection,
     services,
     statsCounters,
+    achievements,
     skills,
     experiences,
     educations,
     projects,
     pricings,
+    testimonials,
     messages,
   };
 }
@@ -466,23 +548,32 @@ router.post(
 router.put("/content", requireAdmin, async (request, response) => {
   try {
     const profile = request.body?.profile || {};
+    const siteSettings = request.body?.siteSettings || {};
     const serviceSection = request.body?.serviceSection || {};
     const hasSkills = Object.prototype.hasOwnProperty.call(request.body || {}, "skills");
     const hasExperiences = Object.prototype.hasOwnProperty.call(request.body || {}, "experiences");
     const hasEducations = Object.prototype.hasOwnProperty.call(request.body || {}, "educations");
     const hasProjects = Object.prototype.hasOwnProperty.call(request.body || {}, "projects");
     const hasStatsCounters = Object.prototype.hasOwnProperty.call(request.body || {}, "statsCounters");
+    const hasAchievements = Object.prototype.hasOwnProperty.call(request.body || {}, "achievements");
     const hasServiceSection = Object.prototype.hasOwnProperty.call(request.body || {}, "serviceSection");
     const hasServices = Object.prototype.hasOwnProperty.call(request.body || {}, "services");
     const hasPricings = Object.prototype.hasOwnProperty.call(request.body || {}, "pricings");
+    const hasTestimonials = Object.prototype.hasOwnProperty.call(request.body || {}, "testimonials");
+    const hasSiteSettings = Object.prototype.hasOwnProperty.call(request.body || {}, "siteSettings");
     const skills = request.body?.skills || [];
     const experiences = request.body?.experiences || [];
     const educations = request.body?.educations || [];
     const projects = request.body?.projects || [];
     const statsCounters = request.body?.statsCounters || [];
+    const achievements = request.body?.achievements || [];
     const services = request.body?.services || [];
     const pricings = request.body?.pricings || [];
+    const testimonials = request.body?.testimonials || [];
     const existingProfile = await prisma.profile.findUnique({
+      where: { id: 1 },
+    });
+    const existingSiteSettings = await prisma.siteSettings.findUnique({
       where: { id: 1 },
     });
     const existingServiceSection = await prisma.serviceSection.findUnique({
@@ -521,6 +612,7 @@ router.put("/content", requireAdmin, async (request, response) => {
           ? profile.problemSolver
           : existingProfile?.problemSolver ?? true,
     };
+    const normalizedSiteSettings = normalizeSiteSettings(siteSettings, existingSiteSettings || {});
 
     const normalizedSkills = normalizeCollection(skills, (item, index) => {
       const name = normalizeString(item.name || item);
@@ -592,13 +684,47 @@ router.put("/content", requireAdmin, async (request, response) => {
       };
     });
 
+    const normalizedAchievements = normalizeCollection(achievements, (item, index) => {
+      const title = normalizeString(item.title);
+      const issuer = normalizeString(item.issuer);
+      const date = normalizeString(item.date);
+      const type = normalizeString(item.type);
+
+      if (!title || !issuer || !date || !type) {
+        return null;
+      }
+
+      return {
+        id: index + 1,
+        title,
+        issuer,
+        date,
+        type,
+        image: normalizeString(item.image),
+        sortOrder: index + 1,
+      };
+    });
+
     const normalizedServiceSection = normalizeServiceSection(serviceSection, existingServiceSection);
     const normalizedServices = normalizeServices(services);
     const normalizedPricings = normalizePricings(pricings);
+    const normalizedTestimonials = normalizeTestimonials(testimonials);
 
     if (hasPricings && !hasPricingModel()) {
       return response.status(503).json({
         message: "Pricing model is not available yet. Please restart the backend so Prisma reloads the new schema.",
+      });
+    }
+
+    if (hasTestimonials && !hasTestimonialModel()) {
+      return response.status(503).json({
+        message: "Testimonial model is not available yet. Please restart the backend so Prisma reloads the new schema.",
+      });
+    }
+
+    if (hasAchievements && !(await hasAchievementTable())) {
+      return response.status(503).json({
+        message: "Achievement table is not available yet. Apply the latest Prisma migration and restart the backend.",
       });
     }
 
@@ -609,10 +735,25 @@ router.put("/content", requireAdmin, async (request, response) => {
         create: normalizedProfile,
       });
 
+      if (hasSiteSettings) {
+        await tx.siteSettings.upsert({
+          where: { id: 1 },
+          update: normalizedSiteSettings,
+          create: normalizedSiteSettings,
+        });
+      }
+
       if (hasStatsCounters) {
         await tx.statsCounter.deleteMany();
         if (normalizedStatsCounters.length) {
           await tx.statsCounter.createMany({ data: normalizedStatsCounters });
+        }
+      }
+
+      if (hasAchievements) {
+        await tx.achievement.deleteMany();
+        if (normalizedAchievements.length) {
+          await tx.achievement.createMany({ data: normalizedAchievements });
         }
       }
 
@@ -697,6 +838,13 @@ router.put("/content", requireAdmin, async (request, response) => {
         await tx.pricing.deleteMany();
         if (normalizedPricings.length) {
           await tx.pricing.createMany({ data: normalizedPricings });
+        }
+      }
+
+      if (hasTestimonials) {
+        await tx.testimonial.deleteMany();
+        if (normalizedTestimonials.length) {
+          await tx.testimonial.createMany({ data: normalizedTestimonials });
         }
       }
     });

@@ -4,8 +4,20 @@ import { getServiceDetailData } from "@/lib/api";
 import ServiceCommentsPanel from "@/app/components/service/service-comments-panel";
 import ServiceDetailStats from "@/app/components/service/service-detail-stats";
 import { getServiceIconOption } from "@/utils/service-icons";
+import { buildPageMetadata } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }) {
+  const resolvedParams = await params;
+  const data = await getServiceDetailData(resolvedParams.slug).catch(() => null);
+
+  return buildPageMetadata(data?.siteSettings, {
+    title: data?.service?.name || "Service",
+    description: data?.service?.description || "Service details page.",
+    path: `/service/${resolvedParams.slug}`,
+  });
+}
 
 export default async function ServiceDetailPage({ params }) {
   const resolvedParams = await params;
@@ -15,7 +27,7 @@ export default async function ServiceDetailPage({ params }) {
     notFound();
   }
 
-  const { service, relatedServices = [] } = data;
+  const { service, siteSettings, relatedServices = [] } = data;
 
   return (
     <div className="py-8 text-white">
@@ -45,6 +57,13 @@ export default async function ServiceDetailPage({ params }) {
             />
 
             <div className="service-content mt-8 border-t border-[#203049] pt-8" dangerouslySetInnerHTML={{ __html: service.content }} />
+
+            <div className="mt-8 rounded-[1.5rem] border border-[#263753] bg-[#0c1523] p-5">
+              <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Need this service?</p>
+              <p className="mt-3 text-sm leading-7 text-[#bfd0e2]">
+                Reach out at {siteSettings?.contactEmail || "the contact page"} and include your scope, timeline, and required features.
+              </p>
+            </div>
           </div>
 
           <aside className="border-t border-[#1d2d42] bg-[linear-gradient(180deg,rgba(10,18,31,0.82),rgba(8,13,23,0.96))] p-6 xl:border-l xl:border-t-0 xl:p-8">

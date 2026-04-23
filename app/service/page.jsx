@@ -1,10 +1,20 @@
 import { getServicesPageData } from "@/lib/api";
 import ServiceCard from "@/app/components/homepage/services/service-card";
+import { buildPageMetadata } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata() {
+  const data = await getServicesPageData().catch(() => null);
+  return buildPageMetadata(data?.siteSettings, {
+    title: "Services",
+    description: data?.serviceSection?.subtitle || "Explore available services and delivery areas.",
+    path: "/service",
+  });
+}
+
 export default async function ServicePage() {
-  const { serviceSection, services = [] } = await getServicesPageData();
+  const { serviceSection, services = [], siteSettings } = await getServicesPageData();
 
   return (
     <div className="py-8 text-white">
@@ -13,7 +23,7 @@ export default async function ServicePage() {
           <p className="text-xs uppercase tracking-[0.35em] text-[#70d5ff]">Services</p>
           <div className="mt-4">
             <h1 className="text-3xl font-semibold leading-tight text-[#f5f8fd] md:text-4xl">
-              {serviceSection?.title || "Services"}
+              {serviceSection?.title || `${siteSettings?.websiteTitle || "Website"} Services`}
             </h1>
             <p className="mt-3 text-sm leading-7 text-[#b8c7d8] md:text-base">
               {serviceSection?.subtitle || ""}

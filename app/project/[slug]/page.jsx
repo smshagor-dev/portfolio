@@ -4,8 +4,21 @@ import { notFound } from "next/navigation";
 import { ArrowRight, BriefcaseBusiness, Eye, Layers3, Sparkles } from "lucide-react";
 import { getProjectDetailData } from "@/lib/api";
 import ProjectCommentsPanel from "@/app/components/project/project-comments-panel";
+import { buildPageMetadata } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }) {
+  const resolvedParams = await params;
+  const data = await getProjectDetailData(resolvedParams.slug).catch(() => null);
+
+  return buildPageMetadata(data?.siteSettings, {
+    title: data?.project?.name || "Project",
+    description: data?.project?.description || "Project details page.",
+    path: `/project/${resolvedParams.slug}`,
+    image: data?.project?.image || data?.siteSettings?.seoImage,
+  });
+}
 
 function stripHtml(html) {
   return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -19,7 +32,7 @@ export default async function ProjectDetailPage({ params }) {
     notFound();
   }
 
-  const { project, relatedProjects = [] } = data;
+  const { project, siteSettings, relatedProjects = [] } = data;
   const buttons = Array.isArray(project?.buttons)
     ? project.buttons.filter((item) => item?.text && item?.link)
     : [];
@@ -103,6 +116,10 @@ export default async function ProjectDetailPage({ params }) {
                   ))}
                 </div>
               ) : null}
+
+              <p className="mt-6 text-sm text-[#9fb1c7]">
+                Want a similar build? Contact {siteSettings?.contactEmail || "through the contact page"}.
+              </p>
             </div>
           </div>
 

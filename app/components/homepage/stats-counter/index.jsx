@@ -8,7 +8,7 @@ function StatsCounterSection({ counters = [] }) {
   }
 
   return (
-    <section className="relative mt-8 lg:mt-10">
+    <section id="stats" className="relative mt-8 lg:mt-10">
       <div className="rounded-[1.8rem] border border-[#2b3046] bg-[linear-gradient(180deg,rgba(18,22,36,0.96),rgba(12,16,30,0.96))] p-4 shadow-[0_24px_55px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:p-6 lg:p-8">
         <div className="mb-5 h-px bg-gradient-to-r from-transparent via-pink-500 to-violet-500" />
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

@@ -65,6 +65,14 @@ io.on("connection", (socket) => {
 
     socket.leave(`service:${normalizedSlug}`);
   });
+
+  socket.on("testimonials:join", () => {
+    socket.join("testimonials");
+  });
+
+  socket.on("testimonials:leave", () => {
+    socket.leave("testimonials");
+  });
 });
 
 app.get("/health", (_request, response) => {

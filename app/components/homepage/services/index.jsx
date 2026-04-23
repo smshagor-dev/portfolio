@@ -4,7 +4,7 @@ import SectionHeading from "../section-heading";
 
 export default function ServicesSection({ serviceSection, services = [] }) {
   return (
-    <section className="my-12 lg:my-20">
+    <section id="services" className="my-12 lg:my-20">
       <div className="overflow-hidden rounded-[2rem] border border-[#24344d] bg-[radial-gradient(circle_at_top,rgba(112,213,255,0.16),transparent_34%),linear-gradient(180deg,#0f192b,#09111d)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:p-8">
         <SectionHeading
           label="Services"

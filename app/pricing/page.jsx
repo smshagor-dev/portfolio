@@ -2,11 +2,21 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 import PricingCard from "../components/homepage/pricing/pricing-card";
 import { getPricingPageData } from "@/lib/api";
+import { buildPageMetadata } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata() {
+  const data = await getPricingPageData().catch(() => null);
+  return buildPageMetadata(data?.siteSettings, {
+    title: "Pricing",
+    description: "Review pricing plans, package structure, and delivery options.",
+    path: "/pricing",
+  });
+}
+
 export default async function PricingPage() {
-  const { profile, pricings = [] } = await getPricingPageData();
+  const { profile, siteSettings, pricings = [] } = await getPricingPageData();
   const highlightedPlan = pricings.find((plan) => plan.isPopular) || pricings[0] || null;
 
   return (
@@ -62,7 +72,7 @@ export default async function PricingPage() {
               ))}
             </div>
             <p className="mt-6 text-sm text-[#97a9be]">
-              Contact: {profile?.email || "Available on request"}
+              Contact: {siteSettings?.contactEmail || profile?.email || "Available on request"}
             </p>
           </div>
         </div>

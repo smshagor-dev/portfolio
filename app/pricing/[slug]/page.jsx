@@ -2,8 +2,20 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, BadgeCheck, Sparkles } from "lucide-react";
 import { getPricingDetailData } from "@/lib/api";
+import { buildPageMetadata } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }) {
+  const resolvedParams = await params;
+  const data = await getPricingDetailData(resolvedParams.slug).catch(() => null);
+
+  return buildPageMetadata(data?.siteSettings, {
+    title: data?.pricing?.name || "Pricing Plan",
+    description: data?.pricing?.description || "Pricing plan details.",
+    path: `/pricing/${resolvedParams.slug}`,
+  });
+}
 
 function formatPrice(value) {
   const amount = Number(value || 0);
@@ -30,7 +42,7 @@ export default async function PricingDetailPage({ params }) {
     notFound();
   }
 
-  const { pricing, relatedPricings = [] } = data;
+  const { pricing, siteSettings, relatedPricings = [] } = data;
 
   return (
     <div className="py-8 text-white">
@@ -129,6 +141,9 @@ export default async function PricingDetailPage({ params }) {
             </div>
 
             <div className="mt-6 rounded-[1.5rem] border border-[#263753] bg-[#0c1523] p-5">
+              <p className="mb-4 text-sm text-[#9fb1c7]">
+                Contact: {siteSettings?.contactEmail || "Use the contact page"}
+              </p>
               <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">More Pricing</p>
               <div className="mt-4 space-y-3">
                 {relatedPricings.length === 0 ? (

@@ -4,7 +4,7 @@ import SectionHeading from "../section-heading";
 
 export default function PricingSection({ pricings = [] }) {
   return (
-    <section className="my-12 lg:my-20">
+    <section id="pricing" className="my-12 lg:my-20">
       <div className="relative overflow-hidden rounded-[2rem] border border-[#24344d] bg-[radial-gradient(circle_at_top,rgba(255,214,102,0.12),transparent_24%),radial-gradient(circle_at_bottom_left,rgba(112,213,255,0.14),transparent_30%),linear-gradient(180deg,#101828,#09111d)] p-6 shadow-[0_26px_80px_rgba(0,0,0,0.28)] md:p-8">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_16%,rgba(122,218,181,0.12),transparent_18%),radial-gradient(circle_at_15%_85%,rgba(117,160,255,0.12),transparent_18%)]" />
 

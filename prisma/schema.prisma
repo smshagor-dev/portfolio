@@ -78,6 +78,18 @@ model StatsCounter {
   updatedAt DateTime @updatedAt
 }
 
+model Achievement {
+  id        Int      @id
+  title     String
+  issuer    String
+  date      String
+  type      String
+  image     String   @default("")
+  sortOrder Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model ServiceSection {
   id        Int      @id
   title     String
@@ -187,6 +199,20 @@ model Pricing {
   updatedAt   DateTime @updatedAt
 }
 
+model Testimonial {
+  id        Int      @id @default(autoincrement())
+  name      String
+  content   String   @db.LongText
+  image     String   @default("")
+  company   String
+  position  String   @default("")
+  stars     Int      @default(5)
+  status    Boolean  @default(true)
+  sortOrder Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model ContactMessage {
   id        Int      @id @default(autoincrement())
   name      String
@@ -202,4 +228,38 @@ model AdminUser {
   passwordHash String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model SiteSettings {
+  id                    Int      @id
+  websiteTitle          String
+  websiteDescription    String   @db.Text
+  seoTitle              String
+  seoDescription        String   @db.Text
+  seoKeywords           String   @db.Text
+  seoImage              String
+  websiteIcon           String
+  heroHeaderText        String   @db.Text
+  heroDescription       String   @db.Text
+  heroImage             String
+  contactEmail          String
+  mobileNumber          String
+  footerText            String   @db.Text
+  canonicalUrl          String
+  googleSiteVerification String
+  googleAnalyticsId     String
+  googleTagManagerId    String
+  robotsIndexingEnabled Boolean  @default(true)
+  robotsFollowEnabled   Boolean  @default(true)
+  smtpHost              String
+  smtpPort              Int      @default(587)
+  smtpUser              String
+  smtpPass              String   @db.Text
+  smtpSecure            Boolean  @default(false)
+  smtpFromEmail         String
+  smtpFromName          String
+  smtpReplyToEmail      String
+  smtpToEmail           String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }

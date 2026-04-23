@@ -14,7 +14,7 @@ const profile = {
   profile: "/profile.png",
   designation: "Software Developer",
   description:
-    "Hi, I'm Shahabur Islam Shagor. I am a Software Engineer specializing in Autonomous Systems, UAV Coordination, and Cybersecurity. With over 4 years of experience in Full-Stack Development (Laravel, Node.js, React), I bridge the gap between robust software architecture and cutting-edge hardware innovation. From decentralized drone swarms to secure V2X networks, I build technology that solves complex real-world problems.",
+    "Hi, I'm Shahanur Islam Shagor. I am a Software Engineer specializing in Autonomous Systems, UAV Coordination, and Cybersecurity. With over 4 years of experience in Full-Stack Development (Laravel, Node.js, React), I bridge the gap between robust software architecture and cutting-edge hardware innovation. From decentralized drone swarms to secure V2X networks, I build technology that solves complex real-world problems.",
   email: "smshagor.ru@gmail.com",
   phone: "+79954949836",
   address: "Middle Badda, Dhaka, Bangladesh - 1212",
@@ -52,6 +52,41 @@ const profile = {
   hardWorker: true,
   quickLearner: true,
   problemSolver: true,
+};
+
+const siteSettings = {
+  id: 1,
+  websiteTitle: "Shahanur Islam Shagor",
+  websiteDescription:
+    "Portfolio website for Shahanur Islam Shagor featuring services, projects, pricing, contact details, and professional experience.",
+  seoTitle: "Shahanur Islam Shagor | Software Developer Portfolio",
+  seoDescription:
+    "Explore the portfolio, services, projects, pricing, and contact information of Shahanur Islam Shagor.",
+  seoKeywords: "portfolio, software developer, web developer, next.js, node.js, prisma",
+  seoImage: "/profile.png",
+  websiteIcon: "/favicon.ico",
+  heroHeaderText: "Hi there, I'm Shagor",
+  heroDescription:
+    "I build scalable websites, dashboards, and backend systems with a strong focus on clarity, performance, and long-term maintainability.",
+  heroImage: "/profile.png",
+  contactEmail: "smshagor.ru@gmail.com",
+  mobileNumber: "+79954949836",
+  footerText: "Developer Portfolio by Shahanur Islam Shagor",
+  canonicalUrl: "http://localhost:3000",
+  googleSiteVerification: "",
+  googleAnalyticsId: "",
+  googleTagManagerId: "",
+  robotsIndexingEnabled: true,
+  robotsFollowEnabled: true,
+  smtpHost: "",
+  smtpPort: 587,
+  smtpUser: "",
+  smtpPass: "",
+  smtpSecure: false,
+  smtpFromEmail: "",
+  smtpFromName: "Portfolio Website",
+  smtpReplyToEmail: "",
+  smtpToEmail: "",
 };
 
 const skills = [
@@ -139,6 +174,33 @@ const statsCounters = [
   { id: 2, label: "Happy Clients", highlight: "Trusted", count: "30+", icon: "clients" },
   { id: 3, label: "Years Experience", highlight: "Journey", count: "5+", icon: "experience" },
   { id: 4, label: "Awards & Wins", highlight: "Recognized", count: "12", icon: "awards" },
+].map((item, index) => ({ ...item, sortOrder: index + 1 }));
+
+const achievements = [
+  {
+    id: 1,
+    title: "Top Performer Recognition",
+    issuer: "Explo-IT",
+    date: "2025",
+    type: "Award",
+    image: "/profile.png",
+  },
+  {
+    id: 2,
+    title: "Full-Stack Development Certificate",
+    issuer: "Programming Hero",
+    date: "2023",
+    type: "Certificate",
+    image: "/profile.png",
+  },
+  {
+    id: 3,
+    title: "Hackathon Finalist",
+    issuer: "University Innovation Fest",
+    date: "2022",
+    type: "Competition",
+    image: "/profile.png",
+  },
 ].map((item, index) => ({ ...item, sortOrder: index + 1 }));
 
 const serviceSection = {
@@ -389,11 +451,42 @@ const pricings = [
   },
 ].map((item, index) => ({ ...item, sortOrder: index + 1 }));
 
+const testimonials = [
+  {
+    id: 1,
+    name: "Sarah Mitchell",
+    content:
+      "<p>Working together felt organized from day one. Communication stayed clear, delivery was fast, and the final result matched the business goals perfectly.</p>",
+    image: "/image/review.png",
+    company: "Northwind Studio",
+    position: "Marketing Director",
+    stars: 5,
+    status: true,
+  },
+  {
+    id: 2,
+    name: "Daniel Carter",
+    content:
+      "<p>The project moved smoothly from planning to launch. Strong execution, thoughtful problem-solving, and a polished end product made a real difference for our team.</p>",
+    image: "/image/review.png",
+    company: "BrightPath Labs",
+    position: "Product Lead",
+    stars: 5,
+    status: true,
+  },
+].map((item, index) => ({ ...item, sortOrder: index + 1 }));
+
 async function main() {
   await prisma.adminUser.upsert({
     where: { email: adminUser.email },
     update: {},
     create: adminUser,
+  });
+
+  await prisma.siteSettings.upsert({
+    where: { id: siteSettings.id },
+    update: {},
+    create: siteSettings,
   });
 
   const existingProfile = await prisma.profile.findUnique({
@@ -410,20 +503,24 @@ async function main() {
     serviceSectionCount,
     servicesCount,
     statsCountersCount,
+    achievementsCount,
     skillsCount,
     experiencesCount,
     educationsCount,
     projectsCount,
     pricingsCount,
+    testimonialsCount,
   ] = await Promise.all([
     prisma.serviceSection.count(),
     prisma.service.count(),
     prisma.statsCounter.count(),
+    prisma.achievement.count(),
     prisma.skill.count(),
     prisma.experience.count(),
     prisma.education.count(),
     prisma.project.count(),
     prisma.pricing.count(),
+    prisma.testimonial.count(),
   ]);
 
   if (serviceSectionCount === 0) {
@@ -472,6 +569,10 @@ async function main() {
     await prisma.statsCounter.createMany({ data: statsCounters });
   }
 
+  if (achievementsCount === 0) {
+    await prisma.achievement.createMany({ data: achievements });
+  }
+
   if (skillsCount === 0) {
     await prisma.skill.createMany({ data: skills });
   }
@@ -490,6 +591,10 @@ async function main() {
 
   if (pricingsCount === 0) {
     await prisma.pricing.createMany({ data: pricings });
+  }
+
+  if (testimonialsCount === 0) {
+    await prisma.testimonial.createMany({ data: testimonials });
   }
 }
 

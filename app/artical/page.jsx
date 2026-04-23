@@ -1,17 +1,30 @@
 import BlogCard from "../components/homepage/blog/blog-card";
-import { getBlogs } from "@/lib/api";
+import { getBlogs, getSiteSettings } from "@/lib/api";
+import { buildPageMetadata } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata() {
+  const settings = await getSiteSettings().catch(() => null);
+  return buildPageMetadata(settings, {
+    title: "Articles",
+    description: "Read articles, technical notes, and recent writing.",
+    path: "/artical",
+  });
+}
+
 export default async function ArticalPage() {
-  const blogs = await getBlogs();
+  const [blogs, settings] = await Promise.all([
+    getBlogs().catch(() => []),
+    getSiteSettings().catch(() => null),
+  ]);
 
   return (
     <div className="py-8 text-white">
       <section className="rounded-3xl border border-[#25213b] bg-[linear-gradient(135deg,#1a1443,#0d1224)] p-8 lg:p-12">
-        <p className="text-sm uppercase tracking-[0.35em] text-[#16f2b3]">Artical</p>
+        <p className="text-sm uppercase tracking-[0.35em] text-[#16f2b3]">Articles</p>
         <h1 className="mt-4 text-4xl font-bold lg:text-5xl">
-          Thoughts, notes, and technical writing from recent work.
+          Thoughts, notes, and technical writing from {settings?.websiteTitle || "recent work"}.
         </h1>
         <p className="mt-4 max-w-3xl text-base text-[#d3d8e8] lg:text-lg">
           A reading list of development articles, lessons, and engineering notes.
