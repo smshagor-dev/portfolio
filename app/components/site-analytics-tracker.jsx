@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 const sessionStorageKey = "portfolio_analytics_session_id";
+const heartbeatIntervalMs = 30000;
 
 function createSessionId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -62,11 +63,22 @@ export default function SiteAnalyticsTracker() {
 
     sendAnalyticsEvent(pathname, "pageview");
 
-    const interval = window.setInterval(() => {
-      sendAnalyticsEvent(pathname, "heartbeat");
-    }, 60000);
+    const sendVisibleHeartbeat = () => {
+      if (document.visibilityState === "visible") {
+        sendAnalyticsEvent(pathname, "heartbeat");
+      }
+    };
 
-    return () => window.clearInterval(interval);
+    const interval = window.setInterval(() => {
+      sendVisibleHeartbeat();
+    }, heartbeatIntervalMs);
+
+    document.addEventListener("visibilitychange", sendVisibleHeartbeat);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", sendVisibleHeartbeat);
+    };
   }, [pathname]);
 
   return null;

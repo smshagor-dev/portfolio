@@ -47,6 +47,22 @@ const upload = multer({
   },
 });
 
+const contactChatUpload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 2,
+  },
+  fileFilter: (_request, file, callback) => {
+    if (file.fieldname === "photo" && !file.mimetype.startsWith("image/")) {
+      callback(new Error("Only image files are allowed for photo upload."));
+      return;
+    }
+
+    callback(null, true);
+  },
+});
+
 const resumeUpload = multer({
   storage,
   limits: {
@@ -338,6 +354,47 @@ function countFilled(items, predicate) {
   return (items || []).filter(predicate).length;
 }
 
+function serializeContactChatMessage(message) {
+  return {
+    id: message.id,
+    contactMessageId: message.contactMessageId,
+    senderType: message.senderType,
+    senderName: message.senderName || "",
+    message: message.message,
+    photo: message.photo || "",
+    file: message.file || "",
+    createdAt: message.createdAt,
+  };
+}
+
+function serializeContactMessageSummary(message) {
+  const latestReply = message.chatMessages?.[0] ? serializeContactChatMessage(message.chatMessages[0]) : null;
+  const hasAdminReply = (message.chatMessages || []).some((item) => item.senderType === "admin");
+
+  return {
+    id: message.id,
+    name: message.name,
+    email: message.email,
+    subject: message.subject || "",
+    message: message.message,
+    photo: message.photo || "",
+    file: message.file || "",
+    status: message.status || "not_solved",
+    isNew: !hasAdminReply,
+    createdAt: message.createdAt,
+    lastMessageAt: latestReply?.createdAt || message.createdAt,
+    messageCount: message._count?.chatMessages || 0,
+    latestReply,
+  };
+}
+
+function serializeContactMessageDetail(message) {
+  return {
+    ...serializeContactMessageSummary(message),
+    chatMessages: (message.chatMessages || []).map(serializeContactChatMessage),
+  };
+}
+
 function buildDashboardSummary(data) {
   const services = data.services || [];
   const projects = data.projects || [];
@@ -584,7 +641,20 @@ async function getDashboardData() {
       ? prisma.pricing.findMany({ orderBy: { sortOrder: "asc" } })
       : Promise.resolve([]),
     getTestimonialsSafely(),
-    prisma.contactMessage.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.contactMessage.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        chatMessages: {
+          orderBy: { createdAt: "desc" },
+        },
+        _count: {
+          select: {
+            chatMessages: true,
+          },
+        },
+      },
+    }),
   ]);
 
   const data = {
@@ -600,7 +670,7 @@ async function getDashboardData() {
     projects,
     pricings,
     testimonials,
-    messages,
+    messages: messages.map(serializeContactMessageSummary),
   };
 
   return {
@@ -682,12 +752,14 @@ function addUtcDays(date, days) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
 }
 
+const internalAnalyticsLiveWindowMs = 2 * 60 * 1000;
+
 async function getInternalAnalyticsData() {
   const now = new Date();
   const today = getUtcDateOnly(now);
   const thirtyDaysAgo = addUtcDays(today, -29);
   const sevenDaysAgo = addUtcDays(today, -6);
-  const activeThreshold = new Date(now.getTime() - 5 * 60 * 1000);
+  const activeThreshold = new Date(now.getTime() - internalAnalyticsLiveWindowMs);
 
   try {
     const [activeUsers, todayUsers, last7DaysUsers, last30DaysUsers, growthRows, visitors] = await Promise.all([
@@ -780,22 +852,29 @@ async function getInternalAnalyticsData() {
       last30DaysUsers,
       growth,
       weekly,
-      visitors: visitors.map((visitor) => ({
-        id: visitor.id,
-        userId: visitor.sessionId,
-        ipAddress: visitor.ipAddress || "",
-        country: visitor.country || "",
-        location: [visitor.city, visitor.region].filter(Boolean).join(", "),
-        lastSeenAt: visitor.lastSeenAt,
-        createdAt: visitor.createdAt,
-        pageViews: (visitor.pageViews || []).map((page) => ({
-          id: page.id,
-          path: page.path,
-          firstViewedAt: page.firstViewedAt,
-          lastViewedAt: page.lastViewedAt,
-          viewCount: page.viewCount,
-        })),
-      })),
+      visitors: visitors.map((visitor) => {
+        const isLive = visitor.lastSeenAt >= activeThreshold;
+
+        return {
+          id: visitor.id,
+          userId: visitor.sessionId,
+          ipAddress: visitor.ipAddress || "",
+          country: visitor.country || "",
+          location: [visitor.city, visitor.region].filter(Boolean).join(", "),
+          currentPage: visitor.lastPath || visitor.firstPath || "/",
+          status: isLive ? "live" : "away",
+          isLive,
+          lastSeenAt: visitor.lastSeenAt,
+          createdAt: visitor.createdAt,
+          pageViews: (visitor.pageViews || []).map((page) => ({
+            id: page.id,
+            path: page.path,
+            firstViewedAt: page.firstViewedAt,
+            lastViewedAt: page.lastViewedAt,
+            viewCount: page.viewCount,
+          })),
+        };
+      }),
       fetchedAt: now.toISOString(),
       note: "Live traffic data collected directly from your portfolio frontend.",
     };
@@ -904,6 +983,7 @@ async function getAnalyticsData() {
         users: entry.users,
       };
     });
+    const internalAnalytics = await getInternalAnalyticsData().catch(() => ({ visitors: [] }));
 
     return {
       source: "ga4",
@@ -916,6 +996,7 @@ async function getAnalyticsData() {
       last30DaysUsers: getMetricValue(last30Days),
       growth,
       weekly,
+      visitors: internalAnalytics.visitors || [],
       fetchedAt: new Date().toISOString(),
       note: "Live data from the Google Analytics Data API.",
     };
@@ -998,6 +1079,159 @@ router.get("/analytics", requireAdmin, async (_request, response) => {
   } catch (error) {
     console.error("Failed to load analytics:", error.message);
     return response.status(500).json({ message: "Failed to load analytics data." });
+  }
+});
+
+router.get("/messages/:messageId", requireAdmin, async (request, response) => {
+  try {
+    const messageId = Number.parseInt(request.params.messageId, 10);
+    if (!messageId) {
+      return response.status(400).json({ message: "Message id is required." });
+    }
+
+    const message = await prisma.contactMessage.findUnique({
+      where: { id: messageId },
+      include: {
+        chatMessages: {
+          orderBy: { createdAt: "asc" },
+        },
+        _count: {
+          select: {
+            chatMessages: true,
+          },
+        },
+      },
+    });
+
+    if (!message) {
+      return response.status(404).json({ message: "Message not found." });
+    }
+
+    return response.json({
+      message: serializeContactMessageDetail(message),
+    });
+  } catch (error) {
+    console.error("Failed to load message thread:", error.message);
+    return response.status(500).json({ message: "Failed to load message thread." });
+  }
+});
+
+router.post(
+  "/messages/:messageId/replies",
+  requireAdmin,
+  (request, response, next) => {
+    contactChatUpload.fields([
+      { name: "photo", maxCount: 1 },
+      { name: "file", maxCount: 1 },
+    ])(request, response, (error) => {
+      if (error) {
+        return response.status(400).json({ message: error.message || "Upload failed." });
+      }
+
+      return next();
+    });
+  },
+  async (request, response) => {
+  try {
+    const messageId = Number.parseInt(request.params.messageId, 10);
+    const messageText = normalizeString(request.body?.message);
+
+    if (!messageId || (!messageText && !request.files?.photo?.[0] && !request.files?.file?.[0])) {
+      return response.status(400).json({ message: "Message text or attachment is required." });
+    }
+
+    const ticket = await prisma.contactMessage.findUnique({
+      where: { id: messageId },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!ticket) {
+      return response.status(404).json({ message: "Message not found." });
+    }
+
+    const photoFile = request.files?.photo?.[0];
+    const attachedFile = request.files?.file?.[0];
+    const reply = await prisma.contactChatMessage.create({
+      data: {
+        contactMessageId: ticket.id,
+        senderType: "admin",
+        senderName: request.admin?.email || "Admin",
+        message: messageText,
+        photo: photoFile ? `/uploads/${photoFile.filename}` : "",
+        file: attachedFile ? `/uploads/${attachedFile.filename}` : "",
+      },
+    });
+
+    request.app.get("io")?.to(`contact:ticket:${ticket.id}`).emit("contact:message_created", {
+      ticketId: ticket.id,
+      message: serializeContactChatMessage(reply),
+    });
+
+    return response.status(201).json({
+      message: "Reply sent successfully.",
+      data: serializeContactChatMessage(reply),
+    });
+  } catch (error) {
+    console.error("Failed to send admin reply:", error.message);
+    return response.status(500).json({ message: "Failed to send reply." });
+  }
+});
+
+router.patch("/messages/:messageId/status", requireAdmin, async (request, response) => {
+  try {
+    const messageId = Number.parseInt(request.params.messageId, 10);
+    const nextStatus = normalizeString(request.body?.status).toLowerCase();
+
+    if (!messageId || !["not_solved", "solved"].includes(nextStatus)) {
+      return response.status(400).json({ message: "Valid status is required." });
+    }
+
+    const message = await prisma.contactMessage.update({
+      where: { id: messageId },
+      data: {
+        status: nextStatus,
+      },
+      include: {
+        chatMessages: {
+          orderBy: { createdAt: "desc" },
+        },
+        _count: {
+          select: {
+            chatMessages: true,
+          },
+        },
+      },
+    });
+
+    return response.json({
+      message: "Ticket status updated successfully.",
+      data: serializeContactMessageSummary(message),
+    });
+  } catch (error) {
+    console.error("Failed to update ticket status:", error.message);
+    return response.status(500).json({ message: "Failed to update ticket status." });
+  }
+});
+
+router.delete("/messages/:messageId", requireAdmin, async (request, response) => {
+  try {
+    const messageId = Number.parseInt(request.params.messageId, 10);
+    if (!messageId) {
+      return response.status(400).json({ message: "Message id is required." });
+    }
+
+    await prisma.contactMessage.delete({
+      where: { id: messageId },
+    });
+
+    return response.json({
+      message: "Ticket deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Failed to delete ticket:", error.message);
+    return response.status(500).json({ message: "Failed to delete ticket." });
   }
 });
 

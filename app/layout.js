@@ -6,6 +6,7 @@ import { getHomePageData, getSiteSettings } from "@/lib/api";
 import Footer from "./components/footer";
 import LayoutClientChrome from "./components/layout-client-chrome";
 import LayoutShell from "./components/layout-shell";
+import LiveTicketDock from "./components/live-ticket-dock";
 import SiteAnalyticsTracker from "./components/site-analytics-tracker";
 import "./css/card.scss";
 import "./css/globals.scss";
@@ -97,12 +98,13 @@ export default async function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         <LayoutShell
-          footer={<Footer settings={siteSettings} />}
+          footer={<Footer profile={profile} settings={siteSettings} />}
           navbar={<LayoutClientChrome kind="navbar" profile={profile} settings={siteSettings} />}
           scrollToTop={<LayoutClientChrome kind="scrollToTop" />}
         >
           <LayoutClientChrome kind="toast" />
           <SiteAnalyticsTracker />
+          <LiveTicketDock />
           {children}
         </LayoutShell>
         {googleTagManagerId ? <GoogleTagManager gtmId={googleTagManagerId} /> : null}

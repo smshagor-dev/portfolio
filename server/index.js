@@ -4,6 +4,8 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
+const prisma = require("./lib/prisma");
+const { verifyAdminToken } = require("./lib/auth");
 const adminRoutes = require("./routes/admin");
 const siteRoutes = require("./routes/site");
 
@@ -73,6 +75,71 @@ io.on("connection", (socket) => {
 
   socket.on("testimonials:leave", () => {
     socket.leave("testimonials");
+  });
+
+  socket.on("contact:join", async ({ messageId, token }) => {
+    const normalizedId = Number.parseInt(messageId, 10);
+    const normalizedToken = String(token || "").trim();
+    if (!normalizedId || !normalizedToken) {
+      return;
+    }
+
+    try {
+      const ticket = await prisma.contactMessage.findUnique({
+        where: { id: normalizedId },
+        select: { id: true, ticketToken: true },
+      });
+
+      if (!ticket || ticket.ticketToken !== normalizedToken) {
+        return;
+      }
+
+      socket.join(`contact:ticket:${ticket.id}`);
+    } catch (_error) {
+      // Ignore failed joins.
+    }
+  });
+
+  socket.on("contact:leave", ({ messageId }) => {
+    const normalizedId = Number.parseInt(messageId, 10);
+    if (!normalizedId) {
+      return;
+    }
+
+    socket.leave(`contact:ticket:${normalizedId}`);
+  });
+
+  socket.on("contact:admin_join", async ({ messageId, token }) => {
+    const normalizedId = Number.parseInt(messageId, 10);
+    const normalizedToken = String(token || "").trim();
+    if (!normalizedId || !normalizedToken) {
+      return;
+    }
+
+    try {
+      verifyAdminToken(normalizedToken);
+      const ticket = await prisma.contactMessage.findUnique({
+        where: { id: normalizedId },
+        select: { id: true },
+      });
+
+      if (!ticket) {
+        return;
+      }
+
+      socket.join(`contact:ticket:${ticket.id}`);
+    } catch (_error) {
+      // Ignore failed joins.
+    }
+  });
+
+  socket.on("contact:admin_leave", ({ messageId }) => {
+    const normalizedId = Number.parseInt(messageId, 10);
+    if (!normalizedId) {
+      return;
+    }
+
+    socket.leave(`contact:ticket:${normalizedId}`);
   });
 });
 

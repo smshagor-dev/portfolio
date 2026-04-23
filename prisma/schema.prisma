@@ -214,11 +214,31 @@ model Testimonial {
 }
 
 model ContactMessage {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String
-  message   String   @db.Text
-  createdAt DateTime @default(now())
+  id           Int                  @id @default(autoincrement())
+  name         String
+  email        String
+  subject      String               @default("")
+  message      String               @db.Text
+  photo        String               @default("")
+  file         String               @default("")
+  status       String               @default("not_solved")
+  ticketToken  String               @unique
+  createdAt    DateTime             @default(now())
+  chatMessages ContactChatMessage[]
+}
+
+model ContactChatMessage {
+  id               Int            @id @default(autoincrement())
+  contactMessageId Int
+  senderType       String
+  senderName       String         @default("")
+  message          String         @db.Text
+  photo            String         @default("")
+  file             String         @default("")
+  createdAt        DateTime       @default(now())
+  contactMessage   ContactMessage @relation(fields: [contactMessageId], references: [id], onDelete: Cascade)
+
+  @@index([contactMessageId, createdAt])
 }
 
 model AdminUser {

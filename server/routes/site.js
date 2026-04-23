@@ -1,4 +1,5 @@
 const express = require("express");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
@@ -51,6 +52,38 @@ const upload = multer({
   },
 });
 
+const contactUpload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 2,
+  },
+  fileFilter: (_request, file, callback) => {
+    if (file.fieldname === "photo" && !file.mimetype.startsWith("image/")) {
+      callback(new Error("Only image files are allowed for photo upload."));
+      return;
+    }
+
+    callback(null, true);
+  },
+});
+
+const contactChatUpload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 2,
+  },
+  fileFilter: (_request, file, callback) => {
+    if (file.fieldname === "photo" && !file.mimetype.startsWith("image/")) {
+      callback(new Error("Only image files are allowed for photo upload."));
+      return;
+    }
+
+    callback(null, true);
+  },
+});
+
 function serializeService(service) {
   return {
     ...service,
@@ -79,6 +112,14 @@ function serializeTestimonial(testimonial) {
 
 function normalizeString(value) {
   return String(value || "").trim();
+}
+
+function createTicketToken() {
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
 }
 
 function normalizeTrackingPath(value) {
@@ -204,6 +245,44 @@ function serializeProject(project) {
   };
 }
 
+function serializeContactChatMessage(message) {
+  return {
+    id: message.id,
+    contactMessageId: message.contactMessageId,
+    senderType: message.senderType,
+    senderName: message.senderName || "",
+    message: message.message,
+    photo: message.photo || "",
+    file: message.file || "",
+    createdAt: message.createdAt,
+  };
+}
+
+function serializeContactTicket(contactMessage) {
+  return {
+    id: contactMessage.id,
+    name: contactMessage.name,
+    email: contactMessage.email,
+    subject: contactMessage.subject || "",
+    photo: contactMessage.photo || "",
+    file: contactMessage.file || "",
+    status: contactMessage.status || "not_solved",
+    createdAt: contactMessage.createdAt,
+    chatMessages: (contactMessage.chatMessages || []).map(serializeContactChatMessage),
+  };
+}
+
+async function getContactTicketById(id) {
+  return prisma.contactMessage.findUnique({
+    where: { id },
+    include: {
+      chatMessages: {
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+}
+
 function hasPricingModel() {
   return Boolean(prisma?.pricing && typeof prisma.pricing.findMany === "function");
 }
@@ -308,18 +387,41 @@ async function sendContactEmails(siteSettings, message) {
 
   const replyTo = normalizedSettings.smtpReplyToEmail || message.email;
 
+  const attachments = [message.photo, message.file]
+    .filter(Boolean)
+    .map((filePath) => {
+      const filename = path.basename(filePath);
+      const resolvedPath = path.resolve(process.cwd(), "public", filePath.replace(/^\/+/, ""));
+
+      if (!resolvedPath.startsWith(uploadDirectory) || !fs.existsSync(resolvedPath)) {
+        return null;
+      }
+
+      return {
+        filename,
+        path: resolvedPath,
+      };
+    })
+    .filter(Boolean);
+
   await transporter.sendMail({
     from,
     to: normalizedSettings.smtpToEmail,
     replyTo,
-    subject: `New contact message from ${message.name}`,
+    subject: message.subject
+      ? `New contact message: ${message.subject}`
+      : `New contact message from ${message.name}`,
     text: [
       `Name: ${message.name}`,
       `Email: ${message.email}`,
+      message.subject ? `Subject: ${message.subject}` : null,
+      message.photo ? `Photo: ${message.photo}` : null,
+      message.file ? `File: ${message.file}` : null,
       "",
       "Message:",
       message.message,
-    ].join("\n"),
+    ].filter((item) => item !== null).join("\n"),
+    attachments,
   });
 
   await transporter.sendMail({
@@ -1197,20 +1299,55 @@ router.post("/testimonials", async (request, response) => {
   }
 });
 
-router.post("/contact", async (request, response) => {
-  try {
-    const { name, email, message } = request.body || {};
+router.post(
+  "/contact",
+  (request, response, next) => {
+    contactUpload.fields([
+      { name: "photo", maxCount: 1 },
+      { name: "file", maxCount: 1 },
+    ])(request, response, (error) => {
+      if (error) {
+        return response.status(400).json({ message: error.message || "Upload failed." });
+      }
 
-    if (!name || !email || !message) {
-      return response.status(400).json({ message: "Name, email, and message are required." });
+      return next();
+    });
+  },
+  async (request, response) => {
+  try {
+    const { name, email, subject, message } = request.body || {};
+
+    if (!name || !email || !subject || !message) {
+      return response.status(400).json({ message: "Name, email, subject, and message are required." });
     }
 
+    const photoFile = request.files?.photo?.[0];
+    const attachedFile = request.files?.file?.[0];
     const siteSettings = await getSiteSettingsRecord();
+    const ticketToken = createTicketToken();
     const savedMessage = await prisma.contactMessage.create({
       data: {
         name: String(name).trim(),
         email: String(email).trim(),
+        subject: String(subject || "").trim(),
         message: String(message).trim(),
+        photo: photoFile ? `/uploads/${photoFile.filename}` : "",
+        file: attachedFile ? `/uploads/${attachedFile.filename}` : "",
+        ticketToken,
+        chatMessages: {
+          create: {
+            senderType: "visitor",
+            senderName: String(name).trim(),
+            message: String(message).trim(),
+            photo: photoFile ? `/uploads/${photoFile.filename}` : "",
+            file: attachedFile ? `/uploads/${attachedFile.filename}` : "",
+          },
+        },
+      },
+      include: {
+        chatMessages: {
+          orderBy: { createdAt: "asc" },
+        },
       },
     });
 
@@ -1220,13 +1357,114 @@ router.post("/contact", async (request, response) => {
       console.error("Failed to send contact email:", mailError.message);
     }
 
+    request.app.get("io")?.emit("contact:ticket_created", {
+      ticket: serializeContactTicket(savedMessage),
+    });
+
     return response.status(201).json({
       message: "Message sent successfully.",
-      data: savedMessage,
+      data: serializeContactTicket(savedMessage),
+      ticket: {
+        id: savedMessage.id,
+        token: ticketToken,
+      },
     });
   } catch (error) {
     console.error("Failed to save contact message:", error.message);
     return response.status(500).json({ message: "Failed to send message." });
+  }
+});
+
+router.get("/contact-ticket/:messageId", async (request, response) => {
+  try {
+    const messageId = Number.parseInt(request.params.messageId, 10);
+    const ticketToken = normalizeString(request.query?.token);
+
+    if (!messageId || !ticketToken) {
+      return response.status(400).json({ message: "Ticket token is required." });
+    }
+
+    const ticket = await getContactTicketById(messageId);
+    if (!ticket || ticket.ticketToken !== ticketToken) {
+      return response.status(404).json({ message: "Ticket not found." });
+    }
+
+    return response.json({
+      ticket: serializeContactTicket(ticket),
+    });
+  } catch (error) {
+    console.error("Failed to load contact ticket:", error.message);
+    return response.status(500).json({ message: "Failed to load ticket." });
+  }
+});
+
+router.post(
+  "/contact-ticket/:messageId/messages",
+  (request, response, next) => {
+    contactChatUpload.fields([
+      { name: "photo", maxCount: 1 },
+      { name: "file", maxCount: 1 },
+    ])(request, response, (error) => {
+      if (error) {
+        return response.status(400).json({ message: error.message || "Upload failed." });
+      }
+
+      return next();
+    });
+  },
+  async (request, response) => {
+  try {
+    const messageId = Number.parseInt(request.params.messageId, 10);
+    const ticketToken = normalizeString(request.query?.token);
+    const message = normalizeString(request.body?.message);
+
+    if (!messageId || !ticketToken || (!message && !request.files?.photo?.[0] && !request.files?.file?.[0])) {
+      return response.status(400).json({ message: "Ticket token and a message or attachment are required." });
+    }
+
+    const ticket = await prisma.contactMessage.findUnique({
+      where: { id: messageId },
+      select: {
+        id: true,
+        name: true,
+        ticketToken: true,
+        status: true,
+      },
+    });
+
+    if (!ticket || ticket.ticketToken !== ticketToken) {
+      return response.status(404).json({ message: "Ticket not found." });
+    }
+
+    if (ticket.status === "solved") {
+      return response.status(409).json({ message: "This ticket is closed. Please create a new ticket." });
+    }
+
+    const photoFile = request.files?.photo?.[0];
+    const attachedFile = request.files?.file?.[0];
+    const savedChatMessage = await prisma.contactChatMessage.create({
+      data: {
+        contactMessageId: ticket.id,
+        senderType: "visitor",
+        senderName: ticket.name || "Visitor",
+        message,
+        photo: photoFile ? `/uploads/${photoFile.filename}` : "",
+        file: attachedFile ? `/uploads/${attachedFile.filename}` : "",
+      },
+    });
+
+    request.app.get("io")?.to(`contact:ticket:${ticket.id}`).emit("contact:message_created", {
+      ticketId: ticket.id,
+      message: serializeContactChatMessage(savedChatMessage),
+    });
+
+    return response.status(201).json({
+      message: "Reply sent successfully.",
+      data: serializeContactChatMessage(savedChatMessage),
+    });
+  } catch (error) {
+    console.error("Failed to save contact ticket reply:", error.message);
+    return response.status(500).json({ message: "Failed to send reply." });
   }
 });
 

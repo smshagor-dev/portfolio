@@ -1,14 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
-import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiFolder, FiLogOut, FiMail, FiMessageSquare, FiSettings } from "react-icons/fi";
+import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiSend, FiSettings, FiUpload } from "react-icons/fi";
 import { getSocialIconOption, searchSocialIcons } from "@/utils/social-icons";
 import { getServiceIconOption, serviceIconOptions } from "@/utils/service-icons";
 import { getStatsIconOption, statsIconOptions } from "@/utils/stats-icons";
@@ -190,6 +190,59 @@ function emptyAnalytics() {
 
 function formatMetricValue(value) {
   return Number(value || 0).toLocaleString("en-US");
+}
+
+function formatVisitorLastSeen(value) {
+  if (!value) {
+    return "Unknown";
+  }
+
+  const lastSeenTime = new Date(value).getTime();
+  if (!Number.isFinite(lastSeenTime)) {
+    return "Unknown";
+  }
+
+  const elapsedSeconds = Math.max(0, Math.round((Date.now() - lastSeenTime) / 1000));
+  if (elapsedSeconds < 60) {
+    return `${elapsedSeconds || 1}s ago`;
+  }
+
+  const elapsedMinutes = Math.round(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes}m ago`;
+  }
+
+  return new Date(value).toLocaleString();
+}
+
+function formatThreadTimestamp(value) {
+  if (!value) {
+    return "Unknown";
+  }
+
+  return new Date(value).toLocaleString();
+}
+
+function sortMessagesByLatest(items) {
+  function getPriority(item) {
+    if (item?.status === "solved") {
+      return 2;
+    }
+
+    return item?.isNew ? 0 : 1;
+  }
+
+  return [...(items || [])].sort((a, b) => {
+    const priorityDifference = getPriority(a) - getPriority(b);
+    if (priorityDifference !== 0) {
+      return priorityDifference;
+    }
+
+    return (
+      new Date(b?.lastMessageAt || b?.createdAt || 0).getTime() -
+      new Date(a?.lastMessageAt || a?.createdAt || 0).getTime()
+    );
+  });
 }
 
 function emptyDashboardSummary() {
@@ -580,6 +633,14 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const [dashboardSummary, setDashboardSummary] = useState(emptyDashboardSummary());
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
   const [selectedAnalyticsVisitor, setSelectedAnalyticsVisitor] = useState(null);
+  const [selectedMessageThread, setSelectedMessageThread] = useState(null);
+  const [messageReplyDraft, setMessageReplyDraft] = useState("");
+  const [messageReplyAttachments, setMessageReplyAttachments] = useState({ photo: null, file: null });
+  const [isMessageThreadLoading, setIsMessageThreadLoading] = useState(false);
+  const [isSendingMessageReply, setIsSendingMessageReply] = useState(false);
+  const messageReplyPhotoInputRef = useRef(null);
+  const messageReplyFileInputRef = useRef(null);
+  const [messageActionId, setMessageActionId] = useState(null);
   const [socialSearch, setSocialSearch] = useState({});
   const [openCounterIconIndex, setOpenCounterIconIndex] = useState(null);
   const [isServiceIconDropdownOpen, setIsServiceIconDropdownOpen] = useState(false);
@@ -640,7 +701,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
         const heroSkills = normalizeHeroSkills(data.profile?.heroSkills);
 
-        setMessages(data.messages || []);
+        setMessages(sortMessagesByLatest(data.messages || []));
         setDashboardSummary({
           ...emptyDashboardSummary(),
           ...(data.dashboardSummary || {}),
@@ -834,9 +895,14 @@ export function AdminSectionPage({ section = "dashboard" }) {
   );
 
   const loadAnalytics = useCallback(
-    async (authToken) => {
+    async (authToken, options = {}) => {
+      const shouldShowLoading = !options.silent;
+
       try {
-        setIsAnalyticsLoading(true);
+        if (shouldShowLoading) {
+          setIsAnalyticsLoading(true);
+        }
+
         const response = await fetch(`${backendUrl}/api/admin/analytics`, {
           headers: {
             Authorization: `Bearer ${authToken}`,
@@ -848,12 +914,21 @@ export function AdminSectionPage({ section = "dashboard" }) {
           throw new Error(data.message || "Failed to load analytics.");
         }
 
+        const nextVisitors = Array.isArray(data.visitors) ? data.visitors : [];
+
         setAnalytics({
           ...emptyAnalytics(),
           ...data,
           growth: Array.isArray(data.growth) ? data.growth : [],
           weekly: Array.isArray(data.weekly) ? data.weekly : [],
-          visitors: Array.isArray(data.visitors) ? data.visitors : [],
+          visitors: nextVisitors,
+        });
+        setSelectedAnalyticsVisitor((current) => {
+          if (!current) {
+            return current;
+          }
+
+          return nextVisitors.find((visitor) => visitor.id === current.id) || current;
         });
       } catch (error) {
         setAnalytics((current) => ({
@@ -861,7 +936,180 @@ export function AdminSectionPage({ section = "dashboard" }) {
           note: error.message || "Failed to load analytics.",
         }));
       } finally {
-        setIsAnalyticsLoading(false);
+        if (shouldShowLoading) {
+          setIsAnalyticsLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  const loadMessageThread = useCallback(
+    async (authToken, messageId) => {
+      if (!authToken || !messageId) {
+        return;
+      }
+
+      try {
+        setIsMessageThreadLoading(true);
+        const response = await fetch(`${backendUrl}/api/admin/messages/${messageId}`, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to load message thread.");
+        }
+
+        setSelectedMessageThread(data.message || null);
+      } catch (error) {
+        toast.error(error.message || "Failed to load message thread.");
+      } finally {
+        setIsMessageThreadLoading(false);
+      }
+    },
+    [],
+  );
+
+  const sendAdminMessageReply = useCallback(
+    async (authToken) => {
+      if (
+        !authToken ||
+        !selectedMessageThread?.id ||
+        (!messageReplyDraft.trim() && !messageReplyAttachments.photo && !messageReplyAttachments.file)
+      ) {
+        return;
+      }
+
+      try {
+        setIsSendingMessageReply(true);
+        const formData = new FormData();
+        formData.append("message", messageReplyDraft.trim());
+
+        if (messageReplyAttachments.photo) {
+          formData.append("photo", messageReplyAttachments.photo);
+        }
+
+        if (messageReplyAttachments.file) {
+          formData.append("file", messageReplyAttachments.file);
+        }
+
+        const response = await fetch(`${backendUrl}/api/admin/messages/${selectedMessageThread.id}/replies`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: formData,
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to send reply.");
+        }
+
+        setMessageReplyDraft("");
+        setMessageReplyAttachments({ photo: null, file: null });
+        if (messageReplyPhotoInputRef.current) {
+          messageReplyPhotoInputRef.current.value = "";
+        }
+        if (messageReplyFileInputRef.current) {
+          messageReplyFileInputRef.current.value = "";
+        }
+        setSelectedMessageThread((current) => {
+          if (!current || !data.data) {
+            return current;
+          }
+
+          const exists = (current.chatMessages || []).some((item) => item.id === data.data.id);
+          if (exists) {
+            return current;
+          }
+
+          return {
+            ...current,
+            chatMessages: [...(current.chatMessages || []), data.data],
+            messageCount: Number(current.messageCount || 0) + 1,
+            lastMessageAt: data.data.createdAt,
+            latestReply: data.data,
+          };
+        });
+      } catch (error) {
+        toast.error(error.message || "Failed to send reply.");
+      } finally {
+        setIsSendingMessageReply(false);
+      }
+    },
+    [messageReplyAttachments.file, messageReplyAttachments.photo, messageReplyDraft, selectedMessageThread],
+  );
+
+  const updateMessageStatus = useCallback(
+    async (authToken, messageId, status) => {
+      if (!authToken || !messageId) {
+        return;
+      }
+
+      try {
+        setMessageActionId(messageId);
+        const response = await fetch(`${backendUrl}/api/admin/messages/${messageId}/status`, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to update ticket status.");
+        }
+
+        setMessages((current) =>
+          sortMessagesByLatest(
+            current.map((message) => (message.id === messageId ? { ...message, ...data.data } : message)),
+          ),
+        );
+        setSelectedMessageThread((current) =>
+          current && current.id === messageId ? { ...current, ...data.data } : current,
+        );
+      } catch (error) {
+        toast.error(error.message || "Failed to update ticket status.");
+      } finally {
+        setMessageActionId(null);
+      }
+    },
+    [],
+  );
+
+  const deleteMessageTicket = useCallback(
+    async (authToken, messageId) => {
+      if (!authToken || !messageId) {
+        return;
+      }
+
+      try {
+        setMessageActionId(messageId);
+        const response = await fetch(`${backendUrl}/api/admin/messages/${messageId}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to delete ticket.");
+        }
+
+        setMessages((current) => current.filter((message) => message.id !== messageId));
+        setSelectedMessageThread((current) => (current?.id === messageId ? null : current));
+        setMessageReplyDraft("");
+      } catch (error) {
+        toast.error(error.message || "Failed to delete ticket.");
+      } finally {
+        setMessageActionId(null);
       }
     },
     [],
@@ -892,8 +1140,8 @@ export function AdminSectionPage({ section = "dashboard" }) {
     }
 
     const interval = window.setInterval(() => {
-      loadAnalytics(token);
-    }, 60000);
+      loadAnalytics(token, { silent: true });
+    }, 30000);
 
     return () => window.clearInterval(interval);
   }, [loadAnalytics, token]);
@@ -979,6 +1227,100 @@ export function AdminSectionPage({ section = "dashboard" }) {
       socket.disconnect();
     };
   }, [activeTab, serviceSocketKey]);
+
+  useEffect(() => {
+    if (!token) {
+      return undefined;
+    }
+
+    const socket = io(backendUrl, {
+      transports: ["websocket", "polling"],
+    });
+
+    if (selectedMessageThread?.id) {
+      socket.emit("contact:admin_join", {
+        messageId: selectedMessageThread.id,
+        token,
+      });
+    }
+
+    socket.on("contact:ticket_created", (payload) => {
+      if (!payload?.ticket?.id) {
+        return;
+      }
+
+      setMessages((current) => {
+        const exists = current.some((item) => item.id === payload.ticket.id);
+        if (exists) {
+          return current;
+        }
+
+        return sortMessagesByLatest([
+          {
+            ...payload.ticket,
+            messageCount: (payload.ticket.chatMessages || []).length,
+            lastMessageAt:
+              payload.ticket.chatMessages?.[payload.ticket.chatMessages.length - 1]?.createdAt ||
+              payload.ticket.createdAt,
+            latestReply:
+              payload.ticket.chatMessages?.[payload.ticket.chatMessages.length - 1] || null,
+          },
+          ...current,
+        ]);
+      });
+    });
+
+    socket.on("contact:message_created", (payload) => {
+      if (!payload?.ticketId || !payload?.message) {
+        return;
+      }
+
+      setMessages((current) =>
+        sortMessagesByLatest(
+          current.map((message) =>
+            message.id === payload.ticketId
+              ? {
+                  ...message,
+                  lastMessageAt: payload.message.createdAt,
+                  messageCount: Number(message.messageCount || 0) + 1,
+                  latestReply: payload.message,
+                  isNew: payload.message.senderType === "admin" ? false : message.isNew,
+                }
+              : message,
+          ),
+        ),
+      );
+
+      setSelectedMessageThread((current) => {
+        if (!current || current.id !== payload.ticketId) {
+          return current;
+        }
+
+        const exists = (current.chatMessages || []).some((item) => item.id === payload.message.id);
+        if (exists) {
+          return current;
+        }
+
+        return {
+          ...current,
+          chatMessages: [...(current.chatMessages || []), payload.message],
+          lastMessageAt: payload.message.createdAt,
+          messageCount: Number(current.messageCount || 0) + 1,
+          latestReply: payload.message,
+          isNew: payload.message.senderType === "admin" ? false : current.isNew,
+        };
+      });
+    });
+
+    return () => {
+      if (selectedMessageThread?.id) {
+        socket.emit("contact:admin_leave", {
+          messageId: selectedMessageThread.id,
+        });
+      }
+      socket.disconnect();
+    };
+  }, [selectedMessageThread?.id, token]);
 
   function updateField(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -1892,6 +2234,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
           { label: "Today Total Users", value: formatMetricValue(analytics.todayUsers), icon: FiBarChart2 },
           { label: "Last 7 Days Users", value: formatMetricValue(analytics.last7DaysUsers), icon: FiFolder },
           { label: "Last 30 Days Users", value: formatMetricValue(analytics.last30DaysUsers), icon: FiBriefcase },
+          { label: "Tickets", value: formatMetricValue(messages.length), icon: FiMail, href: "/admin/messages" },
         ]
       : activeTab === "settings"
       ? [
@@ -2028,11 +2371,11 @@ export function AdminSectionPage({ section = "dashboard" }) {
             <div className={`mt-6 grid gap-4 ${activeTab === "dashboard" ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-3"}`}>
               {dashboardHighlights.map((item) => {
                 const Icon = item.icon;
-
-                return (
+                const content = (
                   <div
-                    key={item.label}
-                    className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl"
+                    className={`rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition ${
+                      item.href ? "hover:-translate-y-0.5 hover:border-[#4dc4ff]/35 hover:bg-white/[0.06]" : ""
+                    }`}
                   >
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-[#9fb1c7]">{item.label}</p>
@@ -2042,6 +2385,14 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     </div>
                     <p className="mt-4 text-3xl font-semibold text-white">{item.value}</p>
                   </div>
+                );
+
+                return item.href ? (
+                  <Link key={item.label} href={item.href}>
+                    {content}
+                  </Link>
+                ) : (
+                  <div key={item.label}>{content}</div>
                 );
               })}
             </div>
@@ -2100,7 +2451,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                       <table className="min-w-full border-separate border-spacing-y-3">
                         <thead>
                           <tr>
-                            {["User ID", "IP", "Country", "Location", "Viewed Pages"].map((label) => (
+                            {["User ID", "Status", "Current Page", "IP", "Country", "Location", "Viewed Pages"].map((label) => (
                               <th
                                 key={label}
                                 className="px-3 text-left text-xs uppercase tracking-[0.22em] text-[#8ea7c2]"
@@ -2114,7 +2465,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                           {(analytics.visitors || []).length === 0 ? (
                             <tr>
                               <td
-                                colSpan={5}
+                                colSpan={7}
                                 className="rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-6 text-center text-sm text-[#8ea7c2]"
                               >
                                 No tracked visitors yet.
@@ -2125,6 +2476,28 @@ export function AdminSectionPage({ section = "dashboard" }) {
                               <tr key={visitor.id} className="rounded-[1.2rem]">
                                 <td className="rounded-l-[1.2rem] border border-white/10 border-r-0 bg-white/[0.03] px-3 py-4 text-sm text-white">
                                   <span className="block max-w-[180px] truncate">{visitor.userId}</span>
+                                </td>
+                                <td className="border border-white/10 border-l-0 border-r-0 bg-white/[0.03] px-3 py-4 text-sm">
+                                  <span
+                                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                                      visitor.isLive
+                                        ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                                        : "border-amber-300/25 bg-amber-300/10 text-amber-100"
+                                    }`}
+                                  >
+                                    <span
+                                      className={`h-2 w-2 rounded-full ${
+                                        visitor.isLive ? "bg-emerald-300" : "bg-amber-300"
+                                      }`}
+                                    />
+                                    {visitor.isLive ? "Live" : "Away"}
+                                  </span>
+                                  <span className="mt-2 block text-xs text-[#8ea7c2]">
+                                    {formatVisitorLastSeen(visitor.lastSeenAt)}
+                                  </span>
+                                </td>
+                                <td className="border border-white/10 border-l-0 border-r-0 bg-white/[0.03] px-3 py-4 text-sm text-[#d4e2f0]">
+                                  <span className="block max-w-[180px] truncate">{visitor.currentPage || "Unknown"}</span>
                                 </td>
                                 <td className="border border-white/10 border-l-0 border-r-0 bg-white/[0.03] px-3 py-4 text-sm text-[#d4e2f0]">
                                   {visitor.ipAddress || "Unknown"}
@@ -2294,9 +2667,34 @@ export function AdminSectionPage({ section = "dashboard" }) {
                               {message.createdAt ? new Date(message.createdAt).toLocaleDateString() : ""}
                             </span>
                           </div>
+                          {message.subject ? (
+                            <p className="mt-3 text-sm font-medium text-white">{message.subject}</p>
+                          ) : null}
                           <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#9fb1c7]">
                             {message.message}
                           </p>
+                          {message.photo || message.file ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {message.photo ? (
+                                <Link
+                                  href={message.photo}
+                                  target="_blank"
+                                  className="rounded-full border border-[#2f4866] px-3 py-1 text-xs uppercase tracking-[0.18em] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white"
+                                >
+                                  Photo
+                                </Link>
+                              ) : null}
+                              {message.file ? (
+                                <Link
+                                  href={message.file}
+                                  target="_blank"
+                                  className="rounded-full border border-[#2f4866] px-3 py-1 text-xs uppercase tracking-[0.18em] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white"
+                                >
+                                  File
+                                </Link>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </div>
                       ))
                     )}
@@ -2316,6 +2714,28 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     <p className="mt-2 text-sm text-[#97a9be]">
                       {selectedAnalyticsVisitor.ipAddress || "Unknown IP"} • {selectedAnalyticsVisitor.country || "Unknown country"} • {selectedAnalyticsVisitor.location || "Unknown location"}
                     </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em]">
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 font-semibold ${
+                          selectedAnalyticsVisitor.isLive
+                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                            : "border-amber-300/25 bg-amber-300/10 text-amber-100"
+                        }`}
+                      >
+                        <span
+                          className={`h-2 w-2 rounded-full ${
+                            selectedAnalyticsVisitor.isLive ? "bg-emerald-300" : "bg-amber-300"
+                          }`}
+                        />
+                        {selectedAnalyticsVisitor.isLive ? "Live" : "Away"}
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[#9fb1c7]">
+                        Last seen {formatVisitorLastSeen(selectedAnalyticsVisitor.lastSeenAt)}
+                      </span>
+                      <span className="max-w-full truncate rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[#9fb1c7]">
+                        Page {selectedAnalyticsVisitor.currentPage || "Unknown"}
+                      </span>
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -2346,6 +2766,190 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     ))
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {(selectedMessageThread || isMessageThreadLoading) && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+              <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+                <div className="flex items-center justify-between border-b border-[#203049] px-5 py-4 md:px-6">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Live Ticket Thread</p>
+                    <h4 className="mt-2 truncate text-2xl font-semibold text-white">
+                      {selectedMessageThread?.subject || selectedMessageThread?.name || "Message Thread"}
+                    </h4>
+                    <p className="mt-2 truncate text-sm text-[#97a9be]">
+                      {selectedMessageThread?.name || "Loading"} | {selectedMessageThread?.email || "Loading"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMessageThread(null);
+                      setMessageReplyDraft("");
+                      setMessageReplyAttachments({ photo: null, file: null });
+                      if (messageReplyPhotoInputRef.current) {
+                        messageReplyPhotoInputRef.current.value = "";
+                      }
+                      if (messageReplyFileInputRef.current) {
+                        messageReplyFileInputRef.current.value = "";
+                      }
+                    }}
+                    className="rounded-xl border border-[#334862] px-4 py-2 text-sm text-[#c1cfde] transition hover:border-[#4a678b]"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {isMessageThreadLoading ? (
+                  <div className="grid gap-4 p-6">
+                    <div className="h-24 animate-pulse rounded-[1.4rem] border border-white/10 bg-white/[0.04]" />
+                    <div className="h-24 animate-pulse rounded-[1.4rem] border border-white/10 bg-white/[0.04]" />
+                    <div className="h-24 animate-pulse rounded-[1.4rem] border border-white/10 bg-white/[0.04]" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 md:px-6">
+                      {(selectedMessageThread?.chatMessages || []).map((item) => {
+                        const isAdminMessage = item.senderType === "admin";
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={`flex ${isAdminMessage ? "justify-end" : "justify-start"}`}
+                          >
+                            <div
+                              className={`max-w-[82%] rounded-[1.4rem] px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.2)] ${
+                                isAdminMessage
+                                  ? "bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] text-[#07111d]"
+                                  : "border border-white/10 bg-white/[0.05] text-white"
+                              }`}
+                            >
+                              {item.message ? <p className="text-sm leading-7">{item.message}</p> : null}
+                              {item.photo || item.file ? (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {item.photo ? (
+                                    <Link
+                                      href={item.photo}
+                                      target="_blank"
+                                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
+                                        isAdminMessage
+                                          ? "border-[#153043]/15 bg-[#07111d]/10 text-[#153043] hover:border-[#153043]/35 hover:bg-[#07111d]/15"
+                                          : "border-white/10 bg-white/[0.03] text-[#9fdcff] hover:border-[#70d5ff] hover:text-white"
+                                      }`}
+                                    >
+                                      <FiImage size={13} />
+                                      View Photo
+                                    </Link>
+                                  ) : null}
+                                  {item.file ? (
+                                    <Link
+                                      href={item.file}
+                                      target="_blank"
+                                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
+                                        isAdminMessage
+                                          ? "border-[#153043]/15 bg-[#07111d]/10 text-[#153043] hover:border-[#153043]/35 hover:bg-[#07111d]/15"
+                                          : "border-white/10 bg-white/[0.03] text-[#9fdcff] hover:border-[#70d5ff] hover:text-white"
+                                      }`}
+                                    >
+                                      <FiPaperclip size={13} />
+                                      Open File
+                                    </Link>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                              <p className={`mt-2 text-[11px] ${isAdminMessage ? "text-[#173447]" : "text-[#8ea7c2]"}`}>
+                                {item.senderName || (isAdminMessage ? "Admin" : "Visitor")} | {formatThreadTimestamp(item.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="border-t border-[#203049] px-5 py-4 md:px-6">
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => messageReplyPhotoInputRef.current?.click()}
+                          className="inline-flex items-center gap-2 rounded-full border border-[#2f4866] bg-white/[0.03] px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
+                        >
+                          <FiImage size={13} />
+                          {messageReplyAttachments.photo ? "Change Photo" : "Add Photo"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => messageReplyFileInputRef.current?.click()}
+                          className="inline-flex items-center gap-2 rounded-full border border-[#2f4866] bg-white/[0.03] px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
+                        >
+                          <FiPaperclip size={13} />
+                          {messageReplyAttachments.file ? "Change File" : "Add File"}
+                        </button>
+                        <input
+                          ref={messageReplyPhotoInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(event) =>
+                            setMessageReplyAttachments((current) => ({
+                              ...current,
+                              photo: event.target.files?.[0] || null,
+                            }))
+                          }
+                        />
+                        <input
+                          ref={messageReplyFileInputRef}
+                          type="file"
+                          className="hidden"
+                          onChange={(event) =>
+                            setMessageReplyAttachments((current) => ({
+                              ...current,
+                              file: event.target.files?.[0] || null,
+                            }))
+                          }
+                        />
+                      </div>
+                      {messageReplyAttachments.photo || messageReplyAttachments.file ? (
+                        <div className="mb-3 flex flex-wrap gap-2">
+                          {messageReplyAttachments.photo ? (
+                            <span className="inline-flex items-center gap-2 rounded-full border border-[#2f4866] bg-[#081322] px-3 py-1.5 text-xs text-[#d6e4f3]">
+                              <FiUpload size={12} />
+                              {messageReplyAttachments.photo.name}
+                            </span>
+                          ) : null}
+                          {messageReplyAttachments.file ? (
+                            <span className="inline-flex items-center gap-2 rounded-full border border-[#2f4866] bg-[#081322] px-3 py-1.5 text-xs text-[#d6e4f3]">
+                              <FiUpload size={12} />
+                              {messageReplyAttachments.file.name}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                        <textarea
+                          value={messageReplyDraft}
+                          onChange={(event) => setMessageReplyDraft(event.target.value)}
+                          rows={3}
+                          placeholder="Reply to this ticket..."
+                          className="min-h-[110px] flex-1 resize-none rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#70859d] focus:border-[#70d5ff]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => sendAdminMessageReply(token)}
+                          disabled={
+                            isSendingMessageReply ||
+                            (!messageReplyDraft.trim() && !messageReplyAttachments.photo && !messageReplyAttachments.file)
+                          }
+                          className="inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <FiSend size={16} />
+                          {isSendingMessageReply ? "Sending..." : "Send Reply"}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -4778,25 +5382,105 @@ export function AdminSectionPage({ section = "dashboard" }) {
             <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
               <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Inbox</p>
               <h3 className="mt-2 text-2xl font-semibold text-white">Recent contact messages</h3>
-              <div className="mt-6 space-y-4">
-                {messages.length === 0 && (
+              <div className="mt-6 overflow-x-auto">
+                {messages.length === 0 ? (
                   <p className="text-sm text-[#8b98a5]">No messages found yet.</p>
+                ) : (
+                  <table className="min-w-full border-separate border-spacing-y-3">
+                    <thead>
+                      <tr>
+                        {["Name", "Email", "Subject", "Message", "Status", "Actions"].map((label) => (
+                          <th
+                            key={label}
+                            className="px-3 text-left text-xs uppercase tracking-[0.22em] text-[#8ea7c2]"
+                          >
+                            {label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {messages.map((message) => (
+                        <tr key={message.id}>
+                          <td className="rounded-l-[1.2rem] border border-[#24344d] border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-white">
+                            <div className="min-w-[140px]">
+                              <p className="font-semibold">{message.name}</p>
+                              <p className="mt-2 text-xs text-[#8ea7c2]">
+                                {message.isNew ? "New" : "Updated"} • {formatThreadTimestamp(message.lastMessageAt || message.createdAt)}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-[#6bd4ff]">
+                            <span className="block max-w-[220px] truncate">{message.email}</span>
+                          </td>
+                          <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-white">
+                            <span className="block max-w-[220px] truncate">{message.subject || "No subject"}</span>
+                          </td>
+                          <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-[#d3d8e8]">
+                            <span className="block max-w-[320px] truncate">
+                              {String(message.latestReply?.message || message.message || "").slice(0, 50)}
+                            </span>
+                          </td>
+                          <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm">
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                                message.status === "solved"
+                                  ? "bg-emerald-400/12 text-emerald-200"
+                                  : message.isNew
+                                    ? "bg-amber-300/12 text-amber-100"
+                                    : "bg-sky-400/12 text-sky-200"
+                              }`}
+                            >
+                              {message.status === "solved"
+                                ? "Solved"
+                                : message.isNew
+                                  ? "New"
+                                  : "Not Solved"}
+                            </span>
+                          </td>
+                          <td className="rounded-r-[1.2rem] border border-[#24344d] border-l-0 bg-[#0b1524] px-3 py-4 text-sm">
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedMessageThread(null);
+                                  setMessageReplyDraft("");
+                                  loadMessageThread(token, message.id);
+                                }}
+                                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#2f4866] px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white"
+                              >
+                                <FiEye size={14} />
+                                View
+                              </button>
+                              <button
+                                type="button"
+                                disabled={messageActionId === message.id}
+                                onClick={() =>
+                                  updateMessageStatus(
+                                    token,
+                                    message.id,
+                                    message.status === "solved" ? "not_solved" : "solved",
+                                  )
+                                }
+                                className="inline-flex items-center justify-center rounded-full border border-[#2f4866] px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-[#d4e2f0] transition hover:border-[#70d5ff] hover:text-white disabled:opacity-60"
+                              >
+                                {message.status === "solved" ? "Not Solved" : "Solved"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={messageActionId === message.id}
+                                onClick={() => deleteMessageTicket(token, message.id)}
+                                className="inline-flex items-center justify-center rounded-full border border-red-400/20 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-red-200 transition hover:border-red-400/40 hover:text-white disabled:opacity-60"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
-                {messages.map((message) => (
-                  <div
-                    className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4"
-                    key={message.id}
-                  >
-                    <div className="mb-2 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                      <p className="font-semibold text-white">{message.name}</p>
-                      <p className="text-xs text-[#8b98a5]">
-                        {new Date(message.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                    <p className="mb-2 text-sm text-[#6bd4ff]">{message.email}</p>
-                    <p className="text-sm leading-7 text-[#d3d8e8]">{message.message}</p>
-                  </div>
-                ))}
               </div>
             </section>
           )}
