@@ -62,7 +62,7 @@ export default function ProjectCard({ project }) {
         <div className="absolute -left-10 bottom-10 h-32 w-32 rounded-full bg-[#7cf0b7]/12 blur-3xl" />
       </div>
 
-      <div className="relative h-60 overflow-hidden border-b border-[#203049] bg-[#09111d]">
+      <div className="relative h-52 overflow-hidden border-b border-[#203049] bg-[#09111d] sm:h-60">
         {project?.image ? (
           <Image
             src={project.image}
@@ -91,8 +91,8 @@ export default function ProjectCard({ project }) {
         </div>
       </div>
 
-      <div className="relative p-6">
-        <h3 className="text-2xl font-semibold text-white transition group-hover:text-[#9be3ff]">
+      <div className="relative p-5 sm:p-6">
+        <h3 className="text-xl font-semibold text-white transition group-hover:text-[#9be3ff] sm:text-2xl">
           {project?.name || "Project title"}
         </h3>
         <p className="mt-4 text-sm leading-7 text-[#c0cddd]">
@@ -112,10 +112,10 @@ export default function ProjectCard({ project }) {
           </div>
         ) : null}
 
-        <div className="mt-6 flex flex-wrap items-center gap-3">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <Link
             href={project?.slug ? `/project/${project.slug}` : "/portfolio"}
-            className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90 sm:w-auto"
           >
             View Case Study
             <ArrowRight size={16} />

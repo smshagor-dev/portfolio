@@ -58,7 +58,7 @@ export default function PricingCarousel({ pricings = [] }) {
   return (
     <div>
       {showControls ? (
-        <div className="mb-5 flex items-center justify-center gap-3">
+        <div className="mb-5 flex flex-wrap items-center justify-center gap-3 sm:flex-nowrap">
           <button
             type="button"
             onClick={() => setPage(activePage <= 0 ? maxPage : activePage - 1)}
@@ -67,7 +67,7 @@ export default function PricingCarousel({ pricings = [] }) {
           >
             {"<"}
           </button>
-          <div className="text-xs uppercase tracking-[0.28em] text-[#8ea5bd]">
+          <div className="order-3 w-full text-center text-[11px] uppercase tracking-[0.24em] text-[#8ea5bd] sm:order-none sm:w-auto sm:text-xs sm:tracking-[0.28em]">
             Scroll plans
           </div>
           <button
@@ -81,7 +81,7 @@ export default function PricingCarousel({ pricings = [] }) {
         </div>
       ) : null}
 
-      <div className="overflow-hidden">
+      <div className="overflow-hidden -mx-1 sm:mx-0">
         <div
           className="flex transition-transform duration-500 ease-out"
           style={{ transform: `translateX(-${activePage * (100 / cardsPerView)}%)` }}
@@ -89,7 +89,7 @@ export default function PricingCarousel({ pricings = [] }) {
           {pricings.map((plan) => (
             <div
               key={plan.id}
-              className="w-full shrink-0 px-2"
+              className="w-full shrink-0 px-1 sm:px-2"
               style={{ flexBasis: `${100 / cardsPerView}%` }}
             >
               <PricingCard plan={plan} compact />

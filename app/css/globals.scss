@@ -4,6 +4,11 @@
   --foreground-rgb: rgb(211, 216, 232);
 }
 
+html,
+body {
+  height: 100%;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --foreground-rgb: 255, 255, 255;
@@ -11,6 +16,7 @@
 }
 
 body {
+  min-height: 100%;
   color: rgb(var(--foreground-rgb));
   background-color: #0d1224;
 }

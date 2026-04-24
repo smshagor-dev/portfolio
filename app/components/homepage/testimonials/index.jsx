@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
@@ -84,7 +85,12 @@ function StarRow({ stars = 5 }) {
   );
 }
 
-export default function TestimonialsSection({ testimonials = [] }) {
+export default function TestimonialsSection({
+  testimonials = [],
+  showAllReviews = false,
+  showViewAllButton = false,
+  ctaPosition = "bottom",
+}) {
   const [items, setItems] = useState((testimonials || []).filter((item) => item?.content));
   const [form, setForm] = useState(buildEmptyForm());
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -259,6 +265,36 @@ export default function TestimonialsSection({ testimonials = [] }) {
     setCurrentSlide(clamp(index, 0, maxSlide));
   }
 
+  function renderShareCard() {
+    return (
+      <div className="flex justify-center">
+        <div className="w-full max-w-2xl rounded-[1.7rem] border border-[#263a52] bg-[linear-gradient(180deg,rgba(12,20,35,0.88),rgba(9,15,26,0.96))] px-6 py-5 text-center shadow-[0_20px_55px_rgba(0,0,0,0.22)]">
+          <p className="text-xs uppercase tracking-[0.32em] text-[#79d4ff]">Share Your Experience</p>
+          <p className="mt-3 text-sm leading-7 text-[#aebed0] md:text-base">
+            Worked with me on a product, redesign, or launch? Add a short review and let future clients see the experience from your side.
+          </p>
+          <div className="mt-5 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap">
+            {showViewAllButton ? (
+              <Link
+                href="/reviews"
+                className="inline-flex items-center justify-center rounded-full border border-[#3a5678] px-6 py-3 text-sm font-medium text-white transition hover:border-[#70d5ff] hover:text-[#70d5ff]"
+              >
+                View All Review
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center justify-center rounded-full border border-[#5ca88a] bg-[linear-gradient(135deg,#11271f,#163328)] px-6 py-3 text-sm font-semibold text-[#dff9ee] shadow-[0_16px_34px_rgba(8,20,17,0.32)] transition duration-300 hover:-translate-y-0.5 hover:border-[#7cf0b7] hover:bg-[linear-gradient(135deg,#143328,#1b4334)] hover:shadow-[0_20px_45px_rgba(9,28,22,0.42)]"
+            >
+              Add Your Review
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function handleTouchStart(event) {
     touchStartXRef.current = event.touches[0]?.clientX || 0;
     touchDeltaRef.current = 0;
@@ -282,148 +318,215 @@ export default function TestimonialsSection({ testimonials = [] }) {
 
   return (
     <section id="testimonials" className="my-12 lg:my-20">
-      <div className="overflow-hidden rounded-[2rem] border border-[#24344d] bg-[radial-gradient(circle_at_top,rgba(124,240,183,0.12),transparent_30%),linear-gradient(180deg,#10192b,#09111d)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:p-8">
+      <div className="overflow-hidden rounded-[2rem] border border-[#24344d] bg-[radial-gradient(circle_at_top,rgba(124,240,183,0.12),transparent_30%),linear-gradient(180deg,#10192b,#09111d)] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)] sm:p-5 md:p-8">
         <div className="flex flex-col items-center gap-5 text-center">
           <SectionHeading
             label="Testimonials"
-            title="Client reactions, team feedback, and practical trust earned through delivery"
-            description="Short notes from collaborators and clients that reflect communication, execution quality, and the overall working experience."
+            title={
+              showAllReviews
+                ? "Every published review, reaction, and trust signal in one place"
+                : "Client reactions, team feedback, and practical trust earned through delivery"
+            }
+            description={
+              showAllReviews
+                ? "Browse the full collection of published reviews, then add your own experience if we have worked together."
+                : "Short notes from collaborators and clients that reflect communication, execution quality, and the overall working experience."
+            }
           />
         </div>
 
-        <div
-          className="mt-10"
-          onMouseEnter={() => setIsPaused(true)}
-          onMouseLeave={() => setIsPaused(false)}
-        >
-          <div
-            className="overflow-hidden"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
-            <div
-              className="flex snap-x snap-mandatory gap-6"
-              style={{
-                transform: trackTransform,
-                transition: "transform 800ms cubic-bezier(.22,.61,.36,1)",
-                willChange: "transform",
-                touchAction: "pan-y",
-              }}
-            >
-              {sliderItems.map((item, index) => {
+        {ctaPosition === "top" ? <div className="mt-8">{renderShareCard()}</div> : null}
+
+        {showAllReviews ? (
+          <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {sliderItems.map((item, index) => {
               const imageFailed = Boolean(failedImages[item.id]);
               const avatarLabel = getInitials(item.name || "Client");
 
               return (
-                <div
+                <button
                   key={`${item.id}-${index}`}
-                  className="min-w-0 shrink-0 snap-start perspective-[1600px]"
-                  style={{ flexBasis: slideBasis }}
+                  type="button"
+                  onClick={() => setActiveTestimonial(item)}
+                  className="group relative flex min-h-[22rem] w-full flex-col overflow-hidden rounded-[1.9rem] border border-[#2a3c54] bg-[linear-gradient(180deg,rgba(18,29,47,0.98),rgba(10,16,28,0.98))] p-6 text-left shadow-[0_24px_55px_rgba(0,0,0,0.24)] transition duration-500 hover:-translate-y-1 hover:border-[#7cf0b7]/60 hover:shadow-[0_34px_90px_rgba(4,10,20,0.42)]"
                 >
-                  <button
-                    type="button"
-                    onClick={() => setActiveTestimonial(item)}
-                    className="group relative flex h-full min-h-[22rem] w-full flex-col overflow-hidden rounded-[1.9rem] border border-[#2a3c54] bg-[linear-gradient(180deg,rgba(18,29,47,0.98),rgba(10,16,28,0.98))] p-6 text-left shadow-[0_24px_55px_rgba(0,0,0,0.24)] transition duration-700 [transform-style:preserve-3d] hover:border-[#7cf0b7]/60 hover:shadow-[0_34px_90px_rgba(4,10,20,0.42)] hover:[transform:rotateX(4deg)_rotateY(-4deg)_translateY(-8px)]"
-                  >
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,240,183,0.12),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(112,213,255,0.14),transparent_28%)] opacity-80 transition duration-700 group-hover:opacity-100" />
-                    <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(124,240,183,0.92),rgba(112,213,255,0.82),transparent)]" />
-                    <div className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.82),rgba(124,240,183,0.92),transparent)]" />
-                    <div className="absolute -left-8 top-4 h-20 w-20 rounded-full bg-[#7cf0b7]/10 blur-3xl transition duration-700 group-hover:bg-[#7cf0b7]/20" />
-                    <div className="absolute -right-8 bottom-4 h-20 w-20 rounded-full bg-[#70d5ff]/10 blur-3xl transition duration-700 group-hover:bg-[#70d5ff]/20" />
-                    <div className="pointer-events-none absolute right-5 top-5 text-[5rem] font-semibold leading-none text-white/5 transition duration-700 group-hover:text-white/10">
-                      &quot;
-                    </div>
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,240,183,0.12),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(112,213,255,0.14),transparent_28%)] opacity-80 transition duration-700 group-hover:opacity-100" />
+                  <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(124,240,183,0.92),rgba(112,213,255,0.82),transparent)]" />
+                  <div className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.82),rgba(124,240,183,0.92),transparent)]" />
 
-                    <div className="relative flex items-start justify-between gap-4 [transform:translateZ(34px)]">
-                      <div className="min-w-0 flex items-center gap-4">
-                        <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden rounded-[1.3rem] border border-[#36506b] bg-[#102038] text-sm font-semibold uppercase tracking-[0.18em] text-[#8fe6c1] shadow-[0_10px_26px_rgba(0,0,0,0.22)]">
-                          {!imageFailed && item.image ? (
-                            <Image
-                              src={item.image}
-                              alt={item.name}
-                              width={64}
-                              height={64}
-                              className="h-[64px] w-[64px] object-cover"
-                              unoptimized
-                              onError={() =>
-                                setFailedImages((current) => ({ ...current, [item.id]: true }))
-                              }
-                            />
-                          ) : (
-                            <span>{avatarLabel}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-base font-semibold text-white">{item.name}</p>
-                          <p className="mt-1 text-xs uppercase tracking-[0.28em] text-[#7cf0b7]">
-                            {item.company || "Client"}
-                          </p>
-                          <p className="mt-1 text-[11px] uppercase tracking-[0.24em] text-[#8ba0b7]">
-                            {item.position || "Reviewer"}
-                          </p>
-                        </div>
+                  <div className="relative flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex items-center gap-4">
+                      <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden rounded-[1.3rem] border border-[#36506b] bg-[#102038] text-sm font-semibold uppercase tracking-[0.18em] text-[#8fe6c1] shadow-[0_10px_26px_rgba(0,0,0,0.22)]">
+                        {!imageFailed && item.image ? (
+                          <Image
+                            src={item.image}
+                            alt={item.name}
+                            width={64}
+                            height={64}
+                            className="h-[64px] w-[64px] object-cover"
+                            unoptimized
+                            onError={() =>
+                              setFailedImages((current) => ({ ...current, [item.id]: true }))
+                            }
+                          />
+                        ) : (
+                          <span>{avatarLabel}</span>
+                        )}
                       </div>
-
-                      <StarRow stars={item.stars} />
+                      <div className="min-w-0">
+                        <p className="text-base font-semibold text-white">{item.name}</p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.28em] text-[#7cf0b7]">
+                          {item.company || "Client"}
+                        </p>
+                        <p className="mt-1 text-[11px] uppercase tracking-[0.24em] text-[#8ba0b7]">
+                          {item.position || "Reviewer"}
+                        </p>
+                      </div>
                     </div>
 
-                    <div
-                      className="relative mt-6 text-sm leading-7 text-[#c5d3e2] [transform:translateZ(28px)]"
-                      dangerouslySetInnerHTML={{ __html: item.content }}
-                    />
+                    <StarRow stars={item.stars} />
+                  </div>
 
-                    <div className="relative mt-auto flex items-center justify-between gap-3 border-t border-[#22334a] pt-4 [transform:translateZ(26px)]">
-                      <span className="text-[11px] uppercase tracking-[0.24em] text-[#88a0ba]">
-                        {formatDate(item.createdAt)}
-                      </span>
-                      <span className="rounded-full border border-[#305246] bg-[#0f211b] px-3 py-1 text-[10px] uppercase tracking-[0.26em] text-[#a9edd0] transition duration-500 group-hover:border-[#56b88b] group-hover:bg-[#12281f]">
-                        View full review
-                      </span>
-                    </div>
-                  </button>
-                </div>
+                  <div
+                    className="relative mt-6 text-sm leading-7 text-[#c5d3e2]"
+                    dangerouslySetInnerHTML={{ __html: item.content }}
+                  />
+
+                  <div className="relative mt-auto flex items-center justify-between gap-3 border-t border-[#22334a] pt-4">
+                    <span className="text-[11px] uppercase tracking-[0.24em] text-[#88a0ba]">
+                      {formatDate(item.createdAt)}
+                    </span>
+                    <span className="rounded-full border border-[#305246] bg-[#0f211b] px-3 py-1 text-[10px] uppercase tracking-[0.26em] text-[#a9edd0] transition duration-500 group-hover:border-[#56b88b] group-hover:bg-[#12281f]">
+                      View full review
+                    </span>
+                  </div>
+                </button>
               );
-              })}
-            </div>
+            })}
           </div>
-        </div>
-
-        {maxSlide > 0 ? (
-          <div className="mt-6 flex items-center justify-center gap-2">
-            {Array.from({ length: maxSlide + 1 }, (_, index) => (
-              <button
-                key={`testimonial-group-${index}`}
-                type="button"
-                aria-label={`Show testimonial set ${index + 1}`}
-                onClick={() => goToSlide(index)}
-                className={`h-2.5 rounded-full transition-all ${
-                  currentSlide === index ? "w-8 bg-[#7cf0b7]" : "w-2.5 bg-[#33506c] hover:bg-[#4b6f90]"
-                }`}
-              />
-            ))}
-          </div>
-        ) : null}
-
-        <div className="mt-8 flex justify-center">
-          <div className="w-full max-w-2xl rounded-[1.7rem] border border-[#263a52] bg-[linear-gradient(180deg,rgba(12,20,35,0.88),rgba(9,15,26,0.96))] px-6 py-5 text-center shadow-[0_20px_55px_rgba(0,0,0,0.22)]">
-            <p className="text-xs uppercase tracking-[0.32em] text-[#79d4ff]">Share Your Experience</p>
-            <p className="mt-3 text-sm leading-7 text-[#aebed0] md:text-base">
-              Worked with me on a product, redesign, or launch? Add a short review and let future clients see the experience from your side.
-            </p>
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="mt-5 inline-flex items-center justify-center rounded-full border border-[#5ca88a] bg-[linear-gradient(135deg,#11271f,#163328)] px-6 py-3 text-sm font-semibold text-[#dff9ee] shadow-[0_16px_34px_rgba(8,20,17,0.32)] transition duration-300 hover:-translate-y-0.5 hover:border-[#7cf0b7] hover:bg-[linear-gradient(135deg,#143328,#1b4334)] hover:shadow-[0_20px_45px_rgba(9,28,22,0.42)]"
+        ) : (
+          <>
+            <div
+              className="mt-10"
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
             >
-              Add Your Review
-            </button>
-          </div>
-        </div>
+              <div
+                className="overflow-hidden"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                <div
+                  className="flex snap-x snap-mandatory gap-6"
+                  style={{
+                    transform: trackTransform,
+                    transition: "transform 800ms cubic-bezier(.22,.61,.36,1)",
+                    willChange: "transform",
+                    touchAction: "pan-y",
+                  }}
+                >
+                  {sliderItems.map((item, index) => {
+                    const imageFailed = Boolean(failedImages[item.id]);
+                    const avatarLabel = getInitials(item.name || "Client");
+
+                    return (
+                      <div
+                        key={`${item.id}-${index}`}
+                        className="min-w-0 shrink-0 snap-start perspective-[1600px]"
+                        style={{ flexBasis: slideBasis }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setActiveTestimonial(item)}
+                          className="group relative flex h-full min-h-[22rem] w-full flex-col overflow-hidden rounded-[1.9rem] border border-[#2a3c54] bg-[linear-gradient(180deg,rgba(18,29,47,0.98),rgba(10,16,28,0.98))] p-6 text-left shadow-[0_24px_55px_rgba(0,0,0,0.24)] transition duration-700 [transform-style:preserve-3d] hover:border-[#7cf0b7]/60 hover:shadow-[0_34px_90px_rgba(4,10,20,0.42)] hover:[transform:rotateX(4deg)_rotateY(-4deg)_translateY(-8px)]"
+                        >
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,240,183,0.12),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(112,213,255,0.14),transparent_28%)] opacity-80 transition duration-700 group-hover:opacity-100" />
+                          <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(124,240,183,0.92),rgba(112,213,255,0.82),transparent)]" />
+                          <div className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.82),rgba(124,240,183,0.92),transparent)]" />
+                          <div className="absolute -left-8 top-4 h-20 w-20 rounded-full bg-[#7cf0b7]/10 blur-3xl transition duration-700 group-hover:bg-[#7cf0b7]/20" />
+                          <div className="absolute -right-8 bottom-4 h-20 w-20 rounded-full bg-[#70d5ff]/10 blur-3xl transition duration-700 group-hover:bg-[#70d5ff]/20" />
+                          <div className="pointer-events-none absolute right-5 top-5 text-[5rem] font-semibold leading-none text-white/5 transition duration-700 group-hover:text-white/10">
+                            &quot;
+                          </div>
+
+                          <div className="relative flex items-start justify-between gap-4 [transform:translateZ(34px)]">
+                            <div className="min-w-0 flex items-center gap-4">
+                              <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden rounded-[1.3rem] border border-[#36506b] bg-[#102038] text-sm font-semibold uppercase tracking-[0.18em] text-[#8fe6c1] shadow-[0_10px_26px_rgba(0,0,0,0.22)]">
+                                {!imageFailed && item.image ? (
+                                  <Image
+                                    src={item.image}
+                                    alt={item.name}
+                                    width={64}
+                                    height={64}
+                                    className="h-[64px] w-[64px] object-cover"
+                                    unoptimized
+                                    onError={() =>
+                                      setFailedImages((current) => ({ ...current, [item.id]: true }))
+                                    }
+                                  />
+                                ) : (
+                                  <span>{avatarLabel}</span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-base font-semibold text-white">{item.name}</p>
+                                <p className="mt-1 text-xs uppercase tracking-[0.28em] text-[#7cf0b7]">
+                                  {item.company || "Client"}
+                                </p>
+                                <p className="mt-1 text-[11px] uppercase tracking-[0.24em] text-[#8ba0b7]">
+                                  {item.position || "Reviewer"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <StarRow stars={item.stars} />
+                          </div>
+
+                          <div
+                            className="relative mt-6 text-sm leading-7 text-[#c5d3e2] [transform:translateZ(28px)]"
+                            dangerouslySetInnerHTML={{ __html: item.content }}
+                          />
+
+                          <div className="relative mt-auto flex items-center justify-between gap-3 border-t border-[#22334a] pt-4 [transform:translateZ(26px)]">
+                            <span className="text-[11px] uppercase tracking-[0.24em] text-[#88a0ba]">
+                              {formatDate(item.createdAt)}
+                            </span>
+                            <span className="rounded-full border border-[#305246] bg-[#0f211b] px-3 py-1 text-[10px] uppercase tracking-[0.26em] text-[#a9edd0] transition duration-500 group-hover:border-[#56b88b] group-hover:bg-[#12281f]">
+                              View full review
+                            </span>
+                          </div>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {maxSlide > 0 ? (
+              <div className="mt-6 flex items-center justify-center gap-2">
+                {Array.from({ length: maxSlide + 1 }, (_, index) => (
+                  <button
+                    key={`testimonial-group-${index}`}
+                    type="button"
+                    aria-label={`Show testimonial set ${index + 1}`}
+                    onClick={() => goToSlide(index)}
+                    className={`h-2.5 rounded-full transition-all ${
+                      currentSlide === index ? "w-8 bg-[#7cf0b7]" : "w-2.5 bg-[#33506c] hover:bg-[#4b6f90]"
+                    }`}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
+
+        {ctaPosition !== "top" ? <div className="mt-8">{renderShareCard()}</div> : null}
       </div>
 
       {isModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm md:py-8">
           <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
             <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 md:flex-row md:items-center md:justify-between">
               <div>

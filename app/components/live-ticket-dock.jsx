@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import LiveContactTicket from "./homepage/contact/live-contact-ticket";
 
 const STORAGE_KEY = "portfolio_contact_ticket";
+const OPEN_CHAT_SIGNAL_KEY = "portfolio_force_open_chat";
 
 function readStoredTicket() {
   if (typeof window === "undefined") {
@@ -28,14 +29,33 @@ function readStoredTicket() {
   }
 }
 
-export default function LiveTicketDock() {
+export default function LiveTicketDock({ emergencyContacts = [], websiteTitle = "Portfolio Website" }) {
   const pathname = usePathname();
-  const [ticketSession, setTicketSession] = useState(() => readStoredTicket());
+  const [ticketSession, setTicketSession] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
+    const initialSyncId = window.setTimeout(() => {
+      setTicketSession(readStoredTicket());
+    }, 0);
+
+    function openChat() {
+      setTicketSession(readStoredTicket());
+      setIsOpen(true);
+    }
+
     function handleStorage(event) {
-      if (event.key && event.key !== STORAGE_KEY) {
+      if (!event.key) {
+        setTicketSession(readStoredTicket());
+        return;
+      }
+
+      if (event.key === OPEN_CHAT_SIGNAL_KEY) {
+        openChat();
+        return;
+      }
+
+      if (event.key !== STORAGE_KEY) {
         return;
       }
 
@@ -54,19 +74,34 @@ export default function LiveTicketDock() {
         }
       } else {
         setTicketSession(readStoredTicket());
+        if (shouldOpen) {
+          setIsOpen(true);
+        }
       }
     }
 
+    function handleOpenChat() {
+      openChat();
+    }
+
     window.addEventListener("storage", handleStorage);
+    window.addEventListener("portfolio:open-chat", handleOpenChat);
     window.addEventListener("portfolio:ticket-sync", handleTicketSync);
 
+    if (window.localStorage.getItem(OPEN_CHAT_SIGNAL_KEY)) {
+      openChat();
+      window.localStorage.removeItem(OPEN_CHAT_SIGNAL_KEY);
+    }
+
     return () => {
+      window.clearTimeout(initialSyncId);
       window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("portfolio:open-chat", handleOpenChat);
       window.removeEventListener("portfolio:ticket-sync", handleTicketSync);
     };
   }, []);
 
-  if (pathname?.startsWith("/admin")) {
+  if (pathname?.startsWith("/admin") || pathname?.startsWith("/chat")) {
     return null;
   }
 
@@ -74,6 +109,8 @@ export default function LiveTicketDock() {
     <LiveContactTicket
       ticketSession={ticketSession}
       isOpen={isOpen}
+      emergencyContacts={emergencyContacts}
+      websiteTitle={websiteTitle}
       onClose={() => setIsOpen((current) => !current)}
     />
   );

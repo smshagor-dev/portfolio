@@ -105,7 +105,7 @@ export default async function RootLayout({ children }) {
         >
           <LayoutClientChrome kind="toast" />
           <SiteAnalyticsTracker />
-          <LiveTicketDock />
+          <LiveTicketDock emergencyContacts={emergencyContacts} websiteTitle={siteSettings?.websiteTitle || siteSettings?.seoTitle || "Portfolio Website"} />
           {children}
         </LayoutShell>
         {googleTagManagerId ? <GoogleTagManager gtmId={googleTagManagerId} /> : null}

@@ -16,14 +16,12 @@ export default function WorkflowCard({
 }) {
   const hoverAnimation = isMobile
     ? {
-        y: -4,
         scale: 1.01,
       }
     : {
         scale: 1.035,
         rotateX: -10,
         rotateY: index % 2 === 0 ? 10 : -10,
-        y: -12,
       };
 
   return (
@@ -36,7 +34,7 @@ export default function WorkflowCard({
       onHoverStart={onHoverStart}
       onHoverEnd={onHoverEnd}
       style={{ transformStyle: isMobile ? "flat" : "preserve-3d" }}
-      className={`group relative w-full overflow-hidden rounded-[1.75rem] border p-5 transition-all duration-300 md:p-6 ${
+      className={`group relative flex h-full min-h-[220px] w-full flex-col overflow-hidden rounded-[1.75rem] border p-5 transition-all duration-300 md:min-h-[240px] md:p-6 ${
         isActive
           ? "border-[#73dcff] bg-[linear-gradient(180deg,rgba(18,32,54,0.96),rgba(8,14,24,1))]"
           : "border-[#28405f] bg-[linear-gradient(180deg,rgba(14,24,42,0.9),rgba(7,12,22,0.98))]"
@@ -73,8 +71,8 @@ export default function WorkflowCard({
       />
       <motion.div
         aria-hidden="true"
-        animate={isMobile ? { y: [0, -3, 0] } : { y: [0, -8, 0] }}
-        transition={{ duration: isMobile ? 3.4 : 4, repeat: Infinity, ease: "easeInOut", delay: index * 0.2 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0 }}
         style={{ transform: isMobile ? "none" : "translateZ(36px)" }}
         className="relative"
       >
@@ -87,7 +85,7 @@ export default function WorkflowCard({
         </div>
       </motion.div>
 
-      <div className="relative mt-6" style={{ transform: isMobile ? "none" : "translateZ(24px)" }}>
+      <div className="relative mt-6 flex flex-1 flex-col" style={{ transform: isMobile ? "none" : "translateZ(24px)" }}>
         <div className="flex items-center justify-between gap-4">
           <h3 className="text-xl font-semibold text-white">{step}</h3>
           <span
@@ -96,7 +94,7 @@ export default function WorkflowCard({
             }`}
           />
         </div>
-        <p className="mt-3 max-w-[18rem] text-sm leading-7 text-[#b7c7d8]">{description}</p>
+        <p className="mt-3 flex-1 max-w-[18rem] text-sm leading-7 text-[#b7c7d8]">{description}</p>
       </div>
     </motion.article>
   );

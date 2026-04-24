@@ -18,7 +18,7 @@ function Experience({ experiences = [] }) {
         className="absolute top-0 -z-10 opacity-70"
       />
 
-      <div className="overflow-hidden rounded-[2rem] border border-[#25213b] bg-[radial-gradient(circle_at_top,rgba(43,132,255,0.12),transparent_30%),linear-gradient(180deg,rgba(16,23,45,0.96),rgba(9,14,28,0.98))] px-5 py-8 shadow-[0_24px_70px_rgba(0,0,0,0.25)] md:px-8">
+      <div className="overflow-hidden rounded-[2rem] border border-[#25213b] bg-[radial-gradient(circle_at_top,rgba(43,132,255,0.12),transparent_30%),linear-gradient(180deg,rgba(16,23,45,0.96),rgba(9,14,28,0.98))] px-4 py-8 shadow-[0_24px_70px_rgba(0,0,0,0.25)] sm:px-5 md:px-8">
         <div className="py-8">
           <SectionHeading
             label="Experience"
@@ -44,7 +44,7 @@ function Experience({ experiences = [] }) {
                     >
                       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(122,97,255,0.16),transparent_40%),radial-gradient(circle_at_bottom,rgba(34,211,238,0.14),transparent_42%)]" />
                       <div className="relative flex w-full">
-                        <div className="flex h-full min-h-[320px] w-full flex-col rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.92),rgba(11,19,37,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:p-5 lg:min-h-0">
+                        <div className="flex h-full min-h-[240px] w-full flex-col rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.92),rgba(11,19,37,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)] sm:min-h-[320px] sm:p-5 lg:min-h-0">
                           <div className="flex flex-1 items-center justify-center">
                             <div className="w-full max-w-[520px]">
                               <AnimationLottie animationPath={experienceAnimation} />
@@ -66,11 +66,11 @@ function Experience({ experiences = [] }) {
                       <div className="relative h-full rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.88),rgba(11,19,37,0.96))] p-5">
                         <div className="flex flex-col gap-5 border-b border-[#263953] pb-5 lg:flex-row lg:items-start lg:justify-between">
                           <div className="min-w-0">
-                            <h3 className="mt-2 text-2xl font-semibold text-white">
+                            <h3 className="mt-2 text-xl font-semibold text-white sm:text-2xl">
                               {item.title}
                             </h3>
 
-                            <p className="mt-4 text-base text-[#d2dceb]">{item.company}</p>
+                            <p className="mt-3 text-sm text-[#d2dceb] sm:mt-4 sm:text-base">{item.company}</p>
                           </div>
 
                           <div className="grid gap-4 text-left lg:min-w-[220px] lg:text-right">

@@ -48,7 +48,7 @@ function Skills({ skills = [] }) {
         className="absolute top-0 -z-10 opacity-70"
       />
 
-      <div className="overflow-hidden rounded-[2rem] border border-[#25213b] bg-[radial-gradient(circle_at_top,rgba(122,97,255,0.14),transparent_28%),linear-gradient(180deg,rgba(16,23,45,0.96),rgba(9,14,28,0.98))] px-5 py-8 shadow-[0_24px_70px_rgba(0,0,0,0.25)] md:px-8">
+      <div className="overflow-hidden rounded-[2rem] border border-[#25213b] bg-[radial-gradient(circle_at_top,rgba(122,97,255,0.14),transparent_28%),linear-gradient(180deg,rgba(16,23,45,0.96),rgba(9,14,28,0.98))] px-4 py-8 shadow-[0_24px_70px_rgba(0,0,0,0.25)] sm:px-5 md:px-8">
         <div className="py-8">
           <SectionHeading
             label="Skills"
@@ -57,27 +57,27 @@ function Skills({ skills = [] }) {
             className="mb-8"
           />
 
-          <div id="skills-grid" className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div id="skills-grid" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {visibleItems.map((skill) => (
               <article
                 key={skill.id}
-                className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.18)]"
+                className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.18)] sm:p-5"
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.2rem] border border-[#314768] bg-[#0d1728] p-3">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.2rem] border border-[#314768] bg-[#0d1728] p-3 sm:h-16 sm:w-16">
                     <Image
                       src={skill.image}
                       alt={skill.name}
                       width={44}
                       height={44}
-                      className="h-11 w-11 object-contain"
+                      className="h-9 w-9 object-contain sm:h-11 sm:w-11"
                       unoptimized
                     />
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-4">
-                      <h3 className="truncate text-lg font-semibold text-white">{skill.name}</h3>
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="truncate text-base font-semibold text-white sm:text-lg">{skill.name}</h3>
                       <span className="text-sm font-medium text-[#7dd3fc]">{skill.percentage}%</span>
                     </div>
 

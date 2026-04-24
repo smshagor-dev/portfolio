@@ -79,19 +79,19 @@ export default function ServiceCard({ service, compact = false }) {
       <div className="pointer-events-none absolute -left-10 bottom-0 h-28 w-28 rounded-full bg-[#7ff0bf]/10 blur-3xl transition duration-500 group-hover:translate-x-[10px] group-hover:translate-y-[-10px] group-hover:bg-[#7ff0bf]/18" />
 
       <div className="relative flex h-full flex-col">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#2c4a6d] bg-[linear-gradient(180deg,#10253d,#0b1625)] text-[#8fdcff] transition duration-500 group-hover:rotate-[-4deg] group-hover:border-[#62cbff] group-hover:shadow-[0_18px_30px_rgba(74,180,255,0.18)]">
               <ServiceIcon size={20} />
             </div>
             <p className="mt-4 text-[11px] uppercase tracking-[0.3em] text-[#7dd9ff]">Service</p>
-            <h3 className={`mt-2 font-semibold text-white transition duration-300 group-hover:text-[#9be3ff] ${compact ? "text-lg" : "text-xl"}`}>
+            <h3 className={`mt-2 break-words font-semibold text-white transition duration-300 group-hover:text-[#9be3ff] ${compact ? "text-lg" : "text-xl"}`}>
               {service.name}
             </h3>
           </div>
 
           {service.isFeatured ? (
-            <span className="rounded-full border border-[#315a4b] bg-[#10241c] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#93f0c1]">
+            <span className="self-start rounded-full border border-[#315a4b] bg-[#10241c] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#93f0c1]">
               Featured
             </span>
           ) : null}
@@ -101,7 +101,7 @@ export default function ServiceCard({ service, compact = false }) {
           {stripHtml(service.description)}
         </p>
 
-        <div className="mt-6 flex items-center justify-between gap-3 border-t border-[#213147] pt-4 transition duration-300 group-hover:border-[#305173]">
+        <div className="mt-6 flex flex-col items-start gap-4 border-t border-[#213147] pt-4 transition duration-300 group-hover:border-[#305173] sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <Metric value={service.comments?.length || 0}>
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-none stroke-current" strokeWidth="1.8">

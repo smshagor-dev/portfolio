@@ -4,12 +4,19 @@ const path = require("path");
 const bcrypt = require("bcryptjs");
 const { google } = require("googleapis");
 const multer = require("multer");
+const nodemailer = require("nodemailer");
 const prisma = require("../lib/prisma");
 const { requireAdmin, signAdminToken } = require("../lib/auth");
-const { normalizeSiteSettings, serializeSiteSettings } = require("../lib/site-settings");
+const {
+  getDefaultSiteSettings,
+  isSmtpConfigured,
+  normalizeSiteSettings,
+  serializeSiteSettings,
+} = require("../lib/site-settings");
 
 const router = express.Router();
 const uploadDirectory = path.resolve(process.cwd(), "public", "uploads");
+const contactReplyReminderTimers = new Map();
 
 if (!fs.existsSync(uploadDirectory)) {
   fs.mkdirSync(uploadDirectory, { recursive: true });
@@ -84,6 +91,161 @@ const resumeUpload = multer({
 
 function normalizeString(value) {
   return String(value || "").trim();
+}
+
+function buildContactChatHash(ticketId, token) {
+  const normalizedId = String(ticketId || "").trim();
+  const normalizedToken = String(token || "").trim();
+
+  if (!normalizedId || !normalizedToken) {
+    return "";
+  }
+
+  return `${normalizedId}.${normalizedToken}`;
+}
+
+function buildContactChatUrl(canonicalUrl, ticketId, token) {
+  const chatHash = buildContactChatHash(ticketId, token);
+  const normalizedBaseUrl = String(canonicalUrl || "").trim();
+
+  if (!chatHash || !normalizedBaseUrl) {
+    return "";
+  }
+
+  try {
+    return new URL(`/chat/${chatHash}`, normalizedBaseUrl).toString();
+  } catch (_error) {
+    return "";
+  }
+}
+
+async function sendContactReplyReminderEmail(siteSettings, ticket) {
+  const normalizedSettings = normalizeSiteSettings(siteSettings);
+  if (!isSmtpConfigured(normalizedSettings) || !ticket?.email) {
+    return;
+  }
+
+  const chatUrl = buildContactChatUrl(
+    normalizedSettings.canonicalUrl,
+    ticket.id,
+    ticket.ticketToken,
+  );
+
+  if (!chatUrl) {
+    return;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: normalizedSettings.smtpHost,
+    port: normalizedSettings.smtpPort,
+    secure: normalizedSettings.smtpSecure,
+    auth:
+      normalizedSettings.smtpUser || normalizedSettings.smtpPass
+        ? {
+            user: normalizedSettings.smtpUser,
+            pass: normalizedSettings.smtpPass,
+          }
+        : undefined,
+  });
+
+  const from = normalizedSettings.smtpFromName
+    ? `"${normalizedSettings.smtpFromName}" <${normalizedSettings.smtpFromEmail}>`
+    : normalizedSettings.smtpFromEmail;
+
+  await transporter.sendMail({
+    from,
+    to: ticket.email,
+    replyTo: normalizedSettings.smtpReplyToEmail || normalizedSettings.smtpFromEmail,
+    subject: `New reply to your chat${normalizedSettings.websiteTitle ? ` | ${normalizedSettings.websiteTitle}` : ""}`,
+    text: [
+      `Hi ${ticket.name || "there"},`,
+      "",
+      "There is a new admin reply waiting in your chat.",
+      "You can continue the conversation using this private link:",
+      chatUrl,
+      "",
+      ticket.subject ? `Subject: ${ticket.subject}` : null,
+      "Reply whenever you are ready.",
+    ].filter(Boolean).join("\n"),
+  });
+}
+
+function scheduleContactReplyReminder(ticketId, replyId, replyCreatedAt) {
+  if (!ticketId || !replyId || !replyCreatedAt) {
+    return;
+  }
+
+  const timerKey = `${ticketId}:${replyId}`;
+  const existingTimer = contactReplyReminderTimers.get(timerKey);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  const reminderDelayMs = 10 * 60 * 1000;
+  const timer = setTimeout(async () => {
+    contactReplyReminderTimers.delete(timerKey);
+
+    try {
+      const latestMessage = await prisma.contactChatMessage.findFirst({
+        where: {
+          contactMessageId: ticketId,
+        },
+        orderBy: [
+          { createdAt: "desc" },
+          { id: "desc" },
+        ],
+        select: {
+          id: true,
+          senderType: true,
+        },
+      });
+
+      if (!latestMessage || latestMessage.id !== replyId || latestMessage.senderType !== "admin") {
+        return;
+      }
+
+      const visitorReply = await prisma.contactChatMessage.findFirst({
+        where: {
+          contactMessageId: ticketId,
+          senderType: "visitor",
+          createdAt: {
+            gt: replyCreatedAt,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (visitorReply) {
+        return;
+      }
+
+      const siteSettings = await prisma.siteSettings.findUnique({
+        where: { id: 1 },
+      });
+      const ticket = await prisma.contactMessage.findUnique({
+        where: { id: ticketId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          subject: true,
+          ticketToken: true,
+        },
+      });
+
+      if (!ticket?.ticketToken) {
+        return;
+      }
+
+      await sendContactReplyReminderEmail(siteSettings || getDefaultSiteSettings(), ticket);
+    } catch (error) {
+      console.error("Failed to send contact reply reminder email:", error.message);
+    }
+  }, reminderDelayMs);
+
+  contactReplyReminderTimers.set(timerKey, timer);
 }
 
 function normalizeStringList(items) {
@@ -1255,6 +1417,84 @@ router.post("/article-categories", requireAdmin, async (request, response) => {
   }
 });
 
+router.put("/article-categories/:id", requireAdmin, async (request, response) => {
+  try {
+    if (!hasArticleCategoryModel()) {
+      return response.status(503).json({ message: "Article category model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const categoryId = Number.parseInt(request.params.id, 10);
+    const name = normalizeString(request.body?.name);
+    const slug = slugify(request.body?.slug || name);
+
+    if (!Number.isInteger(categoryId) || categoryId <= 0) {
+      return response.status(400).json({ message: "A valid category id is required." });
+    }
+
+    if (!name || !slug) {
+      return response.status(400).json({ message: "Category name is required." });
+    }
+
+    const existingCategory = await prisma.articleCategory.findUnique({
+      where: { id: categoryId },
+    });
+
+    if (!existingCategory) {
+      return response.status(404).json({ message: "Article category not found." });
+    }
+
+    const category = await prisma.articleCategory.update({
+      where: { id: categoryId },
+      data: { name, slug },
+    });
+
+    return response.json({
+      message: "Article category updated successfully.",
+      category: serializeArticleCategory(category),
+    });
+  } catch (error) {
+    if (error?.code === "P2002") {
+      return response.status(409).json({ message: "An article category with this name or slug already exists." });
+    }
+
+    console.error("Failed to update article category:", error.message);
+    return response.status(500).json({ message: "Failed to update article category." });
+  }
+});
+
+router.delete("/article-categories/:id", requireAdmin, async (request, response) => {
+  try {
+    if (!hasArticleCategoryModel()) {
+      return response.status(503).json({ message: "Article category model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const categoryId = Number.parseInt(request.params.id, 10);
+
+    if (!Number.isInteger(categoryId) || categoryId <= 0) {
+      return response.status(400).json({ message: "A valid category id is required." });
+    }
+
+    const existingCategory = await prisma.articleCategory.findUnique({
+      where: { id: categoryId },
+    });
+
+    if (!existingCategory) {
+      return response.status(404).json({ message: "Article category not found." });
+    }
+
+    await prisma.articleCategory.delete({
+      where: { id: categoryId },
+    });
+
+    return response.json({
+      message: "Article category deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Failed to delete article category:", error.message);
+    return response.status(500).json({ message: "Failed to delete article category." });
+  }
+});
+
 router.get("/emergency-contacts", requireAdmin, async (_request, response) => {
   try {
     if (!hasEmergencyContactModel()) {
@@ -1598,6 +1838,39 @@ router.put("/articles/:articleId", requireAdmin, async (request, response) => {
   }
 });
 
+router.delete("/articles/:articleId", requireAdmin, async (request, response) => {
+  try {
+    if (!hasArticleModel()) {
+      return response.status(503).json({ message: "Article model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const articleId = Number.parseInt(request.params.articleId, 10);
+    if (!articleId) {
+      return response.status(400).json({ message: "Article id is required." });
+    }
+
+    const existingArticle = await prisma.article.findUnique({
+      where: { id: articleId },
+      select: { id: true },
+    });
+
+    if (!existingArticle) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    await prisma.article.delete({
+      where: { id: articleId },
+    });
+
+    return response.json({
+      message: "Article deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Failed to delete article:", error.message);
+    return response.status(500).json({ message: "Failed to delete article." });
+  }
+});
+
 router.get("/analytics", requireAdmin, async (_request, response) => {
   try {
     return response.json(await getAnalyticsData());
@@ -1669,6 +1942,10 @@ router.post(
       where: { id: messageId },
       select: {
         id: true,
+        name: true,
+        email: true,
+        subject: true,
+        ticketToken: true,
       },
     });
 
@@ -1693,6 +1970,8 @@ router.post(
       ticketId: ticket.id,
       message: serializeContactChatMessage(reply),
     });
+
+    scheduleContactReplyReminder(ticket.id, reply.id, reply.createdAt);
 
     return response.status(201).json({
       message: "Reply sent successfully.",

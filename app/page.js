@@ -28,7 +28,7 @@ export default async function Home() {
       <Experience experiences={experiences} />
       <Education educations={educations} />
       <AchievementSection achievements={achievements} />
-      <TestimonialsSection testimonials={testimonials} />
+      <TestimonialsSection testimonials={testimonials} showViewAllButton />
       <Blog articles={articles} />
       <ContactSection profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />
     </div>

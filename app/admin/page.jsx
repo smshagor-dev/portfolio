@@ -148,6 +148,8 @@ function emptySiteSettings() {
   return {
     websiteTitle: "",
     websiteDescription: "",
+    navTitle: "",
+    navSubtitle: "",
     seoTitle: "",
     seoDescription: "",
     seoKeywords: "",
@@ -580,6 +582,8 @@ function buildSiteSettingsPayload(sourceForm) {
     siteSettings: {
       websiteTitle: sourceForm.siteSettings.websiteTitle.trim(),
       websiteDescription: sourceForm.siteSettings.websiteDescription.trim(),
+      navTitle: sourceForm.siteSettings.navTitle.trim(),
+      navSubtitle: sourceForm.siteSettings.navSubtitle.trim(),
       seoTitle: sourceForm.siteSettings.seoTitle.trim(),
       seoDescription: sourceForm.siteSettings.seoDescription.trim(),
       seoKeywords: sourceForm.siteSettings.seoKeywords.trim(),
@@ -637,11 +641,15 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const [admin, setAdmin] = useState(null);
   const [messages, setMessages] = useState([]);
   const [articles, setArticles] = useState([]);
+  const [deletingArticleId, setDeletingArticleId] = useState(null);
   const [articleCategories, setArticleCategories] = useState([]);
   const [emergencyContacts, setEmergencyContacts] = useState([]);
   const [newArticleCategory, setNewArticleCategory] = useState("");
+  const [editingArticleCategoryId, setEditingArticleCategoryId] = useState(null);
+  const [articleCategoryDraft, setArticleCategoryDraft] = useState("");
   const [isArticlesLoading, setIsArticlesLoading] = useState(false);
   const [isSavingArticleCategory, setIsSavingArticleCategory] = useState(false);
+  const [deletingArticleCategoryId, setDeletingArticleCategoryId] = useState(null);
   const [isEmergencyContactsLoading, setIsEmergencyContactsLoading] = useState(false);
   const [isEmergencyContactModalOpen, setIsEmergencyContactModalOpen] = useState(false);
   const [isSavingEmergencyContact, setIsSavingEmergencyContact] = useState(false);
@@ -1049,6 +1057,93 @@ export function AdminSectionPage({ section = "dashboard" }) {
     }
   }, [newArticleCategory, token]);
 
+  const openArticleCategoryEditor = useCallback((category) => {
+    setEditingArticleCategoryId(category?.id ?? null);
+    setArticleCategoryDraft(category?.name || "");
+  }, []);
+
+  const closeArticleCategoryEditor = useCallback(() => {
+    setEditingArticleCategoryId(null);
+    setArticleCategoryDraft("");
+  }, []);
+
+  const updateArticleCategory = useCallback(async () => {
+    if (!token || !editingArticleCategoryId || !articleCategoryDraft.trim()) {
+      toast.error("Category name is required.");
+      return;
+    }
+
+    try {
+      setIsSavingArticleCategory(true);
+      const response = await fetch(`${backendUrl}/api/admin/article-categories/${editingArticleCategoryId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: articleCategoryDraft.trim(),
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update article category.");
+      }
+
+      setArticleCategories((current) =>
+        current
+          .map((category) => (category.id === data.category.id ? data.category : category))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      closeArticleCategoryEditor();
+      toast.success("Article category updated successfully.");
+    } catch (error) {
+      toast.error(error.message || "Failed to update article category.");
+    } finally {
+      setIsSavingArticleCategory(false);
+    }
+  }, [articleCategoryDraft, closeArticleCategoryEditor, editingArticleCategoryId, token]);
+
+  const deleteArticleCategory = useCallback(
+    async (category) => {
+      if (!token || !category?.id) {
+        return;
+      }
+
+      const shouldDelete = window.confirm(`Delete "${category.name}" category?`);
+      if (!shouldDelete) {
+        return;
+      }
+
+      try {
+        setDeletingArticleCategoryId(category.id);
+        const response = await fetch(`${backendUrl}/api/admin/article-categories/${category.id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to delete article category.");
+        }
+
+        setArticleCategories((current) => current.filter((item) => item.id !== category.id));
+        if (editingArticleCategoryId === category.id) {
+          closeArticleCategoryEditor();
+        }
+        toast.success("Article category deleted successfully.");
+      } catch (error) {
+        toast.error(error.message || "Failed to delete article category.");
+      } finally {
+        setDeletingArticleCategoryId(null);
+      }
+    },
+    [closeArticleCategoryEditor, editingArticleCategoryId, token],
+  );
+
   const loadEmergencyContacts = useCallback(async (authToken) => {
     if (!authToken) {
       return;
@@ -1074,6 +1169,42 @@ export function AdminSectionPage({ section = "dashboard" }) {
       setIsEmergencyContactsLoading(false);
     }
   }, []);
+
+  const deleteArticle = useCallback(
+    async (article) => {
+      if (!token || !article?.id) {
+        return;
+      }
+
+      const shouldDelete = window.confirm(`Delete "${article.title}" article?`);
+      if (!shouldDelete) {
+        return;
+      }
+
+      try {
+        setDeletingArticleId(article.id);
+        const response = await fetch(`${backendUrl}/api/admin/articles/${article.id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to delete article.");
+        }
+
+        setArticles((current) => current.filter((item) => item.id !== article.id));
+        toast.success("Article deleted successfully.");
+      } catch (error) {
+        toast.error(error.message || "Failed to delete article.");
+      } finally {
+        setDeletingArticleId(null);
+      }
+    },
+    [token],
+  );
 
   const openEmergencyContactModal = useCallback((contact = null) => {
     setEditingEmergencyContactId(contact?.id ?? null);
@@ -3043,7 +3174,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     <h3 className="mt-2 text-2xl font-semibold text-white">All saved articles</h3>
                   </div>
                   <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">
-                    {articles.length} items
+                    Total Articles: {articles.length}
                   </span>
                 </div>
 
@@ -3063,82 +3194,117 @@ export function AdminSectionPage({ section = "dashboard" }) {
                       </p>
                     </div>
                   ) : (
-                    articles.map((article) => (
-                      <div
-                        key={article.id}
-                        className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-[#36557e] hover:bg-white/[0.05]"
-                      >
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-xl font-semibold text-white">{article.title}</p>
-                              <span
-                                className={`inline-flex rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
-                                  article.status === "published"
-                                    ? "border border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
-                                    : "border border-amber-400/25 bg-amber-400/10 text-amber-200"
-                                }`}
-                              >
-                                {article.status}
-                              </span>
-                              {article.isFeatured ? (
-                                <span className="inline-flex rounded-full border border-[#4dc4ff]/25 bg-[#4dc4ff]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9fdcff]">
-                                  Featured
-                                </span>
-                              ) : null}
-                            </div>
-                            <p className="mt-2 text-sm text-[#7fdcff]">/{article.slug}</p>
-                            <p className="mt-3 max-w-3xl text-sm leading-7 text-[#9fb1c7]">
-                              {article.shortDescription}
-                            </p>
-                            <div className="mt-4 flex flex-wrap gap-2 text-xs text-[#8ea7c2]">
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
-                                {article.author}
-                              </span>
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
-                                {article.publishDate ? new Date(article.publishDate).toLocaleString() : "No publish date"}
-                              </span>
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
-                                Comments {article.commentsEnabled ? "On" : "Off"}
-                              </span>
-                            </div>
-                            {Array.isArray(article.categories) && article.categories.length ? (
-                              <div className="mt-4 flex flex-wrap gap-2">
-                                {article.categories.map((category) => (
-                                  <span
-                                    key={`${article.id}-category-${category.id}`}
-                                    className="rounded-full border border-[#2f4866] bg-[#0f1d2f] px-3 py-1 text-xs text-[#7fdcff]"
-                                  >
-                                    {category.name}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
-                            {Array.isArray(article.tags) && article.tags.length ? (
-                              <div className="mt-4 flex flex-wrap gap-2">
-                                {article.tags.map((tag) => (
-                                  <span
-                                    key={`${article.id}-${tag}`}
-                                    className="rounded-full border border-[#2f4866] bg-[#112033] px-3 py-1 text-xs text-[#bcd0e4]"
-                                  >
-                                    #{tag}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
+                    articles.map((article) => {
+                      const commentCount = Array.isArray(article.comments)
+                        ? article.comments.reduce(
+                            (sum, comment) => sum + 1 + (Array.isArray(comment?.replies) ? comment.replies.length : 0),
+                            0,
+                          )
+                        : 0;
+                      const canonicalBase = String(form.siteSettings.canonicalUrl || "").trim().replace(/\/+$/, "");
+                      const articleDetailUrl = `${canonicalBase || ""}/artical/${article.slug}`;
 
-                          <div className="flex shrink-0 gap-3">
-                            <Link
-                              href={`/admin/artical/${article.id}`}
-                              className="rounded-full border border-[#36557e] px-4 py-2 text-sm font-medium text-[#9fdcff] transition hover:border-[#4dc4ff] hover:text-white"
-                            >
-                              Edit
-                            </Link>
+                      return (
+                        <div
+                          key={article.id}
+                          className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-[#36557e] hover:bg-white/[0.05]"
+                        >
+                          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="flex min-w-0 gap-4">
+                              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[1.2rem] border border-[#2f4866] bg-[#0f1d2f] sm:h-28 sm:w-28">
+                                {article.featuredImage ? (
+                                  <Image
+                                    src={article.featuredImage}
+                                    alt={article.title || "Article image"}
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <div className="flex h-full items-center justify-center text-center text-[10px] uppercase tracking-[0.22em] text-[#7fdcff]">
+                                    No Image
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate text-xl font-semibold text-white">{article.title}</p>
+                                  {article.isFeatured ? (
+                                    <span className="inline-flex rounded-full border border-[#4dc4ff]/25 bg-[#4dc4ff]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9fdcff]">
+                                      Featured
+                                    </span>
+                                  ) : null}
+                                  <span
+                                    className={`inline-flex rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                                      article.status === "published"
+                                        ? "border border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
+                                        : "border border-amber-400/25 bg-amber-400/10 text-amber-200"
+                                    }`}
+                                  >
+                                    {article.status}
+                                  </span>
+                                  {Array.isArray(article.categories) && article.categories.length ? (
+                                    <span className="inline-flex rounded-full border border-[#2f4866] bg-[#0f1d2f] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#7fdcff]">
+                                      {article.categories.map((category) => category.name).join(", ")}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="mt-2">
+                                  <Link
+                                    href={articleDetailUrl}
+                                    target="_blank"
+                                    className="inline-flex max-w-full break-all text-sm text-[#7fdcff] transition hover:text-white"
+                                  >
+                                    {articleDetailUrl}
+                                  </Link>
+                                </div>
+                                <p className="mt-3 max-w-3xl text-sm leading-7 text-[#9fb1c7]">
+                                  {article.shortDescription}
+                                </p>
+                                <div className="mt-4 flex flex-wrap gap-2 text-xs text-[#8ea7c2]">
+                                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                                    {article.author}
+                                  </span>
+                                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                                    {article.publishDate ? new Date(article.publishDate).toLocaleString() : "No publish date"}
+                                  </span>
+                                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                                    Comments {article.commentsEnabled ? "On" : "Off"}
+                                  </span>
+                                  <span className="rounded-full border border-[#2f4866] bg-[#0f1d2f] px-3 py-1 text-[#9fdcff]">
+                                    {Number(article.views) || 0} Views
+                                  </span>
+                                  <span className="rounded-full border border-[#2f4866] bg-[#0f1d2f] px-3 py-1 text-[#9fdcff]">
+                                    {Number(article.impressionCount) || 0} Impressions
+                                  </span>
+                                  <span className="rounded-full border border-[#2f4866] bg-[#0f1d2f] px-3 py-1 text-[#9fdcff]">
+                                    {commentCount} Comments
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex shrink-0 gap-3">
+                              <Link
+                                href={`/admin/artical/${article.id}`}
+                                className="rounded-full border border-[#36557e] px-4 py-2 text-sm font-medium text-[#9fdcff] transition hover:border-[#4dc4ff] hover:text-white"
+                              >
+                                Edit
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => deleteArticle(article)}
+                                disabled={deletingArticleId === article.id}
+                                className="rounded-full border border-[#6a3440] px-4 py-2 text-sm font-medium text-[#ffc3cf] transition hover:border-[#ff7f9f] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {deletingArticleId === article.id ? "Deleting..." : "Delete"}
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </section>
@@ -3167,7 +3333,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                 <div className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
                   <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Saved Categories</p>
                   <h3 className="mt-2 text-2xl font-semibold text-white">Reusable blog categories</h3>
-                  <div className="mt-6 flex flex-wrap gap-3">
+                  <div className="mt-6 space-y-3">
                     {articleCategories.length === 0 ? (
                       <div className="rounded-[1.4rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-[#8ea7c2]">
                         No categories created yet.
@@ -3176,9 +3342,29 @@ export function AdminSectionPage({ section = "dashboard" }) {
                       articleCategories.map((category) => (
                         <div
                           key={category.id}
-                          className="rounded-full border border-[#2f4866] bg-[#112033] px-4 py-2 text-sm text-[#c6d7ea]"
+                          className="flex flex-col gap-4 rounded-[1.4rem] border border-[#2f4866] bg-[#112033] px-4 py-4 text-sm text-[#c6d7ea] sm:flex-row sm:items-center sm:justify-between"
                         >
-                          {category.name}
+                          <div>
+                            <p className="font-medium text-white">{category.name}</p>
+                            <p className="mt-1 text-xs uppercase tracking-[0.24em] text-[#7fbde9]">{category.slug}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => openArticleCategoryEditor(category)}
+                              className="inline-flex items-center justify-center rounded-full border border-[#36557e] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#9fdcff] transition hover:border-[#4dc4ff] hover:text-white"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteArticleCategory(category)}
+                              disabled={deletingArticleCategoryId === category.id}
+                              className="inline-flex items-center justify-center rounded-full border border-[#6a3440] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#ffc3cf] transition hover:border-[#ff7f9f] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {deletingArticleCategoryId === category.id ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
                         </div>
                       ))
                     )}
@@ -3186,26 +3372,49 @@ export function AdminSectionPage({ section = "dashboard" }) {
                 </div>
 
                 <div className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
-                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Create Category</p>
-                  <h3 className="mt-2 text-2xl font-semibold text-white">Add a new article category</h3>
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">
+                    {editingArticleCategoryId ? "Edit Category" : "Create Category"}
+                  </p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">
+                    {editingArticleCategoryId ? "Update article category" : "Add a new article category"}
+                  </h3>
                   <div className="mt-6 space-y-4">
                     <div>
                       <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Category Name</label>
                       <input
                         className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
-                        value={newArticleCategory}
-                        onChange={(event) => setNewArticleCategory(event.target.value)}
+                        value={editingArticleCategoryId ? articleCategoryDraft : newArticleCategory}
+                        onChange={(event) =>
+                          editingArticleCategoryId
+                            ? setArticleCategoryDraft(event.target.value)
+                            : setNewArticleCategory(event.target.value)
+                        }
                         placeholder="JavaScript"
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={createArticleCategory}
-                      disabled={isSavingArticleCategory}
-                      className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isSavingArticleCategory ? "Saving..." : "Save Category"}
-                    </button>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={editingArticleCategoryId ? updateArticleCategory : createArticleCategory}
+                        disabled={isSavingArticleCategory}
+                        className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isSavingArticleCategory
+                          ? "Saving..."
+                          : editingArticleCategoryId
+                            ? "Update Category"
+                            : "Save Category"}
+                      </button>
+                      {editingArticleCategoryId ? (
+                        <button
+                          type="button"
+                          onClick={closeArticleCategoryEditor}
+                          className="inline-flex w-full items-center justify-center rounded-full border border-[#36557e] px-5 py-3 text-sm font-semibold text-[#9fdcff] transition hover:border-[#4dc4ff] hover:text-white"
+                        >
+                          Cancel
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </section>
@@ -3736,6 +3945,24 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Nav Title</label>
+                        <input
+                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          value={form.siteSettings.navTitle}
+                          onChange={(event) => updateSiteSettingsField("navTitle", event.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Nav Subtitle</label>
+                        <input
+                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          value={form.siteSettings.navSubtitle}
+                          onChange={(event) => updateSiteSettingsField("navSubtitle", event.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
                         <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Contact Email</label>
                         <input
                           type="email"
@@ -3852,34 +4079,32 @@ export function AdminSectionPage({ section = "dashboard" }) {
                 </div>
               </section>
 
-              <section className="grid gap-6 xl:grid-cols-2">
-                <div className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
-                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Brand Assets</p>
-                  <h3 className="mt-2 text-2xl font-semibold text-white">SEO image and website icon</h3>
-                  <div className="mt-6 grid gap-4">
-                    {[
-                      { key: "seoImage", label: "SEO Image" },
-                      { key: "websiteIcon", label: "Website Icon" },
-                    ].map((asset) => (
-                      <div key={asset.key} className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4">
-                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">{asset.label}</label>
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Brand Assets</p>
+                <h3 className="mt-2 text-2xl font-semibold text-white">SEO image and website icon</h3>
+                <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                  {[
+                    { key: "seoImage", label: "SEO Image" },
+                    { key: "websiteIcon", label: "Website Icon" },
+                  ].map((asset) => (
+                    <div key={asset.key} className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4">
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">{asset.label}</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={form.siteSettings[asset.key]}
+                        onChange={(event) => updateSiteSettingsField(asset.key, event.target.value)}
+                      />
+                      <label className="mt-4 inline-flex cursor-pointer items-center rounded-xl border border-[#36557e] px-4 py-3 text-sm text-[#9ae2ff] transition hover:bg-[#12243b]">
+                        {isUploadingImage ? "Uploading..." : `Upload ${asset.label}`}
                         <input
-                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
-                          value={form.siteSettings[asset.key]}
-                          onChange={(event) => updateSiteSettingsField(asset.key, event.target.value)}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(event) => handleImageUpload(event, { type: "site-setting", key: asset.key })}
                         />
-                        <label className="mt-4 inline-flex cursor-pointer items-center rounded-xl border border-[#36557e] px-4 py-3 text-sm text-[#9ae2ff] transition hover:bg-[#12243b]">
-                          {isUploadingImage ? "Uploading..." : `Upload ${asset.label}`}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(event) => handleImageUpload(event, { type: "site-setting", key: asset.key })}
-                          />
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                      </label>
+                    </div>
+                  ))}
                 </div>
               </section>
 

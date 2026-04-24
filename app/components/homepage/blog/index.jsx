@@ -8,7 +8,7 @@ export default function Blog({ articles = [] }) {
 
   return (
     <section id="blogs" className="my-12 lg:my-20">
-      <div className="overflow-hidden rounded-[2rem] border border-[#24344d] bg-[radial-gradient(circle_at_top_left,rgba(115,212,255,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(113,241,184,0.1),transparent_26%),linear-gradient(180deg,#10192b,#09111d)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:p-8">
+      <div className="overflow-hidden rounded-[2rem] border border-[#24344d] bg-[radial-gradient(circle_at_top_left,rgba(115,212,255,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(113,241,184,0.1),transparent_26%),linear-gradient(180deg,#10192b,#09111d)] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)] sm:p-5 md:p-8">
         <SectionHeading
           label="Artical"
           title="Selected writing from product builds, implementation lessons, and engineering decisions"
@@ -32,7 +32,7 @@ export default function Blog({ articles = [] }) {
 
         <div className="mt-6 flex justify-center lg:mt-12">
           <Link
-            className="flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-center text-xs font-semibold uppercase tracking-[0.22em] text-[#07111d] no-underline transition-all duration-200 ease-out hover:gap-3 hover:opacity-95 hover:text-[#07111d] hover:no-underline md:px-8 md:py-4 md:text-sm"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-center text-xs font-semibold uppercase tracking-[0.22em] text-[#07111d] no-underline transition-all duration-200 ease-out hover:gap-3 hover:opacity-95 hover:text-[#07111d] hover:no-underline sm:w-auto md:px-8 md:py-4 md:text-sm"
             role="button"
             href="/artical"
           >

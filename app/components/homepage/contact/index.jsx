@@ -53,7 +53,7 @@ function ContactSection({ profile, settings, emergencyContacts = [] }) {
           />
         </motion.header>
 
-        <div className="relative mt-10 grid grid-cols-1 gap-5 lg:mt-14 lg:grid-cols-12 lg:gap-6 xl:gap-7">
+        <div className="relative mt-8 grid grid-cols-1 gap-4 sm:gap-5 lg:mt-14 lg:grid-cols-12 lg:gap-6 xl:gap-7">
           <motion.div
             variants={fadeUp}
             transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
@@ -78,17 +78,17 @@ function ContactSection({ profile, settings, emergencyContacts = [] }) {
               <div className="relative mx-auto max-w-2xl text-center">
                 <div className="flex justify-center">
                   <div className="relative inline-flex items-center gap-0">
-                    <span className="h-[2px] w-14 bg-[linear-gradient(90deg,transparent,#2f5f8b)]" />
-                    <div className="relative overflow-hidden rounded-xl border border-[#35506f] bg-[linear-gradient(180deg,#14243a,#0d1728)] px-5 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]">
+                    <span className="h-[2px] w-8 bg-[linear-gradient(90deg,transparent,#2f5f8b)] sm:w-14" />
+                    <div className="relative overflow-hidden rounded-xl border border-[#35506f] bg-[linear-gradient(180deg,#14243a,#0d1728)] px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] sm:px-5">
                       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.95),rgba(255,214,102,0.75),transparent)]" />
-                      <h5 className="relative text-sm font-medium uppercase tracking-[0.35em] text-white">
+                      <h5 className="relative text-[11px] font-medium uppercase tracking-[0.24em] text-white sm:text-sm sm:tracking-[0.35em]">
                         Get In Touch
                       </h5>
                     </div>
-                    <span className="h-[2px] w-14 bg-[linear-gradient(90deg,#2f5f8b,transparent)]" />
+                    <span className="h-[2px] w-8 bg-[linear-gradient(90deg,#2f5f8b,transparent)] sm:w-14" />
                   </div>
                 </div>
-                <p className="mx-auto mt-5 max-w-xl text-base leading-8 text-[#b8c7d8] sm:text-lg">
+                <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#b8c7d8] sm:mt-5 sm:text-lg sm:leading-8">
                   I&apos;m always excited to take on new projects and collaborate with innovative minds.
                 </p>
               </div>

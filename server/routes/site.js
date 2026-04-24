@@ -16,6 +16,32 @@ const {
 const router = express.Router();
 const uploadDirectory = path.resolve(process.cwd(), "public", "uploads");
 
+function buildContactChatHash(ticketId, token) {
+  const normalizedId = String(ticketId || "").trim();
+  const normalizedToken = String(token || "").trim();
+
+  if (!normalizedId || !normalizedToken) {
+    return "";
+  }
+
+  return `${normalizedId}.${normalizedToken}`;
+}
+
+function buildContactChatUrl(canonicalUrl, ticketId, token) {
+  const chatHash = buildContactChatHash(ticketId, token);
+  const normalizedBaseUrl = String(canonicalUrl || "").trim();
+
+  if (!chatHash || !normalizedBaseUrl) {
+    return "";
+  }
+
+  try {
+    return new URL(`/chat/${chatHash}`, normalizedBaseUrl).toString();
+  } catch (_error) {
+    return "";
+  }
+}
+
 if (!fs.existsSync(uploadDirectory)) {
   fs.mkdirSync(uploadDirectory, { recursive: true });
 }
@@ -238,6 +264,94 @@ async function lookupGeoDetails(request, ipAddress) {
     };
   } catch (_error) {
     return { country: "", region: "", city: "" };
+  }
+}
+
+async function recordAnalyticsDailyVisit(sessionRef, visitDate, path) {
+  const updateResult = await prisma.analyticsDailyVisit.updateMany({
+    where: {
+      sessionRef,
+      visitDate,
+    },
+    data: {
+      path,
+    },
+  });
+
+  if (updateResult.count > 0) {
+    return;
+  }
+
+  try {
+    await prisma.analyticsDailyVisit.create({
+      data: {
+        sessionRef,
+        visitDate,
+        path,
+      },
+    });
+  } catch (error) {
+    if (error?.code !== "P2002") {
+      throw error;
+    }
+
+    await prisma.analyticsDailyVisit.updateMany({
+      where: {
+        sessionRef,
+        visitDate,
+      },
+      data: {
+        path,
+      },
+    });
+  }
+}
+
+async function recordAnalyticsPageView(sessionRef, path, now) {
+  const updateResult = await prisma.analyticsPageView.updateMany({
+    where: {
+      sessionRef,
+      path,
+    },
+    data: {
+      lastViewedAt: now,
+      viewCount: {
+        increment: 1,
+      },
+    },
+  });
+
+  if (updateResult.count > 0) {
+    return;
+  }
+
+  try {
+    await prisma.analyticsPageView.create({
+      data: {
+        sessionRef,
+        path,
+        firstViewedAt: now,
+        lastViewedAt: now,
+        viewCount: 1,
+      },
+    });
+  } catch (error) {
+    if (error?.code !== "P2002") {
+      throw error;
+    }
+
+    await prisma.analyticsPageView.updateMany({
+      where: {
+        sessionRef,
+        path,
+      },
+      data: {
+        lastViewedAt: now,
+        viewCount: {
+          increment: 1,
+        },
+      },
+    });
   }
 }
 
@@ -497,6 +611,11 @@ async function sendContactEmails(siteSettings, message) {
   if (!isSmtpConfigured(normalizedSettings)) {
     return;
   }
+  const chatUrl = buildContactChatUrl(
+    normalizedSettings.canonicalUrl,
+    message.id,
+    message.ticketToken,
+  );
 
   const transporter = nodemailer.createTransport({
     host: normalizedSettings.smtpHost,
@@ -564,10 +683,12 @@ async function sendContactEmails(siteSettings, message) {
       "",
       "Thanks for reaching out. Your message has been received successfully.",
       "We will get back to you as soon as possible.",
+      chatUrl ? "You can reopen your private chat any time using this link:" : null,
+      chatUrl || null,
       "",
       "Your message:",
       message.message,
-    ].join("\n"),
+    ].filter(Boolean).join("\n"),
   });
 }
 
@@ -1655,45 +1776,10 @@ router.post("/analytics/heartbeat", async (request, response) => {
       },
     });
 
-    await prisma.analyticsDailyVisit.upsert({
-      where: {
-        sessionRef_visitDate: {
-          sessionRef: session.id,
-          visitDate: today,
-        },
-      },
-      update: {
-        path,
-      },
-      create: {
-        sessionRef: session.id,
-        visitDate: today,
-        path,
-      },
-    });
+    await recordAnalyticsDailyVisit(session.id, today, path);
 
     if (eventType === "pageview") {
-      await prisma.analyticsPageView.upsert({
-        where: {
-          sessionRef_path: {
-            sessionRef: session.id,
-            path,
-          },
-        },
-        update: {
-          lastViewedAt: now,
-          viewCount: {
-            increment: 1,
-          },
-        },
-        create: {
-          sessionRef: session.id,
-          path,
-          firstViewedAt: now,
-          lastViewedAt: now,
-          viewCount: 1,
-        },
-      });
+      await recordAnalyticsPageView(session.id, path, now);
     }
 
     return response.status(201).json({ success: true });

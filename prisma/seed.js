@@ -59,6 +59,8 @@ const siteSettings = {
   websiteTitle: "Shahanur Islam Shagor",
   websiteDescription:
     "Portfolio website for Shahanur Islam Shagor featuring services, projects, pricing, contact details, and professional experience.",
+  navTitle: "Shagor",
+  navSubtitle: "Software Developer",
   seoTitle: "Shahanur Islam Shagor | Software Developer Portfolio",
   seoDescription:
     "Explore the portfolio, services, projects, pricing, and contact information of Shahanur Islam Shagor.",

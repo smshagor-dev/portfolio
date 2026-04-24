@@ -1,11 +1,14 @@
 "use client";
 // @flow strict
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { isValidEmail } from "@/utils/check-email";
 import axios from "axios";
 import { motion } from "framer-motion";
 import { Eye, FileUp, ImageUp, Send, UploadCloud } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
+import { buildContactChatHash } from "@/lib/contact-chat-link";
 
 const inputClass =
   "h-14 w-full rounded-2xl border border-cyan-100/[0.1] bg-slate-950/45 px-4 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),inset_0_-18px_35px_rgba(15,23,42,0.22)] outline-none transition duration-300 placeholder:text-slate-500 focus:border-cyan-200/45 focus:bg-slate-950/60 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.08),inset_0_1px_0_rgba(255,255,255,0.06)]";
@@ -64,6 +67,7 @@ function formatTicketDate(value) {
 }
 
 function ContactForm({ settings }) {
+  const router = useRouter();
   const [error, setError] = useState({ email: false, required: false });
   const [isLoading, setIsLoading] = useState(false);
   const [ticketSession, setTicketSession] = useState(null);
@@ -124,6 +128,7 @@ function ContactForm({ settings }) {
           token: ticket.token,
           subject: ticket.subject || "Conversation",
           createdAt: ticket.createdAt || new Date().toISOString(),
+          name: ticket.name || userInput.name,
           email: ticket.email || userInput.email,
         },
         ...current.filter((item) => item.id !== ticket.id),
@@ -165,6 +170,7 @@ function ContactForm({ settings }) {
                 token: parsedTicket.token,
                 subject: parsedTicket.subject || "Conversation",
                 createdAt: parsedTicket.createdAt || new Date().toISOString(),
+                name: parsedTicket.name || "",
                 email: parsedTicket.email || "",
               },
             ]);
@@ -216,6 +222,7 @@ function ContactForm({ settings }) {
           token: response.data.ticket.token,
           subject: response.data?.data?.subject || userInput.subject,
           createdAt: response.data?.data?.createdAt || new Date().toISOString(),
+          name: response.data?.data?.name || userInput.name,
           email: response.data?.data?.email || userInput.email,
         };
         setTicketSession(nextTicket);
@@ -224,6 +231,11 @@ function ContactForm({ settings }) {
         }
         upsertTicketHistory(nextTicket);
         syncGlobalTicket(nextTicket, { open: true });
+        const chatHash = buildContactChatHash(nextTicket.id, nextTicket.token);
+        if (chatHash) {
+          router.push(`/chat/${chatHash}`);
+          return;
+        }
       }
       setUserInput({
         name: "",
@@ -259,20 +271,20 @@ function ContactForm({ settings }) {
       <div className="relative text-center">
         <div className="flex justify-center">
           <div className="relative inline-flex items-center gap-0">
-            <span className="h-[2px] w-14 bg-[linear-gradient(90deg,transparent,#2f5f8b)]" />
-            <div className="relative overflow-hidden rounded-xl border border-[#35506f] bg-[linear-gradient(180deg,#14243a,#0d1728)] px-5 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <span className="h-[2px] w-8 bg-[linear-gradient(90deg,transparent,#2f5f8b)] sm:w-14" />
+            <div className="relative overflow-hidden rounded-xl border border-[#35506f] bg-[linear-gradient(180deg,#14243a,#0d1728)] px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] sm:px-5">
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.95),rgba(255,214,102,0.75),transparent)]" />
-              <p className="relative text-sm font-medium uppercase tracking-[0.35em] text-white">
+              <p className="relative text-[11px] font-medium uppercase tracking-[0.24em] text-white sm:text-sm sm:tracking-[0.35em]">
                 Leave a message
               </p>
             </div>
-            <span className="h-[2px] w-14 bg-[linear-gradient(90deg,#2f5f8b,transparent)]" />
+            <span className="h-[2px] w-8 bg-[linear-gradient(90deg,#2f5f8b,transparent)] sm:w-14" />
           </div>
         </div>
-        <h3 className="mt-6 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+        <h3 className="mt-5 text-[1.7rem] font-semibold tracking-[-0.03em] text-white sm:mt-6 sm:text-3xl">
           Send a polished project brief
         </h3>
-        <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#b8c7d8]">
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#b8c7d8] sm:mt-4 sm:leading-7">
           Tell me what you are building, what matters most, and any helpful files. I will reply with a clear next step.
         </p>
 
@@ -391,51 +403,54 @@ function ContactForm({ settings }) {
           </div>
         </form>
 
-        <div className="mt-8 border-t border-white/10 pt-6">
+        <div className="mt-8 border-t border-white/10 pt-6 text-left">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/80">
                 Previous Messages
               </p>
-              <h4 className="mt-2 text-xl font-semibold text-white">Reopen an older ticket</h4>
+              <h4 className="mt-2 text-xl font-semibold text-white">Reopen an older chat</h4>
             </div>
-            <p className="text-sm text-slate-400">Your recent ticket sessions stay available on this device.</p>
+            <p className="text-sm text-slate-400">Your recent chat sessions stay available on this device.</p>
           </div>
 
           <div className="mt-5 space-y-3">
             {visibleTickets.length === 0 ? (
               <div className="rounded-[22px] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
-                No saved tickets on this device yet. After you send a message, it will appear here with a
+                No saved chats on this device yet. After you send a message, it will appear here with a
                 `View Chat` button.
               </div>
             ) : (
               visibleTickets.map((item) => (
                 <div
                   key={`${item.id}-${item.token}`}
-                  className="grid gap-3 rounded-[22px] border border-white/[0.08] bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+                  className="flex flex-col gap-4 rounded-[24px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.03))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-white">{item.subject || "Conversation"}</p>
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
-                      {item.email ? <span>{item.email}</span> : null}
-                      {item.email ? <span>•</span> : null}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-lg font-semibold tracking-[-0.02em] text-white">
+                      {item.subject || "Conversation"}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-400">
+                      <span className="truncate">
+                        {settings?.websiteTitle || settings?.seoTitle || "Portfolio Website"}
+                      </span>
+                      <span className="text-slate-600">|</span>
                       <span>{formatTicketDate(item.createdAt)}</span>
                     </div>
                   </div>
-                  <button
-                    type="button"
+                  <Link
+                    href={`/chat/${buildContactChatHash(item.id, item.token)}`}
                     onClick={() => {
                       setTicketSession(item);
                       if (typeof window !== "undefined") {
                         window.localStorage.setItem("portfolio_contact_ticket", JSON.stringify(item));
                       }
-                      syncGlobalTicket(item, { open: true });
                     }}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-cyan-100/15 bg-cyan-100/[0.04] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100 transition hover:-translate-y-0.5 hover:border-cyan-200/35 hover:bg-cyan-100/[0.08]"
+                    className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-full border border-cyan-100/15 bg-cyan-100/[0.04] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100 transition hover:-translate-y-0.5 hover:border-cyan-200/35 hover:bg-cyan-100/[0.08] sm:self-center"
                   >
                     <Eye size={15} />
                     View Chat
-                  </button>
+                  </Link>
                 </div>
               ))
             )}
@@ -447,3 +462,4 @@ function ContactForm({ settings }) {
 }
 
 export default ContactForm;
+

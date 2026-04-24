@@ -1,17 +1,18 @@
 "use client";
 
+import Marquee from "react-fast-marquee";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   BrainCircuit,
   ClipboardList,
+  RotateCw,
   PencilRuler,
   Code2,
   TestTubeDiagonal,
   Rocket,
   Sparkles,
   ArrowRight,
-  ArrowDown,
 } from "lucide-react";
 import WorkflowCard from "./workflow-card";
 import SectionHeading from "../section-heading";
@@ -63,63 +64,6 @@ const containerVariants = {
   },
 };
 
-function Connector({ active, mobile = false, tablet = false }) {
-  const baseClass = mobile
-    ? "absolute left-5 top-0 h-full w-px bg-gradient-to-b from-transparent via-[#33506f] to-transparent"
-    : tablet
-      ? "absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-gradient-to-r from-[#2d4461] via-[#4da6d8] to-[#2d4461]"
-      : "absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-gradient-to-r from-[#2d4461] via-[#4da6d8] to-[#2d4461]";
-
-  const beamClass = mobile
-    ? "absolute left-5 top-0 h-16 w-2 -translate-x-1/2 rounded-full bg-gradient-to-b from-transparent via-[#86e1ff] to-transparent blur-[2px]"
-    : "absolute left-0 top-1/2 h-2 w-20 -translate-y-1/2 bg-gradient-to-r from-transparent via-[#86e1ff] to-transparent blur-[2px]";
-
-  const dotClass = mobile
-    ? "absolute left-5 top-1 h-2.5 w-2.5 -translate-x-1/2 rounded-full"
-    : "absolute left-2 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full";
-
-  const iconClass = mobile
-    ? "relative z-10 ml-[0.45rem] flex h-9 w-9 items-center justify-center rounded-full border"
-    : "relative z-10 flex h-9 w-9 items-center justify-center rounded-full border";
-
-  return (
-    <div
-      className={
-        mobile
-          ? "pointer-events-none absolute left-0 top-0 h-full w-10 sm:hidden"
-          : tablet
-            ? "relative hidden h-full min-h-[18rem] w-16 items-center justify-center md:flex lg:hidden"
-            : "relative hidden h-full min-h-[18rem] w-16 items-center justify-center lg:flex xl:w-20"
-      }
-    >
-      <div className={baseClass} />
-      <motion.div
-        aria-hidden="true"
-        animate={mobile ? { y: ["0%", "100%"] } : { x: ["0%", "100%"] }}
-        transition={{ duration: 3.2, repeat: Infinity, ease: "linear" }}
-        className={beamClass}
-      />
-      <motion.div
-        aria-hidden="true"
-        animate={mobile ? { y: [0, 28, 56, 0] } : { x: [0, 18, 36, 0] }}
-        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-        className={`${dotClass} ${
-          active ? "bg-[#9effd7] shadow-[0_0_18px_rgba(158,255,215,0.95)]" : "bg-[#5c7898] shadow-[0_0_10px_rgba(92,120,152,0.45)]"
-        }`}
-      />
-      <motion.div
-        animate={mobile ? { y: [0, 10, 0] } : { x: [0, 12, 0] }}
-        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-        className={`${iconClass} ${
-          active ? "border-[#73dcff] bg-[#112843] text-[#8fe0ff]" : "border-[#314762] bg-[#0d1728] text-[#6e8aa9]"
-        } shadow-[0_10px_20px_rgba(0,0,0,0.18)]`}
-      >
-        {mobile ? <ArrowDown size={16} /> : <ArrowRight size={16} />}
-      </motion.div>
-    </div>
-  );
-}
-
 export default function HowIWorkSection() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
@@ -151,107 +95,70 @@ export default function HowIWorkSection() {
           className="relative"
         />
 
-        <div className="relative mt-10 hidden lg:block">
-          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 px-6">
-            <div className="relative h-px bg-gradient-to-r from-transparent via-[#33506f] to-transparent">
-              <motion.div
-                animate={{ x: ["0%", "100%"] }}
-                transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-                className="absolute top-1/2 h-2 w-24 -translate-y-1/2 rounded-full bg-gradient-to-r from-transparent via-[#74d9ff] to-transparent blur-[2px]"
-              />
-              <motion.div
-                animate={{ x: ["0%", "100%"] }}
-                transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#92ffe1] shadow-[0_0_18px_rgba(146,255,225,0.95)]"
-              />
-            </div>
-          </div>
-
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
-            className="relative flex items-center justify-center gap-0"
-          >
-            {workflowSteps.map((item, index) => (
-              <div key={item.step} className="flex items-center">
-                <WorkflowCard
-                  {...item}
-                  index={index}
-                  isMobile={false}
-                  className="w-[260px]"
-                  isActive={activeIndex === index}
-                  isDimmed={hasActiveState && activeIndex !== index}
-                  onHoverStart={() => setActiveIndex(index)}
-                  onHoverEnd={() => setActiveIndex(0)}
-                />
-                {index < workflowSteps.length - 1 ? <Connector active={activeIndex >= index} /> : null}
-              </div>
-            ))}
-          </motion.div>
-        </div>
-
-        <div className="relative mt-10 hidden md:block lg:hidden">
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
-            className="hide-scrollbar flex overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 pb-3 pt-2"
-          >
-            {workflowSteps.map((item, index) => (
-              <div key={item.step} className="flex shrink-0 items-stretch">
-                <WorkflowCard
-                  {...item}
-                  index={index}
-                  isMobile={false}
-                  className="min-w-[260px] w-[260px] snap-center"
-                  isActive={activeIndex === index}
-                  isDimmed={hasActiveState && activeIndex !== index}
-                  onHoverStart={() => setActiveIndex(index)}
-                  onHoverEnd={() => setActiveIndex(0)}
-                />
-                {index < workflowSteps.length - 1 ? <Connector active={activeIndex >= index} tablet /> : null}
-              </div>
-            ))}
-          </motion.div>
-        </div>
-
         <motion.div
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
-          className="relative mt-10 flex flex-col gap-5 sm:hidden"
+          className="relative mt-10 overflow-x-hidden overflow-y-hidden rounded-[1.7rem] border border-[#27405e] bg-[linear-gradient(180deg,rgba(10,18,31,0.55),rgba(8,13,23,0.72))] px-2 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-3"
         >
-          <div className="pointer-events-none absolute bottom-6 left-5 top-3 w-px bg-gradient-to-b from-[#33506f] via-[#4da6d8] to-transparent" />
-          <motion.div
-            animate={{ y: ["0%", "100%"] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-            className="pointer-events-none absolute left-5 top-3 h-16 w-2 -translate-x-1/2 rounded-full bg-gradient-to-b from-transparent via-[#74d9ff] to-transparent blur-[2px]"
-          />
-          <motion.div
-            animate={{ y: [0, 30, 60, 0] }}
-            transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
-            className="pointer-events-none absolute left-5 top-3 h-3 w-3 -translate-x-1/2 rounded-full bg-[#92ffe1] shadow-[0_0_18px_rgba(146,255,225,0.95)]"
-          />
-
-          {workflowSteps.map((item, index) => (
-            <div key={item.step} className="relative pl-12">
-              <WorkflowCard
-                {...item}
-                index={index}
-                isMobile
-                className="w-full"
-                isActive={activeIndex === index}
-                isDimmed={false}
-                onHoverStart={() => setActiveIndex(index)}
-                onHoverEnd={() => setActiveIndex(0)}
-              />
-              {index < workflowSteps.length - 1 ? <Connector active={activeIndex >= index} mobile /> : null}
-            </div>
-          ))}
+          <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(116,217,255,0.9),rgba(142,255,209,0.75),transparent)]" />
+          <div className="pointer-events-none absolute inset-x-5 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(142,255,209,0.75),rgba(116,217,255,0.9),transparent)]" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-[#0f192b] to-transparent sm:w-16" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#09111d] to-transparent sm:w-16" />
+          <Marquee
+            gradient={false}
+            speed={isMobile ? 26 : 38}
+            pauseOnHover
+            pauseOnClick
+            direction="left"
+            className="overflow-y-hidden py-2"
+          >
+            {workflowSteps.map((item, index) => (
+              <div key={`${item.step}-${index}`} className="mx-2 flex items-center sm:mx-3">
+                <WorkflowCard
+                  {...item}
+                  index={index}
+                  isMobile={isMobile}
+                  className="h-full w-[180px] sm:w-[210px] md:w-[230px] lg:w-[280px] xl:w-[280px]"
+                  isActive={activeIndex === index}
+                  isDimmed={hasActiveState && activeIndex !== index}
+                  onHoverStart={() => setActiveIndex(index)}
+                  onHoverEnd={() => setActiveIndex(0)}
+                />
+                {index < workflowSteps.length - 1 ? (
+                  <motion.div
+                    aria-hidden="true"
+                    animate={{ x: [0, 10, 0], opacity: [0.45, 1, 0.45] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut", delay: index * 0.15 }}
+                    className="mx-3 hidden shrink-0 items-center justify-center lg:flex"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="h-px w-8 bg-gradient-to-r from-transparent via-[#4da6d8] to-transparent" />
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#31567c] bg-[#0d1728] text-[#8fe0ff] shadow-[0_10px_20px_rgba(0,0,0,0.18)]">
+                        <ArrowRight size={16} />
+                      </span>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    aria-hidden="true"
+                    animate={{ rotate: [0, 180, 360], opacity: [0.55, 1, 0.55] }}
+                    transition={{ duration: 4.2, repeat: Infinity, ease: "linear" }}
+                    className="mx-3 hidden shrink-0 items-center justify-center lg:flex"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="h-px w-8 bg-gradient-to-r from-transparent via-[#f0c36d] to-transparent" />
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#6f5a2d] bg-[#1d1820] text-[#ffd27d] shadow-[0_10px_20px_rgba(0,0,0,0.18)]">
+                        <RotateCw size={15} />
+                      </span>
+                      <span className="h-px w-8 bg-gradient-to-r from-transparent via-[#74d9ff] to-transparent" />
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            ))}
+          </Marquee>
         </motion.div>
       </div>
     </section>

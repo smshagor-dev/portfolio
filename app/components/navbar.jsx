@@ -19,8 +19,8 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
   const pathname = usePathname();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isStickyVisible, setIsStickyVisible] = useState(false);
-  const brandTitle = settings?.websiteTitle || "SHAGOR";
-  const brandSubtitle = profile?.designation || settings?.websiteDescription || "Software Developer";
+  const brandTitle = settings?.navTitle || settings?.websiteTitle || "SHAGOR";
+  const brandSubtitle = settings?.navSubtitle || "Software Developer";
   const visibleEmergencyContacts = (emergencyContacts || []).filter(
     (item) => item?.label && item?.name && item?.icon && item?.link,
   );
@@ -50,43 +50,42 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const navShell = (
+  const desktopNavShell = (
     <div className="navbar-shell relative overflow-hidden rounded-2xl border border-[#2c3145] bg-[linear-gradient(180deg,rgba(30,33,49,0.96),rgba(27,30,44,0.96))] shadow-[0_16px_45px_rgba(0,0,0,0.24)] backdrop-blur-xl">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/6" />
       <div className="navbar-line absolute inset-x-0 top-0 h-[2px]" />
       <div className="navbar-line absolute inset-x-0 bottom-0 h-[2px] rotate-180" />
 
       <div className="flex min-h-[86px] flex-col lg:flex-row lg:items-center">
-        <div className="flex items-center border-b border-[#2b3042] bg-[linear-gradient(180deg,#262b3c,#222636)] lg:w-[86px] lg:justify-center lg:self-stretch lg:border-b-0 lg:border-r">
+        <div className="flex items-center border-b border-[#2b3042] bg-[linear-gradient(180deg,#262b3c,#222636)] lg:w-[72px] lg:justify-center lg:self-stretch lg:border-b-0 lg:border-r xl:w-[86px]">
           <button
             type="button"
             aria-label="Open menu"
             aria-expanded={isDrawerOpen}
             onClick={() => setIsDrawerOpen(true)}
-            className="flex h-[86px] w-[86px] items-center justify-center text-[#f4efe6] transition hover:bg-white/5"
+            className="flex h-[86px] w-[72px] items-center justify-center text-[#f4efe6] transition hover:bg-white/5 xl:w-[86px]"
           >
             <HiOutlineBars3BottomLeft size={28} />
           </button>
         </div>
 
-        <div className="flex flex-1 flex-col gap-5 px-6 py-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
-          <Link href="/" className="flex items-end gap-3 text-white">
+        <div className="flex flex-1 flex-col gap-5 px-4 py-4 lg:grid lg:grid-cols-[minmax(170px,220px)_minmax(0,1fr)_auto] lg:items-center lg:gap-3 xl:grid-cols-[minmax(220px,auto)_minmax(0,1fr)_auto] xl:px-6 xl:gap-6">
+          <Link href="/" className="flex items-center gap-2 text-white xl:gap-3">
             <span
-              className="text-[2.55rem] leading-none tracking-tight text-[#f3ede2]"
+              className="text-[1.95rem] leading-none tracking-tight text-[#f3ede2] xl:text-[2.55rem]"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
             >
               {brandTitle}
             </span>
             <span
-              className="pb-1 text-[1rem] text-[#b8b0a4] lg:text-[1.15rem]"
+              className="-translate-y-2 self-start whitespace-nowrap text-[0.72rem] leading-none text-[#b8b0a4] xl:text-[0.8rem] xl:leading-[1.05]"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
             >
               {brandSubtitle}
             </span>
           </Link>
 
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-10">
-            <ul className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <ul className="flex flex-nowrap items-center justify-center gap-0.5 overflow-hidden xl:gap-x-3">
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
 
@@ -94,7 +93,7 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className={`rounded-full px-3 py-2 text-[1rem] transition ${
+                      className={`whitespace-nowrap rounded-full px-2 py-2 text-[0.88rem] transition xl:px-3 xl:text-[1rem] ${
                         isActive
                           ? "bg-[linear-gradient(180deg,#31374d,#2a3042)] text-[#fff8ef] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(255,255,255,0.03)]"
                           : "text-[#c1b9ad] hover:bg-white/5 hover:text-[#f3ede2]"
@@ -106,9 +105,9 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
                   </li>
                 );
               })}
-            </ul>
+          </ul>
 
-            <ul className="flex flex-wrap items-center gap-4 text-[#f3ede2]">
+          <ul className="flex flex-nowrap items-center gap-2 text-[#f3ede2] xl:gap-4">
               {socialLinks.map((item) => {
                 const Icon = item.icon;
 
@@ -125,9 +124,43 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
                   </li>
                 );
               })}
-            </ul>
-          </div>
+          </ul>
         </div>
+      </div>
+    </div>
+  );
+
+  const mobileNavShell = (
+    <div className="navbar-shell relative overflow-hidden rounded-2xl border border-[#2c3145] bg-[linear-gradient(180deg,rgba(30,33,49,0.96),rgba(27,30,44,0.96))] shadow-[0_16px_45px_rgba(0,0,0,0.24)] backdrop-blur-xl lg:hidden">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/6" />
+      <div className="navbar-line absolute inset-x-0 top-0 h-[2px]" />
+      <div className="navbar-line absolute inset-x-0 bottom-0 h-[2px] rotate-180" />
+
+      <div className="flex min-h-[78px] items-center justify-between gap-4 px-5 py-4">
+        <Link href="/" className="flex min-w-0 items-end gap-2 text-white">
+          <span
+            className="truncate text-[1.65rem] leading-none tracking-tight text-[#f3ede2]"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+          >
+            {brandTitle}
+          </span>
+          <span
+            className="truncate pb-0.5 text-[0.78rem] text-[#b8b0a4]"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+          >
+            {brandSubtitle}
+          </span>
+        </Link>
+
+        <button
+          type="button"
+          aria-label="Open menu"
+          aria-expanded={isDrawerOpen}
+          onClick={() => setIsDrawerOpen(true)}
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-[#f4efe6] transition hover:bg-white/8"
+        >
+          <HiOutlineBars3BottomLeft size={24} />
+        </button>
       </div>
     </div>
   );
@@ -135,7 +168,10 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
   return (
     <>
       <nav className="pt-4">
-        {navShell}
+        {mobileNavShell}
+        <div className="hidden lg:block">
+          {desktopNavShell}
+        </div>
       </nav>
       <div className={isStickyVisible ? "h-[118px]" : ""} />
       <div
@@ -145,7 +181,10 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
             : "pointer-events-none -translate-y-8 opacity-0"
         }`}
       >
-        {navShell}
+        {mobileNavShell}
+        <div className="hidden lg:block">
+          {desktopNavShell}
+        </div>
       </div>
 
       <div
@@ -160,28 +199,20 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
         />
 
         <aside
-          className={`absolute inset-y-0 left-0 flex w-[min(92vw,360px)] flex-col border-r border-[#2d3a52] bg-[linear-gradient(180deg,#0d1422,#0a101b)] shadow-[0_24px_80px_rgba(0,0,0,0.45)] transition duration-300 ${
-            isDrawerOpen ? "translate-x-0" : "-translate-x-full"
+          className={`absolute inset-y-0 right-0 flex w-[min(88vw,340px)] flex-col border-l border-[#2d3a52] bg-[linear-gradient(180deg,#0d1422,#0a101b)] shadow-[0_24px_80px_rgba(0,0,0,0.45)] transition duration-300 ${
+            isDrawerOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
           <div className="border-b border-[#223047] px-5 py-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1 text-center">
-                <div className="flex justify-center">
-                  <div className="relative inline-flex items-center gap-0">
-                    <span className="h-[2px] w-10 bg-[linear-gradient(90deg,transparent,#2f5f8b)]" />
-                    <div className="relative overflow-hidden rounded-xl border border-[#35506f] bg-[linear-gradient(180deg,#14243a,#0d1728)] px-4 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]">
-                      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.95),rgba(255,214,102,0.75),transparent)]" />
-                      <h5 className="relative text-xs font-medium uppercase tracking-[0.35em] text-white">
-                        Get In Touch
-                      </h5>
-                    </div>
-                    <span className="h-[2px] w-10 bg-[linear-gradient(90deg,#2f5f8b,transparent)]" />
-                  </div>
-                </div>
-                <p className="mx-auto mt-4 max-w-[260px] text-sm leading-7 text-[#b8c7d8]">
-                  I&apos;m always excited to take on new projects and collaborate with innovative minds.
-                </p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-[#84deff]">Menu</p>
+                <h5
+                  className="mt-2 truncate text-2xl text-[#f3ede2]"
+                  style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+                >
+                  {brandTitle}
+                </h5>
               </div>
               <button
                 type="button"
@@ -195,39 +226,65 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
 
           <div className="flex-1 overflow-y-auto px-5 py-5">
             <div className="space-y-3">
-              {visibleEmergencyContacts.length > 0 ? (
-                visibleEmergencyContacts.map((item) => {
-                  const config = getSocialIconOption(item.icon);
-                  const Icon = config?.icon || HiOutlineBars3BottomLeft;
+              {navItems.map((item) => {
+                const isActive = pathname === item.href;
 
-                  return (
-                    <Link
-                      key={`${item.label}-${item.name}-${item.link}`}
-                      href={item.link}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={() => setIsDrawerOpen(false)}
-                      className="group flex items-center gap-4 rounded-[22px] border border-white/[0.08] bg-white/[0.04] px-4 py-4 transition hover:border-[#72ddff]/35 hover:bg-[#112033]"
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsDrawerOpen(false)}
+                    className={`group flex items-center justify-between rounded-[20px] border px-4 py-4 transition ${
+                      isActive
+                        ? "border-[#72ddff]/35 bg-[#112033] text-white"
+                        : "border-white/[0.08] bg-white/[0.04] text-[#d6deea] hover:border-[#72ddff]/35 hover:bg-[#112033]"
+                    }`}
+                  >
+                    <span
+                      className="text-[1.05rem]"
+                      style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
                     >
-                      <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#315175] bg-[linear-gradient(135deg,rgba(107,212,255,0.18),rgba(17,32,51,0.95))] text-[#8fe3ff]">
-                        <Icon size={20} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[11px] uppercase tracking-[0.22em] text-[#8fa4bd]">
-                          {item.label}
-                        </span>
-                        <span className="mt-1 block truncate text-[1rem] text-white">{item.name}</span>
-                      </span>
-                      <span className="text-[#b8c3d1] transition group-hover:text-white">-&gt;</span>
-                    </Link>
-                  );
-                })
-              ) : (
-                <div className="rounded-[22px] border border-dashed border-white/10 bg-white/[0.03] px-4 py-5 text-sm leading-7 text-[#9fb1c7]">
-                  No contact links available right now.
-                </div>
-              )}
+                      {item.label}
+                    </span>
+                    <span className="text-[#9db7d4] transition group-hover:text-white">-&gt;</span>
+                  </Link>
+                );
+              })}
             </div>
+
+            {visibleEmergencyContacts.length > 0 ? (
+              <div className="mt-8">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-[#84deff]">Quick Links</p>
+                <div className="mt-4 space-y-3">
+                  {visibleEmergencyContacts.map((item) => {
+                    const config = getSocialIconOption(item.icon);
+                    const Icon = config?.icon || HiOutlineBars3BottomLeft;
+
+                    return (
+                      <Link
+                        key={`${item.label}-${item.name}-${item.link}`}
+                        href={item.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => setIsDrawerOpen(false)}
+                        className="group flex items-center gap-4 rounded-[22px] border border-white/[0.08] bg-white/[0.04] px-4 py-4 transition hover:border-[#72ddff]/35 hover:bg-[#112033]"
+                      >
+                        <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#315175] bg-[linear-gradient(135deg,rgba(107,212,255,0.18),rgba(17,32,51,0.95))] text-[#8fe3ff]">
+                          <Icon size={20} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[11px] uppercase tracking-[0.22em] text-[#8fa4bd]">
+                            {item.label}
+                          </span>
+                          <span className="mt-1 block truncate text-[1rem] text-white">{item.name}</span>
+                        </span>
+                        <span className="text-[#b8c3d1] transition group-hover:text-white">-&gt;</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="border-t border-[#223047] px-5 py-5">

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { FiClock, FiHome, FiImage, FiMessageSquare, FiPaperclip, FiPlusSquare, FiSend, FiUpload, FiX } from "react-icons/fi";
 import { toast } from "react-toastify";
+import { getSocialIconOption } from "@/utils/social-icons";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
@@ -44,7 +45,14 @@ function formatTicketDate(value) {
   return new Date(value).toLocaleString();
 }
 
-export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
+export default function LiveContactTicket({
+  ticketSession,
+  isOpen,
+  onClose,
+  emergencyContacts = [],
+  websiteTitle = "Portfolio Website",
+  viewMode = "dock",
+}) {
   const [ticket, setTicket] = useState(null);
   const [ticketHistory, setTicketHistory] = useState([]);
   const [draft, setDraft] = useState("");
@@ -97,6 +105,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
           token: nextTicket.token,
           subject: ticketData?.subject || nextTicket.subject || "Conversation",
           createdAt: ticketData?.createdAt || nextTicket.createdAt || new Date().toISOString(),
+          name: ticketData?.name || nextTicket.name || "",
           email: ticketData?.email || nextTicket.email || "",
           status: ticketData?.status || nextTicket.status || "not_solved",
         },
@@ -116,6 +125,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
             ...nextTicket,
             subject: ticketData?.subject || nextTicket.subject || "Conversation",
             createdAt: ticketData?.createdAt || nextTicket.createdAt || new Date().toISOString(),
+            name: ticketData?.name || nextTicket.name || "",
             email: ticketData?.email || nextTicket.email || "",
             status: ticketData?.status || nextTicket.status || "not_solved",
           },
@@ -145,7 +155,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.message || "Failed to load ticket.");
+          throw new Error(data.message || "Failed to load chat.");
         }
 
         if (isMounted) {
@@ -156,6 +166,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
               token: ticketSession.token,
               subject: data.ticket?.subject || "Conversation",
               createdAt: data.ticket?.createdAt || new Date().toISOString(),
+              name: data.ticket?.name || ticketSession.name || "",
               email: data.ticket?.email || "",
               status: data.ticket?.status || "not_solved",
             },
@@ -167,7 +178,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
           }
         }
       } catch (error) {
-        toast.error(error.message || "Failed to load ticket.");
+        toast.error(error.message || "Failed to load chat.");
       }
     }
 
@@ -251,12 +262,20 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
 
   const chatMessages = useMemo(() => ticket?.chatMessages || [], [ticket?.chatMessages]);
   const isClosedTicket = ticket?.status === "solved";
+  const isPageView = viewMode === "page";
+  const visibleEmergencyContacts = useMemo(
+    () =>
+      (emergencyContacts || []).filter(
+        (item) => item?.label && item?.name && item?.icon && item?.link,
+      ),
+    [emergencyContacts],
+  );
 
   async function handleSendMessage(event) {
     event.preventDefault();
 
     if (isClosedTicket) {
-      toast.error("This ticket is closed. Please create a new ticket.");
+      toast.error("This chat is closed. Please start a new chat.");
       return;
     }
 
@@ -359,7 +378,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to create ticket.");
+        throw new Error(data.message || "Failed to start chat.");
       }
 
       const nextTicket = {
@@ -367,6 +386,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
         token: data.ticket?.token,
         subject: data?.data?.subject || newTicketInput.subject.trim(),
         createdAt: data?.data?.createdAt || new Date().toISOString(),
+        name: data?.data?.name || newTicketInput.name.trim(),
         email: data?.data?.email || newTicketInput.email.trim(),
       };
 
@@ -393,9 +413,9 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
         newTicketFileInputRef.current.value = "";
       }
 
-      toast.success("New ticket created successfully.");
+      toast.success("New chat started successfully.");
     } catch (error) {
-      toast.error(error.message || "Failed to create ticket.");
+      toast.error(error.message || "Failed to start chat.");
     } finally {
       setIsCreatingTicket(false);
     }
@@ -403,20 +423,20 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
 
   const hasActiveTicket = Boolean(ticketSession?.id && ticketSession?.token);
   const showNewTicketView = !hasActiveTicket || isCreatingNewTicket;
-  const panelTitle = showNewTicketView ? "New Ticket" : ticket?.subject || "Conversation";
+  const panelTitle = showNewTicketView ? "New Chat" : ticket?.subject || "Conversation";
 
   return (
     <>
-      {!isOpen ? (
+      {!isOpen && !isPageView ? (
         <button
           type="button"
           onClick={onClose}
-          className="group fixed bottom-8 right-5 z-[9999] inline-flex items-center gap-2.5 rounded-full border border-[#6fd8ff]/55 bg-[linear-gradient(135deg,rgba(8,18,32,0.96),rgba(13,31,52,0.94))] px-3.5 py-2.5 text-left text-white shadow-[0_24px_70px_rgba(2,12,27,0.55),0_0_0_1px_rgba(133,222,255,0.08)] backdrop-blur-2xl ring-1 ring-white/10 transition duration-300 hover:-translate-y-1 hover:border-[#9fe7ff] hover:shadow-[0_30px_85px_rgba(2,12,27,0.62),0_0_0_1px_rgba(133,222,255,0.16)] sm:right-6"
+          className="group fixed bottom-8 right-5 z-[9999] inline-flex items-center gap-0 rounded-full border border-[#6fd8ff]/55 bg-[linear-gradient(135deg,rgba(8,18,32,0.96),rgba(13,31,52,0.94))] px-2.5 py-2.5 text-left text-white shadow-[0_24px_70px_rgba(2,12,27,0.55),0_0_0_1px_rgba(133,222,255,0.08)] backdrop-blur-2xl ring-1 ring-white/10 transition duration-300 hover:-translate-y-1 hover:border-[#9fe7ff] hover:shadow-[0_30px_85px_rgba(2,12,27,0.62),0_0_0_1px_rgba(133,222,255,0.16)] sm:right-6 sm:gap-2.5 sm:px-3.5"
         >
           <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#8de6ff]/30 bg-[radial-gradient(circle_at_top,rgba(125,240,183,0.28),transparent_55%),linear-gradient(180deg,rgba(17,37,58,0.96),rgba(10,22,36,0.96))] text-[#8fe9ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition group-hover:border-[#b4eeff]/50 group-hover:text-white">
             <FiMessageSquare size={16} />
           </span>
-          <span className="flex min-w-0 flex-1 flex-col justify-center leading-none">
+          <span className="hidden min-w-0 flex-1 flex-col justify-center leading-none sm:flex">
             <span className="text-sm font-semibold text-white group-hover:text-[#dcf7ff]">Chat</span>
           </span>
           {unreadCount > 0 ? (
@@ -428,16 +448,32 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
       ) : null}
 
       <div
-        className={`fixed bottom-3 right-3 z-[10000] w-[calc(100vw-1.5rem)] max-w-[440px] transition duration-300 sm:bottom-6 sm:right-6 sm:w-[calc(100vw-3rem)] ${
-          isOpen ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"
-        }`}
+        className={
+          isPageView
+            ? "flex h-full min-h-0 w-full flex-col"
+            : `fixed inset-0 z-[10000] transition duration-300 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[calc(100vw-3rem)] sm:max-w-[440px] ${
+                isOpen ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"
+              }`
+        }
       >
-        <div className="overflow-hidden rounded-[1.9rem] border border-[#6fd8ff]/28 bg-[linear-gradient(180deg,rgba(126,224,255,0.08),rgba(124,240,183,0.03))] p-[1px] shadow-[0_34px_110px_rgba(0,0,0,0.52)] ring-1 ring-white/10 backdrop-blur-2xl">
-          <div className="flex h-[min(86dvh,760px)] max-h-[calc(100dvh-0.75rem)] min-h-0 w-full max-w-[480px] flex-col overflow-hidden rounded-[calc(1.9rem-1px)] bg-[radial-gradient(circle_at_top,rgba(111,216,255,0.12),transparent_28%),linear-gradient(180deg,#0d1829,#09111d)] sm:h-[min(88vh,820px)] sm:max-h-[calc(100dvh-3rem)]">
+        <div
+          className={
+            isPageView
+              ? "h-full min-h-0 overflow-hidden border border-[#6fd8ff]/28 bg-[linear-gradient(180deg,rgba(126,224,255,0.08),rgba(124,240,183,0.03))] p-[1px] shadow-[0_34px_110px_rgba(0,0,0,0.52)] ring-1 ring-white/10 backdrop-blur-2xl rounded-none sm:rounded-[1.9rem]"
+              : "h-full overflow-hidden border border-[#6fd8ff]/28 bg-[linear-gradient(180deg,rgba(126,224,255,0.08),rgba(124,240,183,0.03))] p-[1px] shadow-[0_34px_110px_rgba(0,0,0,0.52)] ring-1 ring-white/10 backdrop-blur-2xl sm:h-auto sm:rounded-[1.9rem]"
+          }
+        >
+          <div
+            className={
+              isPageView
+                ? "flex h-full min-h-0 w-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(111,216,255,0.12),transparent_28%),linear-gradient(180deg,#0d1829,#09111d)] sm:rounded-[calc(1.9rem-1px)]"
+                : "flex h-full min-h-0 w-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(111,216,255,0.12),transparent_28%),linear-gradient(180deg,#0d1829,#09111d)] sm:h-[min(88vh,820px)] sm:max-h-[calc(100dvh-3rem)] sm:rounded-[calc(1.9rem-1px)]"
+            }
+          >
             <div className="shrink-0 border-b border-[#86e5ff]/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] px-5 py-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Live Ticket</p>
+                  <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Live Chat</p>
                   <div className="mt-2 flex items-center gap-2">
                     <h3 className="truncate text-lg font-semibold text-white">{panelTitle}</h3>
                     {hasActiveTicket && isClosedTicket ? (
@@ -460,7 +496,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                       setIsCreatingNewTicket(false);
                     }}
                     className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
-                    aria-label={isHomeView ? "Open chat view" : "Open ticket home"}
+                    aria-label={isHomeView ? "Open chat view" : "Open chat home"}
                     title={isHomeView ? "Chat View" : "Home"}
                   >
                     <FiHome size={13} />
@@ -474,15 +510,17 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                     className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
                   >
                     <FiPlusSquare size={13} />
-                    {showNewTicketView && hasActiveTicket ? "Back To Chat" : "New Ticket"}
+                    {showNewTicketView && hasActiveTicket ? "Back To Chat" : "New Chat"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-[#cfe0f3] transition hover:border-[#70d5ff] hover:text-white"
-                  >
-                    <FiX size={18} />
-                  </button>
+                  {!isPageView ? (
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-[#cfe0f3] transition hover:border-[#70d5ff] hover:text-white"
+                    >
+                      <FiX size={18} />
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -490,10 +528,44 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
           {isHomeView ? (
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="border-b border-white/10 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.2em] text-[#78d7ff]">Ticket Home</p>
-                <p className="mt-2 text-sm text-[#93a9c3]">View saved tickets and reopen any conversation from this device.</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-[#78d7ff]">Chat Home</p>
+                <p className="mt-2 text-sm text-[#93a9c3]">View saved chats and reopen any conversation from this device.</p>
               </div>
-              <div className="flex-1 space-y-3 overflow-hidden px-4 py-4">
+              <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+                {visibleEmergencyContacts.length > 0 ? (
+                  <div className="rounded-[1.2rem] border border-white/10 bg-white/[0.03] p-3">
+                    <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9fdcff]">
+                      Emergency Contact
+                    </p>
+                    <div className="grid gap-3">
+                    {visibleEmergencyContacts.map((item) => {
+                      const iconConfig = getSocialIconOption(item.icon);
+                      const Icon = iconConfig?.icon || FiSend;
+
+                      return (
+                        <Link
+                          key={`${item.label}-${item.name}-${item.link}`}
+                          href={item.link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex min-w-0 items-center gap-3 rounded-[1.2rem] border border-white/10 bg-white/[0.03] p-4 transition hover:-translate-y-0.5 hover:border-[#3e6289]"
+                        >
+                          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#2d4764] bg-[linear-gradient(135deg,rgba(103,232,249,0.16),rgba(16,185,129,0.1))] text-[#dff7ff]">
+                            <Icon size={18} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9fdcff]">
+                              {item.label}
+                            </span>
+                            <span className="mt-1 block truncate text-sm text-white">{item.name}</span>
+                          </span>
+                        </Link>
+                      );
+                    })}
+                    </div>
+                  </div>
+                ) : null}
+
                 {ticketHistory.length === 0 ? (
                   <div className="rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-[#93a9c3]">
                     <p>you don&apos;t have privious message.</p>
@@ -543,7 +615,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                                 <FiClock size={12} />
                                 {formatTicketDate(item.createdAt)}
                               </span>
-                              {item.email ? <span>{item.email}</span> : null}
+                              <span>{websiteTitle}</span>
                             </div>
                           </div>
                           <span
@@ -564,7 +636,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
             </div>
           ) : showNewTicketView ? (
             <form onSubmit={handleCreateNewTicket} className="flex min-h-0 flex-1 flex-col">
-              <div className="flex-1 space-y-4 overflow-hidden px-4 py-4 sm:px-4 sm:py-4">
+              <div className="flex-1 min-h-0 space-y-4 overflow-y-auto px-4 py-4 sm:px-4 sm:py-4">
                 
 
                 <div className="space-y-2">
@@ -677,14 +749,14 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-4 text-sm font-semibold text-[#07111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FiSend size={16} />
-                    {isCreatingTicket ? "Creating..." : "Create Ticket"}
+                    {isCreatingTicket ? "Starting..." : "Start Chat"}
                   </button>
                 </div>
               </div>
             </form>
           ) : hasActiveTicket ? (
-            <>
-              <div ref={listRef} className="flex-1 space-y-3 overflow-hidden px-4 py-4">
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div ref={listRef} className="flex-1 min-h-0 space-y-3 overflow-y-auto px-4 py-4">
                 {chatMessages.length === 0 ? (
                   <div className="rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-[#93a9c3]">
                     Waiting for conversation history...
@@ -725,7 +797,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                           ) : null}
 
                           <p className={`mt-2 text-[11px] ${isVisitor ? "text-[#153043]" : "text-[#93a9c3]"}`}>
-                            {message.senderName || (isVisitor ? "You" : "Admin")} - {formatChatTime(message.createdAt)}
+                            {isVisitor ? (message.senderName || "You") : websiteTitle} - {formatChatTime(message.createdAt)}
                           </p>
                         </div>
                       </div>
@@ -737,7 +809,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
               <form onSubmit={handleSendMessage} className="shrink-0 border-t border-white/10 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 {isClosedTicket ? (
                   <div className="mb-3 rounded-[1rem] border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                    This ticket is closed. You can view the conversation, but sending new messages is disabled.
+                    This chat is closed. You can view the conversation, but sending new messages is disabled.
                   </div>
                 ) : null}
                 <div className="mb-3 flex flex-wrap gap-2">
@@ -806,7 +878,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                     rows={2}
-                    placeholder={isClosedTicket ? "This ticket is closed" : "Write a reply..."}
+                    placeholder={isClosedTicket ? "This chat is closed" : "Write a reply..."}
                     disabled={isClosedTicket}
                     className="min-h-[56px] flex-1 resize-none rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#6f879f] focus:border-[#70d5ff] disabled:cursor-not-allowed disabled:opacity-60"
                   />
@@ -819,7 +891,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                   </button>
                 </div>
               </form>
-            </>
+            </div>
           ) : null}
           </div>
         </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServiceDetailData } from "@/lib/api";
+import OpenChatButton from "@/app/components/open-chat-button";
 import ServiceCommentsPanel from "@/app/components/service/service-comments-panel";
 import ServiceDetailStats from "@/app/components/service/service-detail-stats";
 import { getServiceIconOption } from "@/utils/service-icons";
@@ -27,7 +28,7 @@ export default async function ServiceDetailPage({ params }) {
     notFound();
   }
 
-  const { service, siteSettings, relatedServices = [] } = data;
+  const { service, relatedServices = [] } = data;
 
   return (
     <div className="py-8 text-white">
@@ -60,9 +61,21 @@ export default async function ServiceDetailPage({ params }) {
 
             <div className="mt-8 rounded-[1.5rem] border border-[#263753] bg-[#0c1523] p-5">
               <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Need this service?</p>
-              <p className="mt-3 text-sm leading-7 text-[#bfd0e2]">
-                Reach out at {siteSettings?.contactEmail || "the contact page"} and include your scope, timeline, and required features.
-              </p>
+              <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center">
+                <OpenChatButton className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90 lg:flex-1">
+                  Chat Now
+                </OpenChatButton>
+                <Link
+                  href="/pricing"
+                  className="inline-flex w-full items-center justify-center rounded-full border border-[#35516f] px-5 py-3 text-sm font-semibold text-white transition hover:border-[#70d5ff] hover:text-[#70d5ff] lg:flex-1"
+                >
+                  See Pricing
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-8 xl:hidden">
+              <ServiceCommentsPanel serviceSlug={service.slug} comments={service.comments || []} />
             </div>
           </div>
 
@@ -138,7 +151,9 @@ export default async function ServiceDetailPage({ params }) {
         </div>
       </section>
 
-      <ServiceCommentsPanel serviceSlug={service.slug} comments={service.comments || []} />
+      <div className="hidden xl:block">
+        <ServiceCommentsPanel serviceSlug={service.slug} comments={service.comments || []} />
+      </div>
     </div>
   );
 }

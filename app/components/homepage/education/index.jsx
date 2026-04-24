@@ -18,7 +18,7 @@ function Education({ educations = [] }) {
         className="absolute top-0 -z-10 opacity-70"
       />
 
-      <div className="overflow-hidden rounded-[2rem] border border-[#25213b] bg-[radial-gradient(circle_at_top,rgba(22,242,179,0.1),transparent_28%),linear-gradient(180deg,rgba(16,23,45,0.96),rgba(9,14,28,0.98))] px-5 py-8 shadow-[0_24px_70px_rgba(0,0,0,0.25)] md:px-8">
+      <div className="overflow-hidden rounded-[2rem] border border-[#25213b] bg-[radial-gradient(circle_at_top,rgba(22,242,179,0.1),transparent_28%),linear-gradient(180deg,rgba(16,23,45,0.96),rgba(9,14,28,0.98))] px-4 py-8 shadow-[0_24px_70px_rgba(0,0,0,0.25)] sm:px-5 md:px-8">
         <div className="py-8">
           <SectionHeading
             label="Education"
@@ -66,8 +66,8 @@ function Education({ educations = [] }) {
                       <div className="relative w-full rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.88),rgba(11,19,37,0.96))] p-5 lg:p-6">
                         <div className="flex flex-col gap-5 border-b border-[#263953] pb-5 lg:flex-row lg:items-start lg:justify-between">
                           <div className="min-w-0">
-                            <h3 className="text-2xl font-semibold text-white">{item.title}</h3>
-                            <p className="mt-4 text-base text-[#d2dceb]">{item.institution}</p>
+                            <h3 className="text-xl font-semibold text-white sm:text-2xl">{item.title}</h3>
+                            <p className="mt-3 text-sm text-[#d2dceb] sm:mt-4 sm:text-base">{item.institution}</p>
                           </div>
 
                           <div className="grid gap-4 text-left lg:min-w-[220px] lg:text-right">

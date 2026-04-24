@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, BadgeCheck, Sparkles } from "lucide-react";
+import OpenChatButton from "@/app/components/open-chat-button";
 import { getPricingDetailData } from "@/lib/api";
 import { buildPageMetadata } from "@/lib/site-metadata";
 
@@ -91,13 +92,10 @@ export default async function PricingDetailPage({ params }) {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4 border-t border-[#1d2d42] pt-8">
-              <Link
-                href="/contact"
-                className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-6 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90"
-              >
+              <OpenChatButton className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-6 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90">
                 Let&apos;s Talk
                 <ArrowRight size={16} />
-              </Link>
+              </OpenChatButton>
               <Link
                 href="/pricing"
                 className="inline-flex items-center rounded-full border border-[#3a5678] px-6 py-3 text-sm font-medium text-white transition hover:border-[#70d5ff] hover:text-[#70d5ff]"

@@ -337,6 +337,8 @@ model SiteSettings {
   id                    Int      @id
   websiteTitle          String
   websiteDescription    String   @db.Text
+  navTitle              String
+  navSubtitle           String
   seoTitle              String
   seoDescription        String   @db.Text
   seoKeywords           String   @db.Text

@@ -207,6 +207,14 @@ export default async function ArticalDetailPage({ params }) {
               </div>
 
               <ArticleShareStrip title={article.title} canonicalUrl={canonicalUrl} articleSlug={article.slug} />
+
+              <div className="lg:hidden">
+                <ArticleCommentsPanel
+                  articleSlug={article.slug}
+                  comments={article.comments || []}
+                  commentsEnabled={article.commentsEnabled}
+                />
+              </div>
             </div>
           </div>
 
@@ -274,11 +282,13 @@ export default async function ArticalDetailPage({ params }) {
         </div>
       </section>
 
-      <ArticleCommentsPanel
-        articleSlug={article.slug}
-        comments={article.comments || []}
-        commentsEnabled={article.commentsEnabled}
-      />
+      <div className="hidden lg:block">
+        <ArticleCommentsPanel
+          articleSlug={article.slug}
+          comments={article.comments || []}
+          commentsEnabled={article.commentsEnabled}
+        />
+      </div>
     </div>
   );
 }
