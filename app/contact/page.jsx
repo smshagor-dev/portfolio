@@ -15,11 +15,11 @@ export async function generateMetadata() {
 }
 
 export default async function ContactPage() {
-  const { profile, siteSettings } = await getHomePageData();
+  const { profile, siteSettings, emergencyContacts } = await getHomePageData();
 
   return (
     <div className="py-8 text-white">
-      <ContactSection profile={profile} settings={siteSettings} />
+      <ContactSection profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />
     </div>
   );
 }

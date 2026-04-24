@@ -229,7 +229,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
 
   useEffect(() => {
     setIsCreatingTicket(false);
-    setIsCreatingNewTicket(false);
+    setIsCreatingNewTicket(!ticketSession?.id || !ticketSession?.token);
     setIsHomeView(false);
     setNewTicketInput({
       name: ticket?.name || "",
@@ -247,7 +247,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
     if (newTicketFileInputRef.current) {
       newTicketFileInputRef.current.value = "";
     }
-  }, [ticket?.email, ticket?.name, ticketSession?.id]);
+  }, [ticket?.email, ticket?.name, ticketSession?.id, ticketSession?.token]);
 
   const chatMessages = useMemo(() => ticket?.chatMessages || [], [ticket?.chatMessages]);
   const isClosedTicket = ticket?.status === "solved";
@@ -401,9 +401,9 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
     }
   }
 
-  if (!ticketSession?.id || !ticketSession?.token) {
-    return null;
-  }
+  const hasActiveTicket = Boolean(ticketSession?.id && ticketSession?.token);
+  const showNewTicketView = !hasActiveTicket || isCreatingNewTicket;
+  const panelTitle = showNewTicketView ? "New Ticket" : ticket?.subject || "Conversation";
 
   return (
     <>
@@ -411,12 +411,16 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="fixed bottom-8 right-6 z-40 inline-flex items-center gap-2 rounded-full border border-[#70d5ff]/30 bg-[#091524]/90 px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_50px_rgba(0,0,0,0.32)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-[#70d5ff]"
+          className="group fixed bottom-8 right-5 z-[9999] inline-flex items-center gap-2.5 rounded-full border border-[#6fd8ff]/55 bg-[linear-gradient(135deg,rgba(8,18,32,0.96),rgba(13,31,52,0.94))] px-3.5 py-2.5 text-left text-white shadow-[0_24px_70px_rgba(2,12,27,0.55),0_0_0_1px_rgba(133,222,255,0.08)] backdrop-blur-2xl ring-1 ring-white/10 transition duration-300 hover:-translate-y-1 hover:border-[#9fe7ff] hover:shadow-[0_30px_85px_rgba(2,12,27,0.62),0_0_0_1px_rgba(133,222,255,0.16)] sm:right-6"
         >
-          <FiMessageSquare size={17} />
-          Open Ticket
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#8de6ff]/30 bg-[radial-gradient(circle_at_top,rgba(125,240,183,0.28),transparent_55%),linear-gradient(180deg,rgba(17,37,58,0.96),rgba(10,22,36,0.96))] text-[#8fe9ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition group-hover:border-[#b4eeff]/50 group-hover:text-white">
+            <FiMessageSquare size={16} />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col justify-center leading-none">
+            <span className="text-sm font-semibold text-white group-hover:text-[#dcf7ff]">Chat</span>
+          </span>
           {unreadCount > 0 ? (
-            <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-1.5 py-0.5 text-[11px] font-bold text-[#07111d]">
+            <span className="inline-flex min-w-[28px] shrink-0 items-center justify-center rounded-full border border-white/20 bg-[linear-gradient(135deg,#7fe0ff,#7cf0b7)] px-2 py-1 text-[11px] font-bold text-[#07111d] shadow-[0_10px_24px_rgba(111,216,255,0.35)]">
               {unreadCount}
             </span>
           ) : null}
@@ -424,72 +428,86 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
       ) : null}
 
       <div
-        className={`fixed bottom-6 right-4 z-50 w-[calc(100vw-2rem)] max-w-[440px] transition duration-300 sm:right-6 ${
+        className={`fixed bottom-3 right-3 z-[10000] w-[calc(100vw-1.5rem)] max-w-[440px] transition duration-300 sm:bottom-6 sm:right-6 sm:w-[calc(100vw-3rem)] ${
           isOpen ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"
         }`}
       >
-        <div className="flex h-[min(80vh,720px)] w-full max-w-[440px] flex-col overflow-hidden rounded-[1.8rem] border border-[#27405c] bg-[linear-gradient(180deg,#0f1c31,#09111d)] shadow-[0_30px_90px_rgba(0,0,0,0.45)]">
-          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Live Ticket</p>
-              <div className="mt-2 flex items-center gap-2">
-                <h3 className="text-lg font-semibold text-white">{ticket?.subject || "Conversation"}</h3>
-                {isClosedTicket ? (
-                  <span className="inline-flex items-center rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-200">
-                    Closed
-                  </span>
-                ) : null}
-                {unreadCount > 0 ? (
-                  <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-[#112237] px-2 py-0.5 text-[11px] font-semibold text-[#8fe3ff]">
-                    {unreadCount} new
-                  </span>
-                ) : null}
+        <div className="overflow-hidden rounded-[1.9rem] border border-[#6fd8ff]/28 bg-[linear-gradient(180deg,rgba(126,224,255,0.08),rgba(124,240,183,0.03))] p-[1px] shadow-[0_34px_110px_rgba(0,0,0,0.52)] ring-1 ring-white/10 backdrop-blur-2xl">
+          <div className="flex h-[min(86dvh,760px)] max-h-[calc(100dvh-0.75rem)] min-h-0 w-full max-w-[480px] flex-col overflow-hidden rounded-[calc(1.9rem-1px)] bg-[radial-gradient(circle_at_top,rgba(111,216,255,0.12),transparent_28%),linear-gradient(180deg,#0d1829,#09111d)] sm:h-[min(88vh,820px)] sm:max-h-[calc(100dvh-3rem)]">
+            <div className="shrink-0 border-b border-[#86e5ff]/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] px-5 py-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Live Ticket</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <h3 className="truncate text-lg font-semibold text-white">{panelTitle}</h3>
+                    {hasActiveTicket && isClosedTicket ? (
+                      <span className="inline-flex items-center rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-200">
+                        Closed
+                      </span>
+                    ) : null}
+                    {unreadCount > 0 ? (
+                      <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-[#112237] px-2 py-0.5 text-[11px] font-semibold text-[#8fe3ff]">
+                        {unreadCount} new
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsHomeView((current) => !current);
+                      setIsCreatingNewTicket(false);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
+                    aria-label={isHomeView ? "Open chat view" : "Open ticket home"}
+                    title={isHomeView ? "Chat View" : "Home"}
+                  >
+                    <FiHome size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreatingNewTicket((current) => !current);
+                      setIsHomeView(false);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
+                  >
+                    <FiPlusSquare size={13} />
+                    {showNewTicketView && hasActiveTicket ? "Back To Chat" : "New Ticket"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-[#cfe0f3] transition hover:border-[#70d5ff] hover:text-white"
+                  >
+                    <FiX size={18} />
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsHomeView((current) => !current);
-                  setIsCreatingNewTicket(false);
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
-                aria-label={isHomeView ? "Open chat view" : "Open ticket home"}
-                title={isHomeView ? "Chat View" : "Home"}
-              >
-                <FiHome size={13} />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCreatingNewTicket((current) => !current);
-                  setIsHomeView(false);
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
-              >
-                <FiPlusSquare size={13} />
-                {isCreatingNewTicket ? "Back To Chat" : "New Ticket"}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-[#cfe0f3] transition hover:border-[#70d5ff] hover:text-white"
-              >
-                <FiX size={18} />
-              </button>
-            </div>
-          </div>
 
           {isHomeView ? (
-            <div className="flex flex-1 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col">
               <div className="border-b border-white/10 px-4 py-3">
                 <p className="text-xs uppercase tracking-[0.2em] text-[#78d7ff]">Ticket Home</p>
                 <p className="mt-2 text-sm text-[#93a9c3]">View saved tickets and reopen any conversation from this device.</p>
               </div>
-              <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              <div className="flex-1 space-y-3 overflow-hidden px-4 py-4">
                 {ticketHistory.length === 0 ? (
                   <div className="rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-[#93a9c3]">
-                    No saved tickets yet. Start a new ticket to begin a conversation.
+                    <p>you don&apos;t have privious message.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsHomeView(false);
+                        setIsCreatingNewTicket(true);
+                      }}
+                      className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-white/[0.03] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
+                    >
+                      <FiPlusSquare size={13} />
+                      Make New Chat
+                    </button>
                   </div>
                 ) : (
                   ticketHistory.map((item) => {
@@ -544,9 +562,9 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                 )}
               </div>
             </div>
-          ) : isCreatingNewTicket ? (
-            <form onSubmit={handleCreateNewTicket} className="flex flex-1 flex-col">
-              <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          ) : showNewTicketView ? (
+            <form onSubmit={handleCreateNewTicket} className="flex min-h-0 flex-1 flex-col">
+              <div className="flex-1 space-y-4 overflow-hidden px-4 py-4 sm:px-4 sm:py-4">
                 
 
                 <div className="space-y-2">
@@ -586,13 +604,13 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                     value={newTicketInput.message}
                     onChange={(event) => setNewTicketInput((current) => ({ ...current, message: event.target.value }))}
                     rows={5}
-                    className="min-h-[140px] w-full resize-none rounded-[1rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#6f879f] focus:border-[#70d5ff]"
+                    className="min-h-[110px] w-full resize-none rounded-[1rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#6f879f] focus:border-[#70d5ff] sm:min-h-[140px]"
                     placeholder="Describe your new request..."
                   />
                 </div>
               </div>
 
-              <div className="border-t border-white/10 p-4">
+              <div className="shrink-0 border-t border-white/10 bg-[linear-gradient(180deg,rgba(9,17,29,0.72),rgba(9,17,29,0.98))] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <div className="mb-3 flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -656,7 +674,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                   <button
                     type="submit"
                     disabled={isCreatingTicket}
-                    className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-4 text-sm font-semibold text-[#07111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-4 text-sm font-semibold text-[#07111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FiSend size={16} />
                     {isCreatingTicket ? "Creating..." : "Create Ticket"}
@@ -664,9 +682,9 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                 </div>
               </div>
             </form>
-          ) : (
+          ) : hasActiveTicket ? (
             <>
-              <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              <div ref={listRef} className="flex-1 space-y-3 overflow-hidden px-4 py-4">
                 {chatMessages.length === 0 ? (
                   <div className="rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-[#93a9c3]">
                     Waiting for conversation history...
@@ -716,7 +734,7 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                 )}
               </div>
 
-              <form onSubmit={handleSendMessage} className="border-t border-white/10 p-4">
+              <form onSubmit={handleSendMessage} className="shrink-0 border-t border-white/10 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 {isClosedTicket ? (
                   <div className="mb-3 rounded-[1rem] border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                     This ticket is closed. You can view the conversation, but sending new messages is disabled.
@@ -802,7 +820,8 @@ export default function LiveContactTicket({ ticketSession, isOpen, onClose }) {
                 </div>
               </form>
             </>
-          )}
+          ) : null}
+          </div>
         </div>
       </div>
     </>

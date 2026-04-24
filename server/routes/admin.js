@@ -221,6 +221,57 @@ function slugify(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+function normalizeArticlePayload(payload, fallbackArticle = null) {
+  const title = normalizeString(payload?.title ?? fallbackArticle?.title);
+  const slug = slugify(payload?.slug || payload?.title || fallbackArticle?.slug || fallbackArticle?.title);
+  const shortDescription = normalizeString(payload?.shortDescription ?? fallbackArticle?.shortDescription);
+  const content = String(payload?.content ?? fallbackArticle?.content ?? "").trim();
+  const category = normalizeString(payload?.category ?? fallbackArticle?.category);
+  const tags = normalizeStringList(
+    Array.isArray(payload?.tags)
+      ? payload.tags
+      : typeof payload?.tags === "string"
+      ? payload.tags.split(",")
+      : Array.isArray(fallbackArticle?.tags)
+      ? fallbackArticle.tags
+      : [],
+  );
+  const featuredImage = normalizeString(payload?.featuredImage ?? fallbackArticle?.featuredImage);
+  const metaTitle = normalizeString(payload?.metaTitle ?? fallbackArticle?.metaTitle);
+  const metaDescription = normalizeString(payload?.metaDescription ?? fallbackArticle?.metaDescription);
+  const author = normalizeString(payload?.author ?? fallbackArticle?.author);
+  const normalizedStatus = normalizeString(payload?.status ?? fallbackArticle?.status).toLowerCase();
+  const publishDateValue = payload?.publishDate ?? fallbackArticle?.publishDate ?? null;
+  const publishDate = publishDateValue ? new Date(publishDateValue) : null;
+  const categoryIds = (payload?.categoryIds || fallbackArticle?.categoryIds || [])
+    .map((item) => Number.parseInt(item, 10))
+    .filter((item) => Number.isInteger(item) && item > 0);
+
+  return {
+    title,
+    slug,
+    shortDescription,
+    content,
+    category,
+    tags,
+    featuredImage,
+    metaTitle,
+    metaDescription,
+    author,
+    status: ["draft", "published"].includes(normalizedStatus) ? normalizedStatus : "draft",
+    publishDate: publishDate && Number.isFinite(publishDate.getTime()) ? publishDate : null,
+    categoryIds,
+    commentsEnabled:
+      typeof payload?.commentsEnabled === "boolean"
+        ? payload.commentsEnabled
+        : fallbackArticle?.commentsEnabled ?? true,
+    isFeatured:
+      typeof payload?.isFeatured === "boolean"
+        ? payload.isFeatured
+        : fallbackArticle?.isFeatured ?? false,
+  };
+}
+
 function normalizeServiceSection(value, fallbackSection = null) {
   return {
     id: 1,
@@ -395,6 +446,49 @@ function serializeContactMessageDetail(message) {
   };
 }
 
+function serializeArticle(article) {
+  return {
+    ...article,
+    tags: Array.isArray(article?.tags) ? article.tags : [],
+    categories: (article?.categories || []).map((item) => ({
+      id: item.category?.id ?? item.id,
+      name: item.category?.name ?? item.name,
+      slug: item.category?.slug ?? item.slug,
+    })),
+    categoryIds: (article?.categories || []).map((item) => item.category?.id ?? item.id).filter(Boolean),
+    featuredImage: article?.featuredImage || "",
+    metaTitle: article?.metaTitle || "",
+    metaDescription: article?.metaDescription || "",
+    commentsEnabled: typeof article?.commentsEnabled === "boolean" ? article.commentsEnabled : true,
+    isFeatured: typeof article?.isFeatured === "boolean" ? article.isFeatured : false,
+    views: Math.max(0, Number.parseInt(article?.views, 10) || 0),
+    impressionCount: Math.max(0, Number.parseInt(article?.impressionCount, 10) || 0),
+  };
+}
+
+function serializeArticleCategory(category) {
+  return {
+    id: category.id,
+    name: category.name,
+    slug: category.slug,
+    createdAt: category.createdAt,
+    updatedAt: category.updatedAt,
+  };
+}
+
+function serializeEmergencyContact(contact) {
+  return {
+    id: contact.id,
+    label: contact.label,
+    name: contact.name,
+    icon: contact.icon,
+    link: contact.link,
+    sortOrder: Math.max(1, Number.parseInt(contact.sortOrder, 10) || 1),
+    createdAt: contact.createdAt,
+    updatedAt: contact.updatedAt,
+  };
+}
+
 function buildDashboardSummary(data) {
   const services = data.services || [];
   const projects = data.projects || [];
@@ -566,6 +660,18 @@ function hasPricingModel() {
 
 function hasTestimonialModel() {
   return Boolean(prisma?.testimonial && typeof prisma.testimonial.findMany === "function");
+}
+
+function hasArticleModel() {
+  return Boolean(prisma?.article && typeof prisma.article.findMany === "function");
+}
+
+function hasArticleCategoryModel() {
+  return Boolean(prisma?.articleCategory && typeof prisma.articleCategory.findMany === "function");
+}
+
+function hasEmergencyContactModel() {
+  return Boolean(prisma?.emergencyContact && typeof prisma.emergencyContact.findMany === "function");
 }
 
 function isMissingTableError(error, modelName) {
@@ -1070,6 +1176,425 @@ router.get("/dashboard", requireAdmin, async (_request, response) => {
   } catch (error) {
     console.error("Failed to load dashboard:", error.message);
     return response.status(500).json({ message: "Failed to load dashboard data." });
+  }
+});
+
+router.get("/articles", requireAdmin, async (_request, response) => {
+  try {
+    if (!hasArticleModel()) {
+      return response.status(503).json({ message: "Article model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const articles = await prisma.article.findMany({
+      include: {
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+      },
+      orderBy: [{ isFeatured: "desc" }, { publishDate: "desc" }, { createdAt: "desc" }],
+    });
+
+    return response.json({
+      articles: articles.map(serializeArticle),
+    });
+  } catch (error) {
+    console.error("Failed to load articles:", error.message);
+    return response.status(500).json({ message: "Failed to load articles." });
+  }
+});
+
+router.get("/article-categories", requireAdmin, async (_request, response) => {
+  try {
+    if (!hasArticleCategoryModel()) {
+      return response.status(503).json({ message: "Article category model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const categories = await prisma.articleCategory.findMany({
+      orderBy: { name: "asc" },
+    });
+
+    return response.json({
+      categories: categories.map(serializeArticleCategory),
+    });
+  } catch (error) {
+    console.error("Failed to load article categories:", error.message);
+    return response.status(500).json({ message: "Failed to load article categories." });
+  }
+});
+
+router.post("/article-categories", requireAdmin, async (request, response) => {
+  try {
+    if (!hasArticleCategoryModel()) {
+      return response.status(503).json({ message: "Article category model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const name = normalizeString(request.body?.name);
+    const slug = slugify(request.body?.slug || name);
+
+    if (!name || !slug) {
+      return response.status(400).json({ message: "Category name is required." });
+    }
+
+    const category = await prisma.articleCategory.create({
+      data: { name, slug },
+    });
+
+    return response.status(201).json({
+      message: "Article category created successfully.",
+      category: serializeArticleCategory(category),
+    });
+  } catch (error) {
+    if (error?.code === "P2002") {
+      return response.status(409).json({ message: "An article category with this name or slug already exists." });
+    }
+
+    console.error("Failed to create article category:", error.message);
+    return response.status(500).json({ message: "Failed to create article category." });
+  }
+});
+
+router.get("/emergency-contacts", requireAdmin, async (_request, response) => {
+  try {
+    if (!hasEmergencyContactModel()) {
+      return response.status(503).json({ message: "Emergency contact model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const contacts = await prisma.emergencyContact.findMany({
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    });
+
+    return response.json({
+      contacts: contacts.map(serializeEmergencyContact),
+    });
+  } catch (error) {
+    console.error("Failed to load emergency contacts:", error.message);
+    return response.status(500).json({ message: "Failed to load emergency contacts." });
+  }
+});
+
+router.post("/emergency-contacts", requireAdmin, async (request, response) => {
+  try {
+    if (!hasEmergencyContactModel()) {
+      return response.status(503).json({ message: "Emergency contact model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const label = normalizeString(request.body?.label);
+    const name = normalizeString(request.body?.name);
+    const icon = normalizeString(request.body?.icon).toLowerCase();
+    const link = normalizeString(request.body?.link);
+
+    if (!label || !name || !icon || !link) {
+      return response.status(400).json({ message: "Label, name, icon, and link are required." });
+    }
+
+    const lastContact = await prisma.emergencyContact.findFirst({
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+
+    const contact = await prisma.emergencyContact.create({
+      data: {
+        label,
+        name,
+        icon,
+        link,
+        sortOrder: Math.max(1, Number.parseInt(lastContact?.sortOrder, 10) || 0) + 1,
+      },
+    });
+
+    return response.status(201).json({
+      message: "Emergency contact created successfully.",
+      contact: serializeEmergencyContact(contact),
+    });
+  } catch (error) {
+    console.error("Failed to create emergency contact:", error.message);
+    return response.status(500).json({ message: "Failed to create emergency contact." });
+  }
+});
+
+router.put("/emergency-contacts/:contactId", requireAdmin, async (request, response) => {
+  try {
+    if (!hasEmergencyContactModel()) {
+      return response.status(503).json({ message: "Emergency contact model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const contactId = Number.parseInt(request.params.contactId, 10);
+    if (!contactId) {
+      return response.status(400).json({ message: "Contact id is required." });
+    }
+
+    const existingContact = await prisma.emergencyContact.findUnique({
+      where: { id: contactId },
+    });
+
+    if (!existingContact) {
+      return response.status(404).json({ message: "Emergency contact not found." });
+    }
+
+    const label = normalizeString(request.body?.label ?? existingContact.label);
+    const name = normalizeString(request.body?.name ?? existingContact.name);
+    const icon = normalizeString(request.body?.icon ?? existingContact.icon).toLowerCase();
+    const link = normalizeString(request.body?.link ?? existingContact.link);
+
+    if (!label || !name || !icon || !link) {
+      return response.status(400).json({ message: "Label, name, icon, and link are required." });
+    }
+
+    const contact = await prisma.emergencyContact.update({
+      where: { id: contactId },
+      data: {
+        label,
+        name,
+        icon,
+        link,
+      },
+    });
+
+    return response.json({
+      message: "Emergency contact updated successfully.",
+      contact: serializeEmergencyContact(contact),
+    });
+  } catch (error) {
+    console.error("Failed to update emergency contact:", error.message);
+    return response.status(500).json({ message: "Failed to update emergency contact." });
+  }
+});
+
+router.delete("/emergency-contacts/:contactId", requireAdmin, async (request, response) => {
+  try {
+    if (!hasEmergencyContactModel()) {
+      return response.status(503).json({ message: "Emergency contact model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const contactId = Number.parseInt(request.params.contactId, 10);
+    if (!contactId) {
+      return response.status(400).json({ message: "Contact id is required." });
+    }
+
+    await prisma.emergencyContact.delete({
+      where: { id: contactId },
+    });
+
+    return response.json({
+      message: "Emergency contact deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Failed to delete emergency contact:", error.message);
+    return response.status(500).json({ message: "Failed to delete emergency contact." });
+  }
+});
+
+router.get("/articles/:articleId", requireAdmin, async (request, response) => {
+  try {
+    if (!hasArticleModel()) {
+      return response.status(503).json({ message: "Article model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const articleId = Number.parseInt(request.params.articleId, 10);
+    if (!articleId) {
+      return response.status(400).json({ message: "Article id is required." });
+    }
+
+    const article = await prisma.article.findUnique({
+      where: { id: articleId },
+      include: {
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+      },
+    });
+
+    if (!article) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    return response.json({
+      article: serializeArticle(article),
+    });
+  } catch (error) {
+    console.error("Failed to load article:", error.message);
+    return response.status(500).json({ message: "Failed to load article." });
+  }
+});
+
+router.post("/articles", requireAdmin, async (request, response) => {
+  try {
+    if (!hasArticleModel()) {
+      return response.status(503).json({ message: "Article model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const articleData = normalizeArticlePayload(request.body);
+    if (
+      !articleData.title ||
+      !articleData.slug ||
+      !articleData.shortDescription ||
+      !articleData.content ||
+      !articleData.categoryIds.length ||
+      !articleData.author
+    ) {
+      return response.status(400).json({
+        message: "Title, slug, short description, content, at least one category, and author are required.",
+      });
+    }
+
+    const categories = await prisma.articleCategory.findMany({
+      where: {
+        id: { in: articleData.categoryIds },
+      },
+    });
+
+    if (!categories.length) {
+      return response.status(400).json({ message: "Please select at least one valid category." });
+    }
+
+    const article = await prisma.article.create({
+      data: {
+        title: articleData.title,
+        slug: articleData.slug,
+        shortDescription: articleData.shortDescription,
+        content: articleData.content,
+        category: categories.map((item) => item.name).join(", "),
+        tags: articleData.tags,
+        featuredImage: articleData.featuredImage,
+        metaTitle: articleData.metaTitle,
+        metaDescription: articleData.metaDescription,
+        author: articleData.author,
+        status: articleData.status,
+        publishDate: articleData.publishDate,
+        commentsEnabled: articleData.commentsEnabled,
+        isFeatured: articleData.isFeatured,
+        categories: {
+          create: categories.map((item) => ({
+            categoryId: item.id,
+          })),
+        },
+      },
+      include: {
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+      },
+    });
+
+    return response.status(201).json({
+      message: "Article created successfully.",
+      article: serializeArticle(article),
+    });
+  } catch (error) {
+    if (error?.code === "P2002") {
+      return response.status(409).json({ message: "An article with this slug already exists." });
+    }
+
+    console.error("Failed to create article:", error.message);
+    return response.status(500).json({ message: "Failed to create article." });
+  }
+});
+
+router.put("/articles/:articleId", requireAdmin, async (request, response) => {
+  try {
+    if (!hasArticleModel()) {
+      return response.status(503).json({ message: "Article model is not available yet. Restart the backend after generating Prisma client." });
+    }
+
+    const articleId = Number.parseInt(request.params.articleId, 10);
+    if (!articleId) {
+      return response.status(400).json({ message: "Article id is required." });
+    }
+
+    const existingArticle = await prisma.article.findUnique({
+      where: { id: articleId },
+      include: {
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+      },
+    });
+
+    if (!existingArticle) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    const articleData = normalizeArticlePayload(request.body, existingArticle);
+    if (
+      !articleData.title ||
+      !articleData.slug ||
+      !articleData.shortDescription ||
+      !articleData.content ||
+      !articleData.categoryIds.length ||
+      !articleData.author
+    ) {
+      return response.status(400).json({
+        message: "Title, slug, short description, content, at least one category, and author are required.",
+      });
+    }
+
+    const categories = await prisma.articleCategory.findMany({
+      where: {
+        id: { in: articleData.categoryIds },
+      },
+    });
+
+    if (!categories.length) {
+      return response.status(400).json({ message: "Please select at least one valid category." });
+    }
+
+    const article = await prisma.$transaction(async (tx) => {
+      await tx.articleCategoryAssignment.deleteMany({
+        where: { articleId },
+      });
+
+      return tx.article.update({
+        where: { id: articleId },
+        data: {
+          title: articleData.title,
+          slug: articleData.slug,
+          shortDescription: articleData.shortDescription,
+          content: articleData.content,
+          category: categories.map((item) => item.name).join(", "),
+          tags: articleData.tags,
+          featuredImage: articleData.featuredImage,
+          metaTitle: articleData.metaTitle,
+          metaDescription: articleData.metaDescription,
+          author: articleData.author,
+          status: articleData.status,
+          publishDate: articleData.publishDate,
+          commentsEnabled: articleData.commentsEnabled,
+          isFeatured: articleData.isFeatured,
+          categories: {
+            create: categories.map((item) => ({
+              categoryId: item.id,
+            })),
+          },
+        },
+        include: {
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+        },
+      });
+    });
+
+    return response.json({
+      message: "Article updated successfully.",
+      article: serializeArticle(article),
+    });
+  } catch (error) {
+    if (error?.code === "P2002") {
+      return response.status(409).json({ message: "An article with this slug already exists." });
+    }
+
+    console.error("Failed to update article:", error.message);
+    return response.status(500).json({ message: "Failed to update article." });
   }
 });
 

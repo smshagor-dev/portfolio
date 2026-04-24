@@ -1,15 +1,16 @@
-import { getHomePageData, getPricingPageData, getServicesPageData, getSiteSettings } from "@/lib/api";
+import { getArticles, getHomePageData, getPricingPageData, getServicesPageData, getSiteSettings } from "@/lib/api";
 
 function normalizeUrl(baseUrl, path = "") {
   return `${String(baseUrl || "http://localhost:3000").replace(/\/$/, "")}${path}`;
 }
 
 export default async function sitemap() {
-  const [settings, homeData, pricingData, servicesData] = await Promise.all([
+  const [settings, homeData, pricingData, servicesData, articles] = await Promise.all([
     getSiteSettings().catch(() => null),
     getHomePageData().catch(() => null),
     getPricingPageData().catch(() => null),
     getServicesPageData().catch(() => null),
+    getArticles().catch(() => []),
   ]);
 
   const baseUrl = settings?.canonicalUrl || "http://localhost:3000";
@@ -42,5 +43,10 @@ export default async function sitemap() {
     lastModified: pricing.updatedAt ? new Date(pricing.updatedAt) : now,
   }));
 
-  return [...items, ...projectItems, ...serviceItems, ...pricingItems];
+  const articleItems = (articles || []).map((article) => ({
+    url: normalizeUrl(baseUrl, `/artical/${article.slug}`),
+    lastModified: article.updatedAt ? new Date(article.updatedAt) : article.publishDate ? new Date(article.publishDate) : now,
+  }));
+
+  return [...items, ...projectItems, ...serviceItems, ...pricingItems, ...articleItems];
 }

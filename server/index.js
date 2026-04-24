@@ -69,6 +69,24 @@ io.on("connection", (socket) => {
     socket.leave(`service:${normalizedSlug}`);
   });
 
+  socket.on("article:join", (slug) => {
+    const normalizedSlug = String(slug || "").trim().toLowerCase();
+    if (!normalizedSlug) {
+      return;
+    }
+
+    socket.join(`article:${normalizedSlug}`);
+  });
+
+  socket.on("article:leave", (slug) => {
+    const normalizedSlug = String(slug || "").trim().toLowerCase();
+    if (!normalizedSlug) {
+      return;
+    }
+
+    socket.leave(`article:${normalizedSlug}`);
+  });
+
   socket.on("testimonials:join", () => {
     socket.join("testimonials");
   });

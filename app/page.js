@@ -11,7 +11,7 @@ import { getHomePageData } from "@/lib/api";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const { profile, siteSettings, serviceSection, services, statsCounters, achievements, experiences, skills, projects, educations, blogs, pricings, testimonials } =
+  const { profile, siteSettings, serviceSection, services, statsCounters, achievements, experiences, skills, projects, educations, articles, pricings, testimonials, emergencyContacts } =
     await getHomePageData();
 
   return (
@@ -29,8 +29,8 @@ export default async function Home() {
       <Education educations={educations} />
       <AchievementSection achievements={achievements} />
       <TestimonialsSection testimonials={testimonials} />
-      <Blog blogs={blogs} />
-      <ContactSection profile={profile} settings={siteSettings} />
+      <Blog articles={articles} />
+      <ContactSection profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />
     </div>
   )
 };

@@ -8,21 +8,21 @@ import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
-import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiSend, FiSettings, FiUpload } from "react-icons/fi";
-import { getSocialIconOption, searchSocialIcons } from "@/utils/social-icons";
+import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiPhone, FiSend, FiSettings, FiUpload } from "react-icons/fi";
+import { getSocialIconOption, searchSocialIcons, socialIconOptions } from "@/utils/social-icons";
 import { getServiceIconOption, serviceIconOptions } from "@/utils/service-icons";
 import { getStatsIconOption, statsIconOptions } from "@/utils/stats-icons";
 
 const RichTextEditor = dynamic(() => import("@/app/components/admin/rich-text-editor"), {
   ssr: false,
 });
-const AdminAnalyticsCharts = dynamic(() => import("@/app/components/admin/admin-analytics-charts"), {
-  ssr: false,
-  loading: () => (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,1fr)]">
-      {[0, 1].map((item) => (
-        <div
-          key={item}
+  const AdminAnalyticsCharts = dynamic(() => import("@/app/components/admin/admin-analytics-charts"), {
+    ssr: false,
+    loading: () => (
+      <div className="grid gap-5 lg:grid-cols-2">
+        {[0, 1].map((item) => (
+          <div
+            key={item}
           className="h-[420px] animate-pulse rounded-[1.75rem] border border-white/10 bg-white/[0.04]"
         />
       ))}
@@ -54,6 +54,10 @@ function emptySocialLink() {
 
 function emptyCounterItem() {
   return { label: "", highlight: "", count: "", icon: "projects" };
+}
+
+function emptyEmergencyContactItem() {
+  return { label: "", name: "", icon: "whatsapp", link: "" };
 }
 
 function emptyAchievementItem() {
@@ -607,6 +611,8 @@ const tabs = [
   { id: "dashboard", label: "Dashboard", icon: FiBarChart2, href: "/admin/dashboard" },
   { id: "hero", label: "Hero", icon: HiOutlineSparkles, href: "/admin/hero" },
   { id: "services", label: "Services", icon: HiOutlineViewGrid, href: "/admin/services" },
+  { id: "artical", label: "Artical", icon: FiBookOpen, href: "/admin/artical" },
+  { id: "artical-categories", label: "Artical Categories", icon: FiBookOpen, href: "/admin/artical-categories" },
   { id: "projects", label: "Projects", icon: FiFolder, href: "/admin/projects" },
   { id: "pricing", label: "Pricing", icon: FiDollarSign, href: "/admin/pricing" },
   { id: "testimonials", label: "Testimonials", icon: FiMessageSquare, href: "/admin/testimonials" },
@@ -616,6 +622,7 @@ const tabs = [
   { id: "achievement", label: "Achievements", icon: HiOutlineUsers, href: "/admin/achievement" },
   { id: "counter", label: "Counters", icon: FiBarChart2, href: "/admin/counters" },
   { id: "social", label: "Social", icon: HiOutlineUsers, href: "/admin/social" },
+  { id: "contact", label: "Contact", icon: FiPhone, href: "/admin/contact" },
   { id: "messages", label: "Messages", icon: FiMail, href: "/admin/messages" },
   { id: "settings", label: "Settings", icon: FiSettings, href: "/admin/settings" },
 ];
@@ -629,6 +636,19 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [admin, setAdmin] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [articles, setArticles] = useState([]);
+  const [articleCategories, setArticleCategories] = useState([]);
+  const [emergencyContacts, setEmergencyContacts] = useState([]);
+  const [newArticleCategory, setNewArticleCategory] = useState("");
+  const [isArticlesLoading, setIsArticlesLoading] = useState(false);
+  const [isSavingArticleCategory, setIsSavingArticleCategory] = useState(false);
+  const [isEmergencyContactsLoading, setIsEmergencyContactsLoading] = useState(false);
+  const [isEmergencyContactModalOpen, setIsEmergencyContactModalOpen] = useState(false);
+  const [isSavingEmergencyContact, setIsSavingEmergencyContact] = useState(false);
+  const [editingEmergencyContactId, setEditingEmergencyContactId] = useState(null);
+  const [emergencyContactDraft, setEmergencyContactDraft] = useState(emptyEmergencyContactItem());
+  const [emergencyContactSearch, setEmergencyContactSearch] = useState("");
+  const [emergencyContactActionId, setEmergencyContactActionId] = useState(null);
   const [analytics, setAnalytics] = useState(emptyAnalytics());
   const [dashboardSummary, setDashboardSummary] = useState(emptyDashboardSummary());
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
@@ -944,6 +964,230 @@ export function AdminSectionPage({ section = "dashboard" }) {
     [],
   );
 
+  const loadArticles = useCallback(async (authToken) => {
+    if (!authToken) {
+      return;
+    }
+
+    try {
+      setIsArticlesLoading(true);
+      const response = await fetch(`${backendUrl}/api/admin/articles`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to load articles.");
+      }
+
+      setArticles(Array.isArray(data.articles) ? data.articles : []);
+    } catch (error) {
+      toast.error(error.message || "Failed to load articles.");
+    } finally {
+      setIsArticlesLoading(false);
+    }
+  }, []);
+
+  const loadArticleCategories = useCallback(async (authToken) => {
+    if (!authToken) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${backendUrl}/api/admin/article-categories`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to load article categories.");
+      }
+
+      setArticleCategories(Array.isArray(data.categories) ? data.categories : []);
+    } catch (error) {
+      toast.error(error.message || "Failed to load article categories.");
+    }
+  }, []);
+
+  const createArticleCategory = useCallback(async () => {
+    if (!token || !newArticleCategory.trim()) {
+      toast.error("Category name is required.");
+      return;
+    }
+
+    try {
+      setIsSavingArticleCategory(true);
+      const response = await fetch(`${backendUrl}/api/admin/article-categories`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: newArticleCategory.trim(),
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to create article category.");
+      }
+
+      setNewArticleCategory("");
+      setArticleCategories((current) =>
+        [...current, data.category].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      toast.success("Article category created successfully.");
+    } catch (error) {
+      toast.error(error.message || "Failed to create article category.");
+    } finally {
+      setIsSavingArticleCategory(false);
+    }
+  }, [newArticleCategory, token]);
+
+  const loadEmergencyContacts = useCallback(async (authToken) => {
+    if (!authToken) {
+      return;
+    }
+
+    try {
+      setIsEmergencyContactsLoading(true);
+      const response = await fetch(`${backendUrl}/api/admin/emergency-contacts`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to load emergency contacts.");
+      }
+
+      setEmergencyContacts(Array.isArray(data.contacts) ? data.contacts : []);
+    } catch (error) {
+      toast.error(error.message || "Failed to load emergency contacts.");
+    } finally {
+      setIsEmergencyContactsLoading(false);
+    }
+  }, []);
+
+  const openEmergencyContactModal = useCallback((contact = null) => {
+    setEditingEmergencyContactId(contact?.id ?? null);
+    setEmergencyContactDraft(
+      contact
+        ? {
+            label: contact.label || "",
+            name: contact.name || "",
+            icon: contact.icon || "whatsapp",
+            link: contact.link || "",
+          }
+        : emptyEmergencyContactItem(),
+    );
+    setEmergencyContactSearch("");
+    setIsEmergencyContactModalOpen(true);
+  }, []);
+
+  const closeEmergencyContactModal = useCallback(() => {
+    setIsEmergencyContactModalOpen(false);
+    setEditingEmergencyContactId(null);
+    setEmergencyContactDraft(emptyEmergencyContactItem());
+    setEmergencyContactSearch("");
+  }, []);
+
+  const saveEmergencyContact = useCallback(async () => {
+    if (
+      !token ||
+      !emergencyContactDraft.label.trim() ||
+      !emergencyContactDraft.name.trim() ||
+      !emergencyContactDraft.icon.trim() ||
+      !emergencyContactDraft.link.trim()
+    ) {
+      toast.error("Label, name, icon, and link are required.");
+      return;
+    }
+
+    try {
+      setIsSavingEmergencyContact(true);
+      const response = await fetch(
+        `${backendUrl}/api/admin/emergency-contacts${editingEmergencyContactId ? `/${editingEmergencyContactId}` : ""}`,
+        {
+          method: editingEmergencyContactId ? "PUT" : "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            label: emergencyContactDraft.label.trim(),
+            name: emergencyContactDraft.name.trim(),
+            icon: emergencyContactDraft.icon.trim(),
+            link: emergencyContactDraft.link.trim(),
+          }),
+        },
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save emergency contact.");
+      }
+
+      setEmergencyContacts((current) => {
+        const nextContacts = editingEmergencyContactId
+          ? current.map((item) => (item.id === editingEmergencyContactId ? data.contact : item))
+          : [...current, data.contact];
+
+        return nextContacts.sort((a, b) => {
+          const sortDifference = Number(a.sortOrder || 0) - Number(b.sortOrder || 0);
+          if (sortDifference !== 0) {
+            return sortDifference;
+          }
+
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        });
+      });
+      closeEmergencyContactModal();
+      toast.success(editingEmergencyContactId ? "Emergency contact updated successfully." : "Emergency contact created successfully.");
+    } catch (error) {
+      toast.error(error.message || "Failed to save emergency contact.");
+    } finally {
+      setIsSavingEmergencyContact(false);
+    }
+  }, [closeEmergencyContactModal, editingEmergencyContactId, emergencyContactDraft.icon, emergencyContactDraft.label, emergencyContactDraft.link, emergencyContactDraft.name, token]);
+
+  const deleteEmergencyContact = useCallback(
+    async (contactId) => {
+      if (!token || !contactId) {
+        return;
+      }
+
+      try {
+        setEmergencyContactActionId(contactId);
+        const response = await fetch(`${backendUrl}/api/admin/emergency-contacts/${contactId}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to delete emergency contact.");
+        }
+
+        setEmergencyContacts((current) => current.filter((item) => item.id !== contactId));
+        toast.success("Emergency contact deleted successfully.");
+      } catch (error) {
+        toast.error(error.message || "Failed to delete emergency contact.");
+      } finally {
+        setEmergencyContactActionId(null);
+      }
+    },
+    [token],
+  );
+
   const loadMessageThread = useCallback(
     async (authToken, messageId) => {
       if (!authToken || !messageId) {
@@ -1132,7 +1376,31 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
     loadDashboard(savedToken);
     loadAnalytics(savedToken);
-  }, [loadAnalytics, loadDashboard, router]);
+    if (section === "artical" || section === "artical-categories") {
+      loadArticles(savedToken);
+      loadArticleCategories(savedToken);
+    }
+    if (section === "contact") {
+      loadEmergencyContacts(savedToken);
+    }
+  }, [loadAnalytics, loadArticleCategories, loadArticles, loadDashboard, loadEmergencyContacts, router, section]);
+
+  useEffect(() => {
+    if (!["artical", "artical-categories"].includes(activeTab) || !token) {
+      return;
+    }
+
+    loadArticles(token);
+    loadArticleCategories(token);
+  }, [activeTab, loadArticleCategories, loadArticles, token]);
+
+  useEffect(() => {
+    if (activeTab !== "contact" || !token) {
+      return;
+    }
+
+    loadEmergencyContacts(token);
+  }, [activeTab, loadEmergencyContacts, token]);
 
   useEffect(() => {
     if (!token) {
@@ -2170,8 +2438,8 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[80vh] items-center justify-center">
-        <div className="rounded-3xl border border-[#24344d] bg-[#0d1728] px-8 py-6 text-center shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
+      <div suppressHydrationWarning className="flex min-h-[80vh] items-center justify-center">
+        <div suppressHydrationWarning className="rounded-3xl border border-[#24344d] bg-[#0d1728] px-8 py-6 text-center shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
           <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Admin Panel</p>
           <p className="mt-3 text-lg text-[#e8eef7]">Loading dashboard...</p>
         </div>
@@ -2230,8 +2498,8 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const dashboardHighlights =
     activeTab === "dashboard"
       ? [
-          { label: "Current Active Users", value: formatMetricValue(analytics.activeUsers), icon: HiOutlineUsers },
-          { label: "Today Total Users", value: formatMetricValue(analytics.todayUsers), icon: FiBarChart2 },
+            { label: "Current Active Users", value: formatMetricValue(analytics.activeUsers), icon: HiOutlineUsers },
+            { label: "Today Total Users", value: formatMetricValue(analytics.todayUsers), icon: FiBarChart2 },
           { label: "Last 7 Days Users", value: formatMetricValue(analytics.last7DaysUsers), icon: FiFolder },
           { label: "Last 30 Days Users", value: formatMetricValue(analytics.last30DaysUsers), icon: FiBriefcase },
           { label: "Tickets", value: formatMetricValue(messages.length), icon: FiMail, href: "/admin/messages" },
@@ -2284,14 +2552,25 @@ export function AdminSectionPage({ section = "dashboard" }) {
             { label: "Project Views", value: totalProjectViews, icon: HiOutlineViewGrid },
             { label: "Impressions", value: totalProjectImpressions, icon: FiBarChart2 },
           ]
-      : [
-          { label: "Active Services", value: activeServices, icon: HiOutlineViewGrid },
-          { label: "Featured Services", value: featuredServices, icon: HiOutlineSparkles },
-          { label: "Total Services", value: totalServices, icon: FiBarChart2 },
-        ];
+      : activeTab === "contact"
+        ? [
+            { label: "Saved Contacts", value: emergencyContacts.length, icon: FiPhone },
+            { label: "Platforms", value: new Set(emergencyContacts.map((item) => item.icon).filter(Boolean)).size, icon: HiOutlineUsers },
+            { label: "Quick Links", value: emergencyContacts.filter((item) => item.link).length, icon: FiEye },
+          ]
+        : [
+            { label: "Active Services", value: activeServices, icon: HiOutlineViewGrid },
+            { label: "Featured Services", value: featuredServices, icon: HiOutlineSparkles },
+            { label: "Total Services", value: totalServices, icon: FiBarChart2 },
+          ];
+  const dashboardTopCards = [
+    { label: "Live Users", value: formatMetricValue(analytics.activeUsers), icon: HiOutlineUsers },
+    { label: "Total Users", value: formatMetricValue(analytics.todayUsers), icon: FiBarChart2 },
+    { label: "Messages", value: formatMetricValue(messages.length), icon: FiMail, href: "/admin/messages" },
+  ];
 
   return (
-    <div className="w-full">
+    <div suppressHydrationWarning className="w-full">
       <div className="grid gap-5 2xl:grid-cols-[350px_minmax(0,1fr)]">
         <aside className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.88),rgba(7,12,23,0.82))] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-2xl 2xl:sticky 2xl:top-6 2xl:h-[calc(100vh-3rem)] 2xl:overflow-y-auto">
           <div className="rounded-[1.6rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.18),transparent_52%),rgba(255,255,255,0.03)] p-5">
@@ -2342,6 +2621,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
         </aside>
 
         <div className="space-y-6">
+          {false ? (
           <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.18),transparent_28%),radial-gradient(circle_at_top_left,rgba(110,231,183,0.12),transparent_24%),linear-gradient(180deg,rgba(15,26,42,0.94),rgba(11,20,34,0.92))] p-6 shadow-[0_28px_70px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
@@ -2397,10 +2677,42 @@ export function AdminSectionPage({ section = "dashboard" }) {
               })}
             </div>
           </section>
+          ) : null}
 
           {activeTab === "dashboard" && (
             <div className="space-y-6">
-              <section className="grid gap-5 2xl:grid-cols-[minmax(0,1.42fr)_430px]">
+              <section className="grid gap-4 md:grid-cols-3">
+                {dashboardTopCards.map((item) => {
+                  const Icon = item.icon;
+                  const content = (
+                    <div
+                      className={`rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.24)] backdrop-blur-xl transition ${
+                        item.href ? "hover:-translate-y-0.5 hover:border-[#4dc4ff]/35 hover:bg-white/[0.05]" : ""
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.24em] text-[#8ea7c2]">{item.label}</p>
+                          <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
+                        </div>
+                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#132339] text-[#7fdcff]">
+                          <Icon size={18} />
+                        </span>
+                      </div>
+                    </div>
+                  );
+
+                  return item.href ? (
+                    <Link key={item.label} href={item.href}>
+                      {content}
+                    </Link>
+                  ) : (
+                    <div key={item.label}>{content}</div>
+                  );
+                })}
+              </section>
+
+              <section className="grid gap-5">
                 <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
@@ -2421,12 +2733,12 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     </div>
                   </div>
 
-                  <div className="mt-6">
-                    {isAnalyticsLoading ? (
-                      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,1fr)]">
-                        {[0, 1].map((item) => (
-                          <div
-                            key={item}
+                    <div className="mt-6">
+                      {isAnalyticsLoading ? (
+                        <div className="grid gap-5 lg:grid-cols-2">
+                          {[0, 1].map((item) => (
+                            <div
+                              key={item}
                             className="h-[420px] animate-pulse rounded-[1.75rem] border border-white/10 bg-white/[0.04]"
                           />
                         ))}
@@ -2526,11 +2838,11 @@ export function AdminSectionPage({ section = "dashboard" }) {
                   </div>
                 </div>
 
-                <div className="space-y-5">
-                  <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
-                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Workspace Status</p>
-                    <div className="mt-5 space-y-3">
-                      {dashboardStatusCards.map((item) => (
+                  <div className="grid gap-5 lg:grid-cols-2">
+                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                      <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Workspace Status</p>
+                      <div className="mt-5 space-y-3">
+                        {dashboardStatusCards.map((item) => (
                         <div
                           key={item.label}
                           className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
@@ -2547,10 +2859,10 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     </div>
                   </section>
 
-                  <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Quick Actions</p>
+                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Quick Actions</p>
                         <h3 className="mt-2 text-xl font-semibold text-white">Jump into the next task</h3>
                       </div>
                       <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">
@@ -2585,62 +2897,64 @@ export function AdminSectionPage({ section = "dashboard" }) {
                 </div>
               </section>
 
-              <section className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1fr)]">
-                <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Content Health</p>
-                      <h3 className="mt-2 text-2xl font-semibold text-white">Publishing mix across sections</h3>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-right">
-                      <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">Configured</p>
-                      <p className="mt-2 text-2xl font-semibold text-white">
-                        {dashboardSummary.configuredPercentage || 0}%
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-6 space-y-4">
-                    {dashboardSummary.collectionHealth.map((item) => {
-                      const total = Math.max(item.total || 0, 1);
-                      const progress = Math.min(100, Math.round((item.value / total) * 100));
-
-                      return (
-                        <div key={item.label} className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="font-medium text-white">{item.label}</p>
-                            <p className="text-sm text-[#8ea7c2]">
-                              {item.value}/{item.total || 0}
-                            </p>
-                          </div>
-                          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/10">
-                            <div
-                              className={`h-full rounded-full bg-gradient-to-r ${item.accentClass}`}
-                              style={{ width: `${progress}%` }}
-                            />
-                          </div>
+                <section className="space-y-5">
+                  <div className="grid gap-5 xl:grid-cols-2">
+                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                          <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Content Health</p>
+                          <h3 className="mt-2 text-2xl font-semibold text-white">Publishing mix across sections</h3>
                         </div>
-                      );
-                    })}
-                  </div>
-                </section>
-
-                <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
-                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Portfolio Snapshot</p>
-                  <h3 className="mt-2 text-2xl font-semibold text-white">Operational summary</h3>
-                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                    {dashboardSummary.snapshot.map((item) => (
-                      <div key={item.label} className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
-                        <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">{item.label}</p>
-                        <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-right">
+                          <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">Configured</p>
+                          <p className="mt-2 text-2xl font-semibold text-white">
+                            {dashboardSummary.configuredPercentage || 0}%
+                          </p>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </section>
+                      <div className="mt-6 space-y-4">
+                        {dashboardSummary.collectionHealth.map((item) => {
+                          const total = Math.max(item.total || 0, 1);
+                          const progress = Math.min(100, Math.round((item.value / total) * 100));
 
-                <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Recent Messages</p>
+                          return (
+                            <div key={item.label} className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="font-medium text-white">{item.label}</p>
+                                <p className="text-sm text-[#8ea7c2]">
+                                  {item.value}/{item.total || 0}
+                                </p>
+                              </div>
+                              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/10">
+                                <div
+                                  className={`h-full rounded-full bg-gradient-to-r ${item.accentClass}`}
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+
+                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                      <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Portfolio Snapshot</p>
+                      <h3 className="mt-2 text-2xl font-semibold text-white">Operational summary</h3>
+                      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                        {dashboardSummary.snapshot.map((item) => (
+                          <div key={item.label} className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
+                            <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">{item.label}</p>
+                            <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </div>
+
+                  <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Recent Messages</p>
                       <h3 className="mt-2 text-2xl font-semibold text-white">Latest inbox activity</h3>
                     </div>
                     <Link
@@ -2699,8 +3013,451 @@ export function AdminSectionPage({ section = "dashboard" }) {
                       ))
                     )}
                   </div>
+                  </section>
                 </section>
+            </div>
+          )}
+
+          {activeTab === "artical" && (
+            <section className="space-y-6">
+              <div className="flex flex-col gap-4 rounded-[2rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Articles</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">Manage article library</h3>
+                  <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                    Create, edit, and publish long-form articles from a dedicated editor flow.
+                  </p>
+                </div>
+                <Link
+                  href="/admin/artical/new"
+                  className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90"
+                >
+                  Add New Article
+                </Link>
+              </div>
+
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Article List</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">All saved articles</h3>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">
+                    {articles.length} items
+                  </span>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  {isArticlesLoading ? (
+                    [0, 1, 2].map((item) => (
+                      <div
+                        key={item}
+                        className="h-28 animate-pulse rounded-[1.5rem] border border-white/10 bg-white/[0.04]"
+                      />
+                    ))
+                  ) : articles.length === 0 ? (
+                    <div className="rounded-[1.5rem] border border-dashed border-white/10 bg-white/[0.03] p-8 text-center">
+                      <p className="text-lg font-semibold text-white">No articles yet</p>
+                      <p className="mt-2 text-sm text-[#8ea7c2]">
+                        Start by creating your first article from the dedicated editor page.
+                      </p>
+                    </div>
+                  ) : (
+                    articles.map((article) => (
+                      <div
+                        key={article.id}
+                        className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 transition hover:border-[#36557e] hover:bg-white/[0.05]"
+                      >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate text-xl font-semibold text-white">{article.title}</p>
+                              <span
+                                className={`inline-flex rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                                  article.status === "published"
+                                    ? "border border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
+                                    : "border border-amber-400/25 bg-amber-400/10 text-amber-200"
+                                }`}
+                              >
+                                {article.status}
+                              </span>
+                              {article.isFeatured ? (
+                                <span className="inline-flex rounded-full border border-[#4dc4ff]/25 bg-[#4dc4ff]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9fdcff]">
+                                  Featured
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-2 text-sm text-[#7fdcff]">/{article.slug}</p>
+                            <p className="mt-3 max-w-3xl text-sm leading-7 text-[#9fb1c7]">
+                              {article.shortDescription}
+                            </p>
+                            <div className="mt-4 flex flex-wrap gap-2 text-xs text-[#8ea7c2]">
+                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                                {article.author}
+                              </span>
+                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                                {article.publishDate ? new Date(article.publishDate).toLocaleString() : "No publish date"}
+                              </span>
+                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
+                                Comments {article.commentsEnabled ? "On" : "Off"}
+                              </span>
+                            </div>
+                            {Array.isArray(article.categories) && article.categories.length ? (
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                {article.categories.map((category) => (
+                                  <span
+                                    key={`${article.id}-category-${category.id}`}
+                                    className="rounded-full border border-[#2f4866] bg-[#0f1d2f] px-3 py-1 text-xs text-[#7fdcff]"
+                                  >
+                                    {category.name}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                            {Array.isArray(article.tags) && article.tags.length ? (
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                {article.tags.map((tag) => (
+                                  <span
+                                    key={`${article.id}-${tag}`}
+                                    className="rounded-full border border-[#2f4866] bg-[#112033] px-3 py-1 text-xs text-[#bcd0e4]"
+                                  >
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className="flex shrink-0 gap-3">
+                            <Link
+                              href={`/admin/artical/${article.id}`}
+                              className="rounded-full border border-[#36557e] px-4 py-2 text-sm font-medium text-[#9fdcff] transition hover:border-[#4dc4ff] hover:text-white"
+                            >
+                              Edit
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </section>
+            </section>
+          )}
+
+          {activeTab === "artical-categories" && (
+            <section className="space-y-6">
+              <div className="flex flex-col gap-4 rounded-[2rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Article Categories</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">Manage reusable categories</h3>
+                  <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                    Create and organize article categories separately, then select multiple categories while creating or updating articles.
+                  </p>
+                </div>
+                <Link
+                  href="/admin/artical"
+                  className="inline-flex items-center justify-center rounded-full border border-[#36557e] px-5 py-3 text-sm font-semibold text-[#9fdcff] transition hover:border-[#4dc4ff] hover:text-white"
+                >
+                  Back To Articles
+                </Link>
+              </div>
+
+              <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_420px]">
+                <div className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Saved Categories</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">Reusable blog categories</h3>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    {articleCategories.length === 0 ? (
+                      <div className="rounded-[1.4rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-[#8ea7c2]">
+                        No categories created yet.
+                      </div>
+                    ) : (
+                      articleCategories.map((category) => (
+                        <div
+                          key={category.id}
+                          className="rounded-full border border-[#2f4866] bg-[#112033] px-4 py-2 text-sm text-[#c6d7ea]"
+                        >
+                          {category.name}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Create Category</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">Add a new article category</h3>
+                  <div className="mt-6 space-y-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Category Name</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={newArticleCategory}
+                        onChange={(event) => setNewArticleCategory(event.target.value)}
+                        placeholder="JavaScript"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={createArticleCategory}
+                      disabled={isSavingArticleCategory}
+                      className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSavingArticleCategory ? "Saving..." : "Save Category"}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </section>
+          )}
+
+          {activeTab === "contact" && (
+            <section className="space-y-6">
+              <div className="flex flex-col gap-4 rounded-[2rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Emergency Contact</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">Manage priority contact links</h3>
+                  <p className="mt-2 max-w-3xl text-sm leading-7 text-[#9fb1c7]">
+                    Create a separate contact directory with label, name, icon, and destination link. This section is fully independent and uses its own database table.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openEmergencyContactModal()}
+                  className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90"
+                >
+                  Add New Contact
+                </button>
+              </div>
+
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Contact List</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">All emergency contact records</h3>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">
+                    {emergencyContacts.length} items
+                  </span>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  {isEmergencyContactsLoading ? (
+                    [0, 1, 2].map((item) => (
+                      <div
+                        key={item}
+                        className="h-28 animate-pulse rounded-[1.5rem] border border-white/10 bg-white/[0.04]"
+                      />
+                    ))
+                  ) : emergencyContacts.length === 0 ? (
+                    <div className="rounded-[1.5rem] border border-dashed border-white/10 bg-white/[0.03] p-8 text-center">
+                      <p className="text-lg font-semibold text-white">No contact entries yet</p>
+                      <p className="mt-2 text-sm text-[#8ea7c2]">
+                        Add a new contact entry from the popup and it will appear here instantly.
+                      </p>
+                    </div>
+                  ) : (
+                    emergencyContacts.map((contact) => {
+                      const selectedIcon = getSocialIconOption(contact.icon);
+                      const Icon = selectedIcon?.icon || FiPhone;
+
+                      return (
+                        <div
+                          key={contact.id}
+                          className="rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-5 transition hover:border-[#36557e] hover:bg-white/[0.05]"
+                        >
+                          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-4">
+                                <div className="flex h-14 w-14 items-center justify-center rounded-[1.2rem] border border-[#315175] bg-[radial-gradient(circle_at_top,rgba(107,212,255,0.24),rgba(17,32,51,0.95))] text-[#8fe3ff] shadow-[0_16px_40px_rgba(14,165,233,0.16)]">
+                                  <Icon className="text-2xl" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-xl font-semibold text-white">{contact.name}</p>
+                                    <span className="rounded-full border border-[#2f4866] bg-[#112033] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#86d7ff]">
+                                      {contact.label}
+                                    </span>
+                                  </div>
+                                  <p className="mt-2 text-sm text-[#8ea7c2]">
+                                    {selectedIcon?.label || contact.icon}
+                                  </p>
+                                  <a
+                                    href={contact.link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-3 inline-flex max-w-full items-center gap-2 text-sm text-[#7fdcff] transition hover:text-white"
+                                  >
+                                    <span className="truncate">{contact.link}</span>
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex shrink-0 gap-3">
+                              <button
+                                type="button"
+                                onClick={() => openEmergencyContactModal(contact)}
+                                className="rounded-full border border-[#36557e] px-4 py-2 text-sm font-medium text-[#9fdcff] transition hover:border-[#4dc4ff] hover:text-white"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteEmergencyContact(contact.id)}
+                                disabled={emergencyContactActionId === contact.id}
+                                className="rounded-full border border-rose-400/25 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:border-rose-300/40 hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {emergencyContactActionId === contact.id ? "Deleting..." : "Delete"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
+            </section>
+          )}
+
+          {isEmergencyContactModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+              <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+                <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Emergency Contact</p>
+                    <h4 className="mt-2 text-2xl font-semibold text-white">
+                      {editingEmergencyContactId ? "Update contact entry" : "Create new contact entry"}
+                    </h4>
+                    <p className="mt-2 text-sm text-[#97a9be]">
+                      Choose a social icon, then store the contact label, display name, and target link.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeEmergencyContactModal}
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-[#c7d6e8] transition hover:border-[#4dc4ff] hover:text-white"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Label</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={emergencyContactDraft.label}
+                        onChange={(event) =>
+                          setEmergencyContactDraft((current) => ({ ...current, label: event.target.value }))
+                        }
+                        placeholder="Primary Support"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Name</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={emergencyContactDraft.name}
+                        onChange={(event) =>
+                          setEmergencyContactDraft((current) => ({ ...current, name: event.target.value }))
+                        }
+                        placeholder="WhatsApp Hotline"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Link</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={emergencyContactDraft.link}
+                        onChange={(event) =>
+                          setEmergencyContactDraft((current) => ({ ...current, link: event.target.value }))
+                        }
+                        placeholder="https://wa.me/8801..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.7rem] border border-[#24344d] bg-[#0d1728] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.22em] text-[#79d4ff]">Choose Icon</p>
+                        <p className="mt-2 text-sm text-[#93a8c0]">All available social icons are listed below.</p>
+                      </div>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#315175] bg-[#112033] text-[#8fe3ff]">
+                        {(() => {
+                          const SelectedIcon = getSocialIconOption(emergencyContactDraft.icon)?.icon || FiPhone;
+                          return <SelectedIcon className="text-xl" />;
+                        })()}
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={emergencyContactSearch}
+                        onChange={(event) => setEmergencyContactSearch(event.target.value)}
+                        placeholder="Search icon like whatsapp, linkedin, github..."
+                      />
+                    </div>
+
+                    <div className="mt-4 grid max-h-[420px] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+                      {(emergencyContactSearch.trim() ? searchSocialIcons(emergencyContactSearch) : socialIconOptions).map((option) => {
+                        const Icon = option.icon;
+                        const isActive = emergencyContactDraft.icon === option.value;
+
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() =>
+                              setEmergencyContactDraft((current) => ({ ...current, icon: option.value }))
+                            }
+                            className={`flex items-center gap-3 rounded-[1.15rem] border px-4 py-3 text-left transition ${
+                              isActive
+                                ? "border-[#4dc4ff] bg-[#12304a] text-white shadow-[0_16px_40px_rgba(56,189,248,0.18)]"
+                                : "border-[#24344d] bg-[#0f1a2b] text-[#c7d6e8] hover:border-[#36557e] hover:bg-[#132338]"
+                            }`}
+                          >
+                            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]">
+                              <Icon className="text-lg" />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-sm font-semibold">{option.label}</span>
+                              <span className="mt-1 block truncate text-xs uppercase tracking-[0.16em] text-[#8ea7c2]">
+                                {option.value}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-col-reverse gap-3 border-t border-[#203049] pt-5 sm:flex-row sm:items-center sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={closeEmergencyContactModal}
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-[#c7d6e8] transition hover:border-[#4dc4ff] hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveEmergencyContact}
+                    disabled={isSavingEmergencyContact}
+                    className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSavingEmergencyContact ? "Saving..." : editingEmergencyContactId ? "Update Contact" : "Create Contact"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

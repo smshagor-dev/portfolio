@@ -14,9 +14,9 @@ const ScrollToTop = dynamic(() => import("./helper/scroll-to-top"), {
   ssr: false,
 });
 
-export default function LayoutClientChrome({ kind, profile, settings }) {
+export default function LayoutClientChrome({ kind, profile, settings, emergencyContacts }) {
   if (kind === "navbar") {
-    return <Navbar profile={profile} settings={settings} />;
+    return <Navbar profile={profile} settings={settings} emergencyContacts={emergencyContacts} />;
   }
 
   if (kind === "scrollToTop") {

@@ -6,11 +6,11 @@
   "scripts": {
     "db:prepare": "node server/scripts/ensure-db.js && node server/scripts/run-prisma.js generate && node server/scripts/run-prisma.js migrate deploy && node server/scripts/run-prisma.js db seed",
     "dev": "concurrently -k -n backend,frontend -c blue,green \"npm run dev:server\" \"npm run dev:web\"",
-    "dev:server": "npm run db:prepare && nodemon server/index.js",
+    "dev:server": "node server/scripts/stop-port-process.js 5000 && npm run db:prepare && nodemon server/index.js",
     "dev:web": "wait-on tcp:5000 && next dev",
     "build": "next build",
     "start": "npm run build && concurrently -k -n backend,frontend -c blue,green \"npm run start:server\" \"npm run start:web\"",
-    "start:server": "npm run db:prepare && node server/index.js",
+    "start:server": "node server/scripts/stop-port-process.js 5000 && npm run db:prepare && node server/index.js",
     "start:web": "wait-on tcp:5000 && next start",
     "lint": "eslint ."
   },

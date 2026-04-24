@@ -66,7 +66,7 @@ export default function LiveTicketDock() {
     };
   }, []);
 
-  if (pathname?.startsWith("/admin") || !ticketSession?.id || !ticketSession?.token) {
+  if (pathname?.startsWith("/admin")) {
     return null;
   }
 

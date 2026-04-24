@@ -88,6 +88,7 @@ export default async function RootLayout({ children }) {
     getSiteSettings().catch(() => null),
   ]);
   const profile = homeData?.profile || null;
+  const emergencyContacts = homeData?.emergencyContacts || [];
   const siteSettings = settings || homeData?.siteSettings || null;
   const googleTagManagerId =
     siteSettings?.googleTagManagerId || process.env.NEXT_PUBLIC_GTM || undefined;
@@ -99,7 +100,7 @@ export default async function RootLayout({ children }) {
       <body className={inter.className} suppressHydrationWarning>
         <LayoutShell
           footer={<Footer profile={profile} settings={siteSettings} />}
-          navbar={<LayoutClientChrome kind="navbar" profile={profile} settings={siteSettings} />}
+          navbar={<LayoutClientChrome kind="navbar" profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />}
           scrollToTop={<LayoutClientChrome kind="scrollToTop" />}
         >
           <LayoutClientChrome kind="toast" />

@@ -110,6 +110,32 @@ function serializeTestimonial(testimonial) {
   };
 }
 
+function serializeArticle(article) {
+  const comments = (article?.comments || []).map(serializeArticleComment);
+  const replyCount = comments.reduce((sum, item) => sum + (item.replies?.length || 0), 0);
+
+  return {
+    ...article,
+    tags: Array.isArray(article?.tags) ? article.tags : [],
+    categories: (article?.categories || []).map((item) => ({
+      id: item.category?.id ?? item.id,
+      name: item.category?.name ?? item.name,
+      slug: item.category?.slug ?? item.slug,
+    })),
+    featuredImage: article?.featuredImage || "",
+    metaTitle: article?.metaTitle || "",
+    metaDescription: article?.metaDescription || "",
+    commentsEnabled: typeof article?.commentsEnabled === "boolean" ? article.commentsEnabled : true,
+    isFeatured: typeof article?.isFeatured === "boolean" ? article.isFeatured : false,
+    views: Math.max(0, Number.parseInt(article?.views, 10) || 0),
+    impressionCount: Math.max(0, Number.parseInt(article?.impressionCount, 10) || 0),
+    shareCount: Math.max(0, Number.parseInt(article?.shareCount, 10) || 0),
+    commentCount: comments.length,
+    replyCount,
+    comments,
+  };
+}
+
 function normalizeString(value) {
   return String(value || "").trim();
 }
@@ -289,6 +315,110 @@ function hasPricingModel() {
 
 function hasTestimonialModel() {
   return Boolean(prisma?.testimonial && typeof prisma.testimonial.findMany === "function");
+}
+
+function hasArticleModel() {
+  return Boolean(prisma?.article && typeof prisma.article.findMany === "function");
+}
+
+function hasEmergencyContactModel() {
+  return Boolean(prisma?.emergencyContact && typeof prisma.emergencyContact.findMany === "function");
+}
+
+function getPublishedArticleWhere() {
+  return {
+    status: "published",
+    OR: [{ publishDate: null }, { publishDate: { lte: new Date() } }],
+  };
+}
+
+function serializeArticleReply(reply) {
+  return {
+    id: reply.id,
+    commentId: reply.commentId,
+    name: reply.name || "",
+    reply: reply.reply,
+    createdAt: reply.createdAt,
+    updatedAt: reply.updatedAt,
+  };
+}
+
+function serializeArticleComment(comment) {
+  return {
+    id: comment.id,
+    articleId: comment.articleId,
+    name: comment.name || "",
+    comment: comment.comment,
+    createdAt: comment.createdAt,
+    updatedAt: comment.updatedAt,
+    replies: (comment.replies || []).map(serializeArticleReply),
+  };
+}
+
+function normalizeArticleMetricRecord(record) {
+  return {
+    id: Number.parseInt(record?.id, 10) || 0,
+    views: Math.max(0, Number.parseInt(record?.views, 10) || 0),
+    impressionCount: Math.max(0, Number.parseInt(record?.impressionCount, 10) || 0),
+    shareCount: Math.max(0, Number.parseInt(record?.shareCount, 10) || 0),
+  };
+}
+
+async function getArticleMetricsByIds(articleIds) {
+  const normalizedIds = Array.from(
+    new Set(
+      (articleIds || [])
+        .map((item) => Number.parseInt(item, 10))
+        .filter((item) => Number.isInteger(item) && item > 0),
+    ),
+  );
+
+  if (!normalizedIds.length) {
+    return new Map();
+  }
+
+  let rows = [];
+  try {
+    rows = await prisma.$queryRawUnsafe(
+      `SELECT id, views, impressionCount, shareCount FROM Article WHERE id IN (${normalizedIds.join(",")})`,
+    );
+  } catch (_error) {
+    return new Map();
+  }
+
+  return new Map(rows.map((row) => {
+    const normalized = normalizeArticleMetricRecord(row);
+    return [normalized.id, normalized];
+  }));
+}
+
+async function attachArticleMetrics(articles) {
+  const metricsMap = await getArticleMetricsByIds((articles || []).map((item) => item?.id));
+  return (articles || []).map((article) => {
+    const metrics = metricsMap.get(article.id);
+    return {
+      ...article,
+      views: metrics?.views || 0,
+      impressionCount: metrics?.impressionCount || 0,
+      shareCount: metrics?.shareCount || 0,
+    };
+  });
+}
+
+async function incrementArticleMetric(slug, fieldName) {
+  const normalizedSlug = String(slug || "").trim().toLowerCase();
+  if (!normalizedSlug || !["views", "impressionCount", "shareCount"].includes(fieldName)) {
+    return;
+  }
+
+  try {
+    await prisma.$executeRawUnsafe(
+      `UPDATE Article SET ${fieldName} = COALESCE(${fieldName}, 0) + 1 WHERE slug = ?`,
+      normalizedSlug,
+    );
+  } catch (_error) {
+    // Ignore until the article metric columns are available in the database.
+  }
 }
 
 function isMissingTableError(error, modelName) {
@@ -496,7 +626,7 @@ async function getBlogs(devUsername) {
 
 router.get("/home", async (_request, response) => {
   try {
-    const [profile, siteSettings, serviceSection, services, statsCounters, achievements, skills, experiences, projects, educations, pricings, testimonials] = await Promise.all([
+    const [profile, siteSettings, serviceSection, services, statsCounters, achievements, skills, experiences, projects, educations, pricings, testimonials, articles, emergencyContacts] = await Promise.all([
       prisma.profile.findUnique({ where: { id: 1 } }),
       getSiteSettingsRecord(),
       prisma.serviceSection.findUnique({ where: { id: 1 } }),
@@ -527,6 +657,33 @@ router.get("/home", async (_request, response) => {
           })
         : Promise.resolve([]),
       getTestimonialsSafely(),
+        hasArticleModel()
+          ? prisma.article.findMany({
+              where: getPublishedArticleWhere(),
+              include: {
+                categories: {
+                  include: {
+                    category: true,
+                  },
+                },
+                comments: {
+                  orderBy: { sortOrder: "asc" },
+                  include: {
+                    replies: {
+                      orderBy: { sortOrder: "asc" },
+                    },
+                  },
+                },
+              },
+              orderBy: [{ isFeatured: "desc" }, { publishDate: "desc" }, { createdAt: "desc" }],
+              take: 6,
+            })
+        : Promise.resolve([]),
+      hasEmergencyContactModel()
+        ? prisma.emergencyContact.findMany({
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+          })
+        : Promise.resolve([]),
     ]);
 
     if (!profile) {
@@ -549,6 +706,8 @@ router.get("/home", async (_request, response) => {
       pricings: pricings.map(serializePricing),
       testimonials: testimonials.map(serializeTestimonial),
       blogs,
+      articles: (await attachArticleMetrics(articles)).map(serializeArticle),
+      emergencyContacts,
     });
   } catch (error) {
     console.error("Failed to load homepage data:", error.message);
@@ -1121,6 +1280,325 @@ router.get("/blogs", async (_request, response) => {
   } catch (error) {
     console.error("Failed to load blogs:", error.message);
     return response.status(500).json({ message: "Failed to load blogs." });
+  }
+});
+
+router.get("/articles", async (_request, response) => {
+  try {
+    if (!hasArticleModel()) {
+      return response.json([]);
+    }
+
+      const articles = await prisma.article.findMany({
+        where: getPublishedArticleWhere(),
+        include: {
+          categories: {
+            include: {
+              category: true,
+            },
+          },
+          comments: {
+            orderBy: { sortOrder: "asc" },
+            include: {
+              replies: {
+                orderBy: { sortOrder: "asc" },
+              },
+            },
+          },
+        },
+        orderBy: [{ isFeatured: "desc" }, { publishDate: "desc" }, { createdAt: "desc" }],
+      });
+
+    return response.json((await attachArticleMetrics(articles)).map(serializeArticle));
+  } catch (error) {
+    console.error("Failed to load articles:", error.message);
+    return response.status(500).json({ message: "Failed to load articles." });
+  }
+});
+
+router.get("/articles/:slug", async (request, response) => {
+  try {
+    if (!hasArticleModel()) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    const slug = String(request.params.slug || "").trim().toLowerCase();
+    const [profile, siteSettings, existingArticle] = await Promise.all([
+      prisma.profile.findUnique({ where: { id: 1 } }),
+      getSiteSettingsRecord(),
+        prisma.article.findUnique({
+          where: { slug },
+          include: {
+            categories: {
+              include: {
+                category: true,
+              },
+            },
+            comments: {
+              orderBy: { sortOrder: "asc" },
+              include: {
+                replies: {
+                  orderBy: { sortOrder: "asc" },
+                },
+              },
+            },
+          },
+        }),
+    ]);
+
+    if (!existingArticle || existingArticle.status !== "published" || (existingArticle.publishDate && existingArticle.publishDate > new Date())) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    await incrementArticleMetric(slug, "views");
+
+    const article = {
+      ...existingArticle,
+      ...(await attachArticleMetrics([existingArticle]))[0],
+    };
+
+    const categoryIds = (article.categories || [])
+      .map((item) => item.category?.id)
+      .filter(Boolean);
+
+    const relatedArticles = await prisma.article.findMany({
+      where: {
+        ...getPublishedArticleWhere(),
+        slug: { not: slug },
+        ...(categoryIds.length
+          ? {
+              categories: {
+                some: {
+                  categoryId: {
+                    in: categoryIds,
+                  },
+                },
+              },
+            }
+          : {}),
+      },
+      include: {
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+        comments: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            replies: {
+              orderBy: { sortOrder: "asc" },
+            },
+          },
+        },
+      },
+      orderBy: [{ isFeatured: "desc" }, { publishDate: "desc" }, { createdAt: "desc" }],
+      take: 3,
+    });
+
+    return response.json({
+      profile,
+      siteSettings: serializeSiteSettings(siteSettings),
+      article: serializeArticle(article),
+      relatedArticles: (await attachArticleMetrics(relatedArticles)).map(serializeArticle),
+    });
+  } catch (error) {
+    console.error("Failed to load article detail:", error.message);
+    return response.status(500).json({ message: "Failed to load article detail." });
+  }
+});
+
+router.post("/articles/:slug/impression", async (request, response) => {
+  try {
+    if (!hasArticleModel()) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    const slug = String(request.params.slug || "").trim().toLowerCase();
+    const article = await prisma.article.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        status: true,
+        publishDate: true,
+      },
+    });
+
+    if (!article || article.status !== "published" || (article.publishDate && article.publishDate > new Date())) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    await incrementArticleMetric(slug, "impressionCount");
+
+    return response.status(201).json({ message: "Impression tracked." });
+  } catch (error) {
+    console.error("Failed to track article impression:", error.message);
+    return response.status(500).json({ message: "Failed to track article impression." });
+  }
+});
+
+router.post("/articles/:slug/share", async (request, response) => {
+  try {
+    if (!hasArticleModel()) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    const slug = String(request.params.slug || "").trim().toLowerCase();
+    const article = await prisma.article.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        status: true,
+        publishDate: true,
+      },
+    });
+
+    if (!article || article.status !== "published" || (article.publishDate && article.publishDate > new Date())) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    await incrementArticleMetric(slug, "shareCount");
+
+    return response.status(201).json({ message: "Share tracked." });
+  } catch (error) {
+    console.error("Failed to track article share:", error.message);
+    return response.status(500).json({ message: "Failed to track article share." });
+  }
+});
+
+router.post("/articles/:slug/comments", async (request, response) => {
+  try {
+    if (!hasArticleModel()) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    const slug = String(request.params.slug || "").trim().toLowerCase();
+    const name = String(request.body?.name || "").trim();
+    const commentText = String(request.body?.comment || "").trim();
+
+    if (!name || !commentText) {
+      return response.status(400).json({ message: "Name and comment are required." });
+    }
+
+    const article = await prisma.article.findUnique({
+      where: { slug },
+      include: {
+        comments: {
+          orderBy: { sortOrder: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    if (!article || article.status !== "published" || (article.publishDate && article.publishDate > new Date())) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    if (!article.commentsEnabled) {
+      return response.status(409).json({ message: "Comments are disabled for this article." });
+    }
+
+    const savedComment = await prisma.articleComment.create({
+      data: {
+        articleId: article.id,
+        name,
+        comment: commentText,
+        sortOrder: (article.comments?.[0]?.sortOrder || 0) + 1,
+      },
+      include: {
+        replies: true,
+      },
+    });
+
+    const serializedComment = serializeArticleComment(savedComment);
+    request.app.get("io")?.to(`article:${slug}`).emit("article:comment_created", {
+      articleSlug: slug,
+      comment: serializedComment,
+    });
+
+    return response.status(201).json({
+      message: "Comment saved successfully.",
+      comment: serializedComment,
+    });
+  } catch (error) {
+    console.error("Failed to save article comment:", error.message);
+    return response.status(500).json({ message: "Failed to save comment." });
+  }
+});
+
+router.post("/articles/:slug/comments/:commentId/replies", async (request, response) => {
+  try {
+    if (!hasArticleModel()) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    const slug = String(request.params.slug || "").trim().toLowerCase();
+    const commentId = Number.parseInt(request.params.commentId, 10);
+    const name = String(request.body?.name || "").trim();
+    const replyText = String(request.body?.reply || "").trim();
+
+    if (!commentId || !name || !replyText) {
+      return response.status(400).json({ message: "Name and reply are required." });
+    }
+
+    const article = await prisma.article.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        status: true,
+        publishDate: true,
+        commentsEnabled: true,
+      },
+    });
+
+    if (!article || article.status !== "published" || (article.publishDate && article.publishDate > new Date())) {
+      return response.status(404).json({ message: "Article not found." });
+    }
+
+    if (!article.commentsEnabled) {
+      return response.status(409).json({ message: "Comments are disabled for this article." });
+    }
+
+    const comment = await prisma.articleComment.findFirst({
+      where: {
+        id: commentId,
+        articleId: article.id,
+      },
+      include: {
+        replies: {
+          orderBy: { sortOrder: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    if (!comment) {
+      return response.status(404).json({ message: "Comment not found." });
+    }
+
+    const savedReply = await prisma.articleReply.create({
+      data: {
+        commentId: comment.id,
+        name,
+        reply: replyText,
+        sortOrder: (comment.replies?.[0]?.sortOrder || 0) + 1,
+      },
+    });
+
+    const serializedReply = serializeArticleReply(savedReply);
+    request.app.get("io")?.to(`article:${slug}`).emit("article:reply_created", {
+      articleSlug: slug,
+      commentId: comment.id,
+      reply: serializedReply,
+    });
+
+    return response.status(201).json({
+      message: "Reply saved successfully.",
+      reply: serializedReply,
+    });
+  } catch (error) {
+    console.error("Failed to save article reply:", error.message);
+    return response.status(500).json({ message: "Failed to save reply." });
   }
 });
 

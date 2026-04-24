@@ -43,7 +43,7 @@ function ChartPanel({ title, description, children }) {
 
 export default function AdminAnalyticsCharts({ growth = [], weekly = [] }) {
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,1fr)]">
+    <div className="grid gap-5 lg:grid-cols-2">
       <ChartPanel
         title="User Growth"
         description="Daily active users for the last 30 days."

@@ -256,18 +256,27 @@ function ContactForm({ settings }) {
       <div className="pointer-events-none absolute -left-20 top-10 h-56 w-56 rounded-full bg-cyan-300/10 blur-3xl transition group-hover:bg-cyan-300/14" />
       <div className="pointer-events-none absolute -bottom-28 right-8 h-56 w-56 rounded-full bg-blue-400/10 blur-3xl" />
 
-      <div className="relative">
-        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200/80">
-          Contact with {settings?.websiteTitle || "me"}
-        </p>
-        <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+      <div className="relative text-center">
+        <div className="flex justify-center">
+          <div className="relative inline-flex items-center gap-0">
+            <span className="h-[2px] w-14 bg-[linear-gradient(90deg,transparent,#2f5f8b)]" />
+            <div className="relative overflow-hidden rounded-xl border border-[#35506f] bg-[linear-gradient(180deg,#14243a,#0d1728)] px-5 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.95),rgba(255,214,102,0.75),transparent)]" />
+              <p className="relative text-sm font-medium uppercase tracking-[0.35em] text-white">
+                Leave a message
+              </p>
+            </div>
+            <span className="h-[2px] w-14 bg-[linear-gradient(90deg,#2f5f8b,transparent)]" />
+          </div>
+        </div>
+        <h3 className="mt-6 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
           Send a polished project brief
         </h3>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
+        <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#b8c7d8]">
           Tell me what you are building, what matters most, and any helpful files. I will reply with a clear next step.
         </p>
 
-        <form className="mt-7 space-y-5" onSubmit={handleSendMail}>
+        <form className="mt-7 space-y-5 text-left" onSubmit={handleSendMail}>
           <div className="grid gap-5 md:grid-cols-2">
             <div className="space-y-2">
               <FieldLabel>Your Name</FieldLabel>

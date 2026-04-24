@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { HiOutlineBars3BottomLeft } from "react-icons/hi2";
 import { getSocialIconOption } from "@/utils/social-icons";
 
@@ -14,10 +15,15 @@ const navItems = [
   { label: "Contact", href: "/contact" },
 ];
 
-function Navbar({ profile, settings }) {
+function Navbar({ profile, settings, emergencyContacts = [] }) {
   const pathname = usePathname();
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isStickyVisible, setIsStickyVisible] = useState(false);
   const brandTitle = settings?.websiteTitle || "SHAGOR";
   const brandSubtitle = profile?.designation || settings?.websiteDescription || "Software Developer";
+  const visibleEmergencyContacts = (emergencyContacts || []).filter(
+    (item) => item?.label && item?.name && item?.icon && item?.link,
+  );
   const socialLinks = (profile?.socialLinks || [])
     .map((item) => {
       const config = getSocialIconOption(item?.icon);
@@ -33,86 +39,221 @@ function Navbar({ profile, settings }) {
     })
     .filter((item) => item && item.icon);
 
-  return (
-    <nav className="pt-4">
-      <div className="navbar-shell relative overflow-hidden rounded-2xl border border-[#2c3145] bg-[linear-gradient(180deg,rgba(30,33,49,0.96),rgba(27,30,44,0.96))] shadow-[0_16px_45px_rgba(0,0,0,0.24)] backdrop-blur-xl">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/6" />
-        <div className="navbar-line absolute inset-x-0 top-0 h-[2px]" />
-        <div className="navbar-line absolute inset-x-0 bottom-0 h-[2px] rotate-180" />
+  useEffect(() => {
+    function handleScroll() {
+      setIsStickyVisible(window.scrollY > 140);
+    }
 
-        <div className="flex min-h-[86px] flex-col lg:flex-row lg:items-center">
-          <div className="flex items-center border-b border-[#2b3042] bg-[linear-gradient(180deg,#262b3c,#222636)] lg:w-[86px] lg:justify-center lg:self-stretch lg:border-b-0 lg:border-r">
-            <button
-              type="button"
-              aria-label="Open menu"
-              className="flex h-[86px] w-[86px] items-center justify-center text-[#f4efe6] transition hover:bg-white/5"
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const navShell = (
+    <div className="navbar-shell relative overflow-hidden rounded-2xl border border-[#2c3145] bg-[linear-gradient(180deg,rgba(30,33,49,0.96),rgba(27,30,44,0.96))] shadow-[0_16px_45px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/6" />
+      <div className="navbar-line absolute inset-x-0 top-0 h-[2px]" />
+      <div className="navbar-line absolute inset-x-0 bottom-0 h-[2px] rotate-180" />
+
+      <div className="flex min-h-[86px] flex-col lg:flex-row lg:items-center">
+        <div className="flex items-center border-b border-[#2b3042] bg-[linear-gradient(180deg,#262b3c,#222636)] lg:w-[86px] lg:justify-center lg:self-stretch lg:border-b-0 lg:border-r">
+          <button
+            type="button"
+            aria-label="Open menu"
+            aria-expanded={isDrawerOpen}
+            onClick={() => setIsDrawerOpen(true)}
+            className="flex h-[86px] w-[86px] items-center justify-center text-[#f4efe6] transition hover:bg-white/5"
+          >
+            <HiOutlineBars3BottomLeft size={28} />
+          </button>
+        </div>
+
+        <div className="flex flex-1 flex-col gap-5 px-6 py-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+          <Link href="/" className="flex items-end gap-3 text-white">
+            <span
+              className="text-[2.55rem] leading-none tracking-tight text-[#f3ede2]"
+              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
             >
-              <HiOutlineBars3BottomLeft size={28} />
-            </button>
-          </div>
+              {brandTitle}
+            </span>
+            <span
+              className="pb-1 text-[1rem] text-[#b8b0a4] lg:text-[1.15rem]"
+              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            >
+              {brandSubtitle}
+            </span>
+          </Link>
 
-          <div className="flex flex-1 flex-col gap-5 px-6 py-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
-            <Link href="/" className="flex items-end gap-3 text-white">
-              <span
-                className="text-[2.55rem] leading-none tracking-tight text-[#f3ede2]"
-                style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-              >
-                {brandTitle}
-              </span>
-              <span
-                className="pb-1 text-[1rem] text-[#b8b0a4] lg:text-[1.15rem]"
-                style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-              >
-                {brandSubtitle}
-              </span>
-            </Link>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-10">
+            <ul className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              {navItems.map((item) => {
+                const isActive = pathname === item.href;
 
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-10">
-              <ul className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                {navItems.map((item) => {
-                  const isActive = pathname === item.href;
-
-                  return (
-                    <li key={item.href}>
+                return (
+                  <li key={item.href}>
                     <Link
                       href={item.href}
                       className={`rounded-full px-3 py-2 text-[1rem] transition ${
-                          isActive
-                            ? "bg-[linear-gradient(180deg,#31374d,#2a3042)] text-[#fff8ef] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(255,255,255,0.03)]"
-                            : "text-[#c1b9ad] hover:bg-white/5 hover:text-[#f3ede2]"
+                        isActive
+                          ? "bg-[linear-gradient(180deg,#31374d,#2a3042)] text-[#fff8ef] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(255,255,255,0.03)]"
+                          : "text-[#c1b9ad] hover:bg-white/5 hover:text-[#f3ede2]"
                       }`}
                       style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
                     >
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
 
-              <ul className="flex flex-wrap items-center gap-4 text-[#f3ede2]">
-                {socialLinks.map((item) => {
-                  const Icon = item.icon;
+            <ul className="flex flex-wrap items-center gap-4 text-[#f3ede2]">
+              {socialLinks.map((item) => {
+                const Icon = item.icon;
 
-                  return (
-                    <li key={item.label}>
-                      <Link
-                        href={item.href}
-                        target="_blank"
-                        aria-label={item.label}
-                        className="transition hover:text-[#c1b9ad]"
-                      >
-                        <Icon size={16} />
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+                return (
+                  <li key={item.label}>
+                    <Link
+                      href={item.href}
+                      target="_blank"
+                      aria-label={item.label}
+                      className="transition hover:text-[#c1b9ad]"
+                    >
+                      <Icon size={16} />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
       </div>
-    </nav>
+    </div>
+  );
+
+  return (
+    <>
+      <nav className="pt-4">
+        {navShell}
+      </nav>
+      <div className={isStickyVisible ? "h-[118px]" : ""} />
+      <div
+        className={`fixed inset-x-0 top-0 z-[110] mx-auto w-full px-6 pt-3 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-12 lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem] ${
+          isStickyVisible
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none -translate-y-8 opacity-0"
+        }`}
+      >
+        {navShell}
+      </div>
+
+      <div
+        className={`fixed inset-0 z-[120] transition ${isDrawerOpen ? "pointer-events-auto" : "pointer-events-none"}`}
+        aria-hidden={!isDrawerOpen}
+      >
+        <div
+          onClick={() => setIsDrawerOpen(false)}
+          className={`absolute inset-0 bg-[#020611]/60 backdrop-blur-[2px] transition duration-300 ${
+            isDrawerOpen ? "opacity-100" : "opacity-0"
+          }`}
+        />
+
+        <aside
+          className={`absolute inset-y-0 left-0 flex w-[min(92vw,360px)] flex-col border-r border-[#2d3a52] bg-[linear-gradient(180deg,#0d1422,#0a101b)] shadow-[0_24px_80px_rgba(0,0,0,0.45)] transition duration-300 ${
+            isDrawerOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="border-b border-[#223047] px-5 py-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 flex-1 text-center">
+                <div className="flex justify-center">
+                  <div className="relative inline-flex items-center gap-0">
+                    <span className="h-[2px] w-10 bg-[linear-gradient(90deg,transparent,#2f5f8b)]" />
+                    <div className="relative overflow-hidden rounded-xl border border-[#35506f] bg-[linear-gradient(180deg,#14243a,#0d1728)] px-4 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]">
+                      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.95),rgba(255,214,102,0.75),transparent)]" />
+                      <h5 className="relative text-xs font-medium uppercase tracking-[0.35em] text-white">
+                        Get In Touch
+                      </h5>
+                    </div>
+                    <span className="h-[2px] w-10 bg-[linear-gradient(90deg,#2f5f8b,transparent)]" />
+                  </div>
+                </div>
+                <p className="mx-auto mt-4 max-w-[260px] text-sm leading-7 text-[#b8c7d8]">
+                  I&apos;m always excited to take on new projects and collaborate with innovative minds.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(false)}
+                className="rounded-full border border-white/10 px-3 py-2 text-xs uppercase tracking-[0.18em] text-[#c8d2df] transition hover:border-[#72ddff]/35 hover:text-white"
+              >
+                X
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-5">
+            <div className="space-y-3">
+              {visibleEmergencyContacts.length > 0 ? (
+                visibleEmergencyContacts.map((item) => {
+                  const config = getSocialIconOption(item.icon);
+                  const Icon = config?.icon || HiOutlineBars3BottomLeft;
+
+                  return (
+                    <Link
+                      key={`${item.label}-${item.name}-${item.link}`}
+                      href={item.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => setIsDrawerOpen(false)}
+                      className="group flex items-center gap-4 rounded-[22px] border border-white/[0.08] bg-white/[0.04] px-4 py-4 transition hover:border-[#72ddff]/35 hover:bg-[#112033]"
+                    >
+                      <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#315175] bg-[linear-gradient(135deg,rgba(107,212,255,0.18),rgba(17,32,51,0.95))] text-[#8fe3ff]">
+                        <Icon size={20} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[11px] uppercase tracking-[0.22em] text-[#8fa4bd]">
+                          {item.label}
+                        </span>
+                        <span className="mt-1 block truncate text-[1rem] text-white">{item.name}</span>
+                      </span>
+                      <span className="text-[#b8c3d1] transition group-hover:text-white">-&gt;</span>
+                    </Link>
+                  );
+                })
+              ) : (
+                <div className="rounded-[22px] border border-dashed border-white/10 bg-white/[0.03] px-4 py-5 text-sm leading-7 text-[#9fb1c7]">
+                  No contact links available right now.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t border-[#223047] px-5 py-5">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#84deff]">Social</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {socialLinks.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    aria-label={item.label}
+                    onClick={() => setIsDrawerOpen(false)}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04] text-[#f3ede2] transition hover:border-[#72ddff]/35 hover:text-[#8ce6ff]"
+                  >
+                    <Icon size={16} />
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+      </div>
+    </>
   );
 }
 
