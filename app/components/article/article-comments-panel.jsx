@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
+import { buildPublicApiUrl, getSocketServerUrl } from "@/lib/public-backend-url";
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+const socketServerUrl = getSocketServerUrl();
 
 function formatDate(value) {
   return new Intl.DateTimeFormat("en-US", {
@@ -66,7 +67,7 @@ export default function ArticleCommentsPanel({ articleSlug, comments = [], comme
   );
 
   useEffect(() => {
-    const socket = io(backendUrl, {
+    const socket = io(socketServerUrl, {
       transports: ["websocket", "polling"],
     });
 
@@ -137,7 +138,7 @@ export default function ArticleCommentsPanel({ articleSlug, comments = [], comme
       setIsSubmitting(true);
       setStatus(createStatus());
 
-      const response = await fetch(`${backendUrl}/api/site/articles/${encodeURIComponent(articleSlug)}/comments`, {
+      const response = await fetch(buildPublicApiUrl(`/api/site/articles/${encodeURIComponent(articleSlug)}/comments`), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -196,7 +197,7 @@ export default function ArticleCommentsPanel({ articleSlug, comments = [], comme
       }));
 
       const response = await fetch(
-        `${backendUrl}/api/site/articles/${encodeURIComponent(articleSlug)}/comments/${commentId}/replies`,
+        buildPublicApiUrl(`/api/site/articles/${encodeURIComponent(articleSlug)}/comments/${commentId}/replies`),
         {
           method: "POST",
           headers: {

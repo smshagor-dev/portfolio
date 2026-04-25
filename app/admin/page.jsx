@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
+import { buildPublicApiUrl, getPublicBackendUrl, getSocketServerUrl } from "@/lib/public-backend-url";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
 import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiPhone, FiSend, FiSettings, FiUpload } from "react-icons/fi";
 import { getSocialIconOption, searchSocialIcons, socialIconOptions } from "@/utils/social-icons";
@@ -30,7 +31,8 @@ const RichTextEditor = dynamic(() => import("@/app/components/admin/rich-text-ed
   ),
 });
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+const backendUrl = getPublicBackendUrl();
+const socketServerUrl = getSocketServerUrl();
 
 function emptyHeroSkill() {
   return { name: "", image: "" };
@@ -264,6 +266,13 @@ function emptyDashboardSummary() {
     collectionHealth: [],
     snapshot: [],
     recentMessages: [],
+  };
+}
+
+function emptyTwoFactorSetup() {
+  return {
+    qrCodeDataUrl: "",
+    manualEntryKey: "",
   };
 }
 
@@ -639,6 +648,11 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [admin, setAdmin] = useState(null);
+  const [isTwoFactorLoading, setIsTwoFactorLoading] = useState(false);
+  const [isTwoFactorSubmitting, setIsTwoFactorSubmitting] = useState(false);
+  const [twoFactorSetup, setTwoFactorSetup] = useState(emptyTwoFactorSetup());
+  const [twoFactorEnableCode, setTwoFactorEnableCode] = useState("");
+  const [twoFactorDisableCode, setTwoFactorDisableCode] = useState("");
   const [messages, setMessages] = useState([]);
   const [articles, setArticles] = useState([]);
   const [deletingArticleId, setDeletingArticleId] = useState(null);
@@ -711,6 +725,131 @@ export function AdminSectionPage({ section = "dashboard" }) {
     .map((service) => String(service?.slug || "").trim().toLowerCase())
     .filter(Boolean);
   const serviceSocketKey = serviceSocketSlugs.join("|");
+
+  const updateAdminSession = useCallback((nextAdmin) => {
+    setAdmin(nextAdmin);
+    localStorage.setItem("portfolio_admin_user", JSON.stringify(nextAdmin));
+  }, []);
+
+  const loadAdminProfile = useCallback(async (authToken) => {
+    const response = await fetch(`${backendUrl}/api/admin/me`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to load admin.");
+    }
+
+    updateAdminSession(data);
+    return data;
+  }, [updateAdminSession]);
+
+  const startTwoFactorSetup = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    try {
+      setIsTwoFactorLoading(true);
+      const response = await fetch(`${backendUrl}/api/admin/2fa/setup`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to start 2FA setup.");
+      }
+
+      setTwoFactorSetup({
+        qrCodeDataUrl: data.qrCodeDataUrl || "",
+        manualEntryKey: data.manualEntryKey || "",
+      });
+      setTwoFactorEnableCode("");
+    } catch (error) {
+      toast.error(error.message || "Failed to start 2FA setup.");
+    } finally {
+      setIsTwoFactorLoading(false);
+    }
+  }, [token]);
+
+  const enableTwoFactor = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    if (!twoFactorEnableCode.trim()) {
+      toast.error("Enter the 6-digit code from your authenticator app.");
+      return;
+    }
+
+    try {
+      setIsTwoFactorSubmitting(true);
+      const response = await fetch(`${backendUrl}/api/admin/2fa/enable`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code: twoFactorEnableCode }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to enable 2FA.");
+      }
+
+      updateAdminSession(data.admin);
+      setTwoFactorSetup(emptyTwoFactorSetup());
+      setTwoFactorEnableCode("");
+      toast.success(data.message || "2FA enabled successfully.");
+    } catch (error) {
+      toast.error(error.message || "Failed to enable 2FA.");
+    } finally {
+      setIsTwoFactorSubmitting(false);
+    }
+  }, [token, twoFactorEnableCode, updateAdminSession]);
+
+  const disableTwoFactor = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    if (!twoFactorDisableCode.trim()) {
+      toast.error("Enter your current 2FA code to disable it.");
+      return;
+    }
+
+    try {
+      setIsTwoFactorSubmitting(true);
+      const response = await fetch(`${backendUrl}/api/admin/2fa/disable`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code: twoFactorDisableCode }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to disable 2FA.");
+      }
+
+      updateAdminSession(data.admin);
+      setTwoFactorSetup(emptyTwoFactorSetup());
+      setTwoFactorDisableCode("");
+      toast.success(data.message || "2FA disabled successfully.");
+    } catch (error) {
+      toast.error(error.message || "Failed to disable 2FA.");
+    } finally {
+      setIsTwoFactorSubmitting(false);
+    }
+  }, [token, twoFactorDisableCode, updateAdminSession]);
 
   const loadDashboard = useCallback(
     async (authToken) => {
@@ -1505,6 +1644,11 @@ export function AdminSectionPage({ section = "dashboard" }) {
       setAdmin(JSON.parse(savedAdmin));
     }
 
+    loadAdminProfile(savedToken).catch(() => {
+      localStorage.removeItem("portfolio_admin_token");
+      localStorage.removeItem("portfolio_admin_user");
+      router.replace("/login/admin");
+    });
     loadDashboard(savedToken);
     loadAnalytics(savedToken);
     if (section === "artical" || section === "artical-categories") {
@@ -1514,7 +1658,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
     if (section === "contact") {
       loadEmergencyContacts(savedToken);
     }
-  }, [loadAnalytics, loadArticleCategories, loadArticles, loadDashboard, loadEmergencyContacts, router, section]);
+  }, [loadAdminProfile, loadAnalytics, loadArticleCategories, loadArticles, loadDashboard, loadEmergencyContacts, router, section]);
 
   useEffect(() => {
     if (!["artical", "artical-categories"].includes(activeTab) || !token) {
@@ -1556,7 +1700,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
       return undefined;
     }
 
-    const socket = io(backendUrl, {
+    const socket = io(socketServerUrl, {
       transports: ["websocket", "polling"],
     });
 
@@ -1632,7 +1776,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
       return undefined;
     }
 
-    const socket = io(backendUrl, {
+    const socket = io(socketServerUrl, {
       transports: ["websocket", "polling"],
     });
 
@@ -4194,6 +4338,133 @@ export function AdminSectionPage({ section = "dashboard" }) {
                   />
                   Use secure SMTP connection
                 </label>
+              </section>
+
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Admin Security</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Two-factor authentication</h3>
+                    <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                      Add an authenticator app code for admin sign-in. The login page will ask for the 2FA code only when it is enabled.
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] ${
+                      admin?.twoFactorEnabled
+                        ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                        : "border border-amber-300/20 bg-amber-300/10 text-amber-100"
+                    }`}
+                  >
+                    {admin?.twoFactorEnabled ? "2FA Enabled" : "2FA Disabled"}
+                  </span>
+                </div>
+
+                {!admin?.twoFactorEnabled ? (
+                  <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+                    <div className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-5">
+                      <p className="text-sm font-medium text-white">Setup steps</p>
+                      <div className="mt-4 space-y-3 text-sm leading-7 text-[#9fb1c7]">
+                        <p>1. Click the setup button to generate a QR code.</p>
+                        <p>2. Scan it with Google Authenticator, Microsoft Authenticator, or Authy.</p>
+                        <p>3. Enter the 6-digit code below to finish enabling 2FA.</p>
+                      </div>
+
+                      {!twoFactorSetup.qrCodeDataUrl ? (
+                        <button
+                          type="button"
+                          onClick={startTwoFactorSetup}
+                          disabled={isTwoFactorLoading}
+                          className="mt-6 rounded-xl border border-[#4dc4ff] px-5 py-3 text-sm font-semibold text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isTwoFactorLoading ? "Preparing setup..." : "Generate 2FA Setup"}
+                        </button>
+                      ) : (
+                        <div className="mt-6 space-y-4">
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Authenticator Code</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              inputMode="numeric"
+                              maxLength={6}
+                              placeholder="Enter 6-digit code"
+                              value={twoFactorEnableCode}
+                              onChange={(event) =>
+                                setTwoFactorEnableCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                              }
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={enableTwoFactor}
+                            disabled={isTwoFactorSubmitting}
+                            className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-5 py-3 text-sm font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isTwoFactorSubmitting ? "Verifying..." : "Enable 2FA"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-5">
+                      <p className="text-sm font-medium text-white">Authenticator QR</p>
+                      {twoFactorSetup.qrCodeDataUrl ? (
+                        <>
+                          <div className="mt-4 flex justify-center rounded-[1.4rem] border border-[#2c3852] bg-white p-4">
+                            <Image
+                              src={twoFactorSetup.qrCodeDataUrl}
+                              alt="2FA QR code"
+                              width={224}
+                              height={224}
+                              className="h-56 w-56 rounded-xl object-contain"
+                              unoptimized
+                            />
+                          </div>
+                          <div className="mt-4">
+                            <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">Manual Entry Key</p>
+                            <p className="mt-2 break-all rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-sm text-[#d7dfec]">
+                              {twoFactorSetup.manualEntryKey}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="mt-4 rounded-[1.4rem] border border-dashed border-[#2c3852] bg-[#101b2d] px-4 py-10 text-center text-sm text-[#8ea7c2]">
+                          Generate setup first to show the QR code.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <div className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-5">
+                      <p className="text-sm font-medium text-white">2FA is protecting this admin account.</p>
+                      <p className="mt-3 text-sm leading-7 text-[#9fb1c7]">
+                        Every future login will require the email, password, and current 6-digit authenticator code.
+                      </p>
+                    </div>
+                    <div className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-5">
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Current 2FA Code</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="Enter 6-digit code"
+                        value={twoFactorDisableCode}
+                        onChange={(event) =>
+                          setTwoFactorDisableCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={disableTwoFactor}
+                        disabled={isTwoFactorSubmitting}
+                        className="mt-4 w-full rounded-xl border border-red-400/30 px-5 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isTwoFactorSubmitting ? "Disabling..." : "Disable 2FA"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </section>
 
               <div className="flex justify-end">

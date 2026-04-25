@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
 function MetricRow({ title, value, children }) {
   return (
@@ -54,7 +53,7 @@ export default function ArticleHeaderMetrics({
 
     window.sessionStorage.setItem(sessionKey, "1");
 
-    fetch(`${backendUrl}/api/site/articles/${encodeURIComponent(articleSlug)}/impression`, {
+    fetch(buildPublicApiUrl(`/api/site/articles/${encodeURIComponent(articleSlug)}/impression`), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

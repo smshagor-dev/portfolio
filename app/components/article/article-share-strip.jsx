@@ -11,6 +11,7 @@ import {
   FaWhatsapp,
 } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
 function buildShareUrl(template, pageUrl, title) {
   return template
@@ -105,7 +106,7 @@ export default function ArticleShareStrip({ title, canonicalUrl, articleSlug }) 
       return;
     }
 
-    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/site/articles/${encodeURIComponent(articleSlug)}/share`, {
+    fetch(buildPublicApiUrl(`/api/site/articles/${encodeURIComponent(articleSlug)}/share`), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

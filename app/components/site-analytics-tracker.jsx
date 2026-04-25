@@ -2,8 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 const sessionStorageKey = "portfolio_analytics_session_id";
 const heartbeatIntervalMs = 30000;
 
@@ -36,7 +35,7 @@ function sendAnalyticsEvent(pathname, eventType = "heartbeat") {
     path: pathname,
     eventType,
   });
-  const url = `${backendUrl}/api/site/analytics/heartbeat`;
+  const url = buildPublicApiUrl("/api/site/analytics/heartbeat");
 
   if (navigator.sendBeacon) {
     navigator.sendBeacon(url, new Blob([payload], { type: "application/json" }));

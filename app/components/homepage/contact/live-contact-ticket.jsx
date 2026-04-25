@@ -5,9 +5,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { FiClock, FiHome, FiImage, FiMessageSquare, FiPaperclip, FiPlusSquare, FiSend, FiUpload, FiX } from "react-icons/fi";
 import { toast } from "react-toastify";
+import { buildPublicApiUrl, getSocketServerUrl } from "@/lib/public-backend-url";
 import { getSocialIconOption } from "@/utils/social-icons";
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+const socketServerUrl = getSocketServerUrl();
 
 function formatChatTime(value) {
   if (!value) {
@@ -142,14 +143,14 @@ export default function LiveContactTicket({
     }
 
     let isMounted = true;
-    const socket = io(backendUrl, {
+    const socket = io(socketServerUrl, {
       transports: ["websocket", "polling"],
     });
 
     async function loadTicket() {
       try {
         const response = await fetch(
-          `${backendUrl}/api/site/contact-ticket/${ticketSession.id}?token=${encodeURIComponent(ticketSession.token)}`,
+          buildPublicApiUrl(`/api/site/contact-ticket/${ticketSession.id}?token=${encodeURIComponent(ticketSession.token)}`),
           { cache: "no-store" },
         );
         const data = await response.json();
@@ -297,7 +298,7 @@ export default function LiveContactTicket({
       }
 
       const response = await fetch(
-        `${backendUrl}/api/site/contact-ticket/${ticketSession.id}/messages?token=${encodeURIComponent(ticketSession.token)}`,
+        buildPublicApiUrl(`/api/site/contact-ticket/${ticketSession.id}/messages?token=${encodeURIComponent(ticketSession.token)}`),
         {
           method: "POST",
           body: formData,
@@ -371,7 +372,7 @@ export default function LiveContactTicket({
         formData.append("file", newTicketInput.file);
       }
 
-      const response = await fetch(`${backendUrl}/api/site/contact`, {
+      const response = await fetch(buildPublicApiUrl("/api/site/contact"), {
         method: "POST",
         body: formData,
       });

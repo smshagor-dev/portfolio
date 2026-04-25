@@ -9,6 +9,7 @@ import { Eye, FileUp, ImageUp, Send, UploadCloud } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { buildContactChatHash } from "@/lib/contact-chat-link";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
 const inputClass =
   "h-14 w-full rounded-2xl border border-cyan-100/[0.1] bg-slate-950/45 px-4 text-sm text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04),inset_0_-18px_35px_rgba(15,23,42,0.22)] outline-none transition duration-300 placeholder:text-slate-500 focus:border-cyan-200/45 focus:bg-slate-950/60 focus:shadow-[0_0_0_4px_rgba(34,211,238,0.08),inset_0_1px_0_rgba(255,255,255,0.06)]";
@@ -210,10 +211,7 @@ function ContactForm({ settings }) {
         formData.append("file", userInput.file);
       }
 
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"}/api/site/contact`,
-        formData,
-      );
+      const response = await axios.post(buildPublicApiUrl("/api/site/contact"), formData);
 
       toast.success("Message sent successfully!");
       if (response.data?.ticket?.id && response.data?.ticket?.token) {

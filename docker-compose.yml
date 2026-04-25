@@ -20,8 +20,14 @@ services:
       context: .
       dockerfile: Dockerfile.prod
     container_name: demo-nextjs
+    environment:
+      NEXT_PUBLIC_APP_URL: http://localhost:3005
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:5005
+      BACKEND_URL: http://127.0.0.1:5000
+      FRONTEND_URL: http://localhost:3005
     ports:
       - "3005:3000"
+      - "5005:5000"
     env_file:
       - .env
 

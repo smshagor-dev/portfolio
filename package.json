@@ -4,13 +4,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "db:prepare": "node server/scripts/ensure-db.js && node server/scripts/run-prisma.js generate && node server/scripts/run-prisma.js migrate deploy && node server/scripts/run-prisma.js db seed",
+    "db:generate": "node server/scripts/run-prisma.js generate",
+    "db:migrate": "node server/scripts/run-prisma.js migrate deploy",
+    "db:seed": "node server/scripts/run-prisma.js db seed",
+    "db:prepare": "node server/scripts/ensure-db.js && npm run db:generate && npm run db:migrate",
+    "db:setup": "npm run db:prepare && npm run db:seed",
     "dev": "concurrently -k -n backend,frontend -c blue,green \"npm run dev:server\" \"npm run dev:web\"",
-    "dev:server": "node server/scripts/stop-port-process.js 5000 && npm run db:prepare && nodemon server/index.js",
+    "dev:server": "node server/scripts/stop-port-process.js 5000 && npm run db:setup && nodemon server/index.js",
     "dev:web": "wait-on tcp:5000 && next dev",
     "build": "next build",
-    "start": "npm run build && concurrently -k -n backend,frontend -c blue,green \"npm run start:server\" \"npm run start:web\"",
-    "start:server": "node server/scripts/stop-port-process.js 5000 && npm run db:prepare && node server/index.js",
+    "start": "concurrently -k -n backend,frontend -c blue,green \"npm run start:server\" \"npm run start:web\"",
+    "start:server": "npm run db:prepare && node server/index.js",
     "start:web": "wait-on tcp:5000 && next start",
     "lint": "eslint ."
   },
@@ -36,6 +40,7 @@
     "nodemailer": "^6.9.15",
     "nodemon": "^3.1.14",
     "prisma": "^6.19.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-fast-marquee": "^1.6.2",
@@ -46,6 +51,7 @@
     "sharp": "^0.33.5",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
+    "speakeasy": "^2.0.0",
     "wait-on": "^9.0.5"
   },
   "devDependencies": {

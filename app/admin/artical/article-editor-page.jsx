@@ -6,12 +6,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
 const RichTextEditor = dynamic(() => import("@/app/components/admin/rich-text-editor"), {
   ssr: false,
 });
-
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
 function slugify(value) {
   return String(value || "")
@@ -75,7 +74,7 @@ export default function ArticleEditorPage({ articleId = null }) {
     setToken(savedToken);
 
     async function loadCategories() {
-      const response = await fetch(`${backendUrl}/api/admin/article-categories`, {
+      const response = await fetch(buildPublicApiUrl("/api/admin/article-categories"), {
         headers: {
           Authorization: `Bearer ${savedToken}`,
         },
@@ -98,7 +97,7 @@ export default function ArticleEditorPage({ articleId = null }) {
           return;
         }
 
-        const response = await fetch(`${backendUrl}/api/admin/articles/${articleId}`, {
+        const response = await fetch(buildPublicApiUrl(`/api/admin/articles/${articleId}`), {
           headers: {
             Authorization: `Bearer ${savedToken}`,
           },
@@ -172,7 +171,7 @@ export default function ArticleEditorPage({ articleId = null }) {
       const formData = new FormData();
       formData.append("image", file);
 
-      const response = await fetch(`${backendUrl}/api/admin/upload-image`, {
+      const response = await fetch(buildPublicApiUrl("/api/admin/upload-image"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -237,7 +236,7 @@ export default function ArticleEditorPage({ articleId = null }) {
       };
 
       const response = await fetch(
-        `${backendUrl}/api/admin/articles${isEditing ? `/${articleId}` : ""}`,
+        buildPublicApiUrl(`/api/admin/articles${isEditing ? `/${articleId}` : ""}`),
         {
           method: isEditing ? "PUT" : "POST",
           headers: {

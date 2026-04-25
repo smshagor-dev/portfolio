@@ -5,8 +5,15 @@ const bcrypt = require("bcryptjs");
 const { google } = require("googleapis");
 const multer = require("multer");
 const nodemailer = require("nodemailer");
+const QRCode = require("qrcode");
 const prisma = require("../lib/prisma");
-const { requireAdmin, signAdminToken } = require("../lib/auth");
+const {
+  buildTwoFactorOtpAuthUrl,
+  generateTwoFactorSecret,
+  requireAdmin,
+  signAdminToken,
+  verifyTwoFactorCode,
+} = require("../lib/auth");
 const {
   getDefaultSiteSettings,
   isSmtpConfigured,
@@ -651,6 +658,15 @@ function serializeEmergencyContact(contact) {
   };
 }
 
+function serializeAdminUser(admin) {
+  return {
+    id: admin.id,
+    name: admin.name,
+    email: admin.email,
+    twoFactorEnabled: Boolean(admin.twoFactorEnabled),
+  };
+}
+
 function buildDashboardSummary(data) {
   const services = data.services || [];
   const projects = data.projects || [];
@@ -1280,6 +1296,7 @@ router.post("/login", async (request, response) => {
   try {
     const email = normalizeString(request.body?.email).toLowerCase();
     const password = String(request.body?.password || "");
+    const twoFactorCode = String(request.body?.twoFactorCode || "");
 
     if (!email || !password) {
       return response.status(400).json({ message: "Email and password are required." });
@@ -1299,15 +1316,28 @@ router.post("/login", async (request, response) => {
       return response.status(401).json({ message: "Invalid email or password." });
     }
 
+    if (admin.twoFactorEnabled) {
+      if (!admin.twoFactorSecret) {
+        return response.status(500).json({ message: "Two-factor authentication is not configured correctly." });
+      }
+
+      if (!twoFactorCode) {
+        return response.status(200).json({
+          requiresTwoFactor: true,
+          message: "Enter your 2FA code to continue.",
+        });
+      }
+
+      if (!verifyTwoFactorCode(admin.twoFactorSecret, twoFactorCode)) {
+        return response.status(401).json({ message: "Invalid 2FA code." });
+      }
+    }
+
     const token = signAdminToken(admin);
 
     return response.json({
       token,
-      admin: {
-        id: admin.id,
-        name: admin.name,
-        email: admin.email,
-      },
+      admin: serializeAdminUser(admin),
     });
   } catch (error) {
     console.error("Admin login failed:", error.message);
@@ -1323,12 +1353,166 @@ router.get("/me", requireAdmin, async (request, response) => {
         id: true,
         name: true,
         email: true,
+        twoFactorEnabled: true,
       },
     });
 
     return response.json(admin);
   } catch (error) {
     return response.status(500).json({ message: "Failed to load admin." });
+  }
+});
+
+router.get("/2fa/setup", requireAdmin, async (request, response) => {
+  try {
+    const admin = await prisma.adminUser.findUnique({
+      where: { email: request.admin.email },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        twoFactorEnabled: true,
+        twoFactorSecret: true,
+      },
+    });
+
+    if (!admin) {
+      return response.status(404).json({ message: "Admin not found." });
+    }
+
+    if (admin.twoFactorEnabled) {
+      return response.status(409).json({ message: "2FA is already enabled for this admin account." });
+    }
+
+    let secret = admin.twoFactorSecret;
+
+    if (!secret) {
+      const generatedSecret = generateTwoFactorSecret(admin);
+      secret = generatedSecret.base32;
+
+      await prisma.adminUser.update({
+        where: { id: admin.id },
+        data: {
+          twoFactorSecret: secret,
+          twoFactorEnabled: false,
+        },
+      });
+    }
+
+    const otpAuthUrl = buildTwoFactorOtpAuthUrl(admin, secret);
+    const qrCodeDataUrl = await QRCode.toDataURL(otpAuthUrl);
+
+    return response.json({
+      manualEntryKey: secret,
+      otpAuthUrl,
+      qrCodeDataUrl,
+    });
+  } catch (error) {
+    console.error("Failed to prepare 2FA setup:", error.message);
+    return response.status(500).json({ message: "Failed to prepare 2FA setup." });
+  }
+});
+
+router.post("/2fa/enable", requireAdmin, async (request, response) => {
+  try {
+    const code = String(request.body?.code || "");
+    const admin = await prisma.adminUser.findUnique({
+      where: { email: request.admin.email },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        twoFactorEnabled: true,
+        twoFactorSecret: true,
+      },
+    });
+
+    if (!admin) {
+      return response.status(404).json({ message: "Admin not found." });
+    }
+
+    if (admin.twoFactorEnabled) {
+      return response.status(409).json({ message: "2FA is already enabled." });
+    }
+
+    if (!admin.twoFactorSecret) {
+      return response.status(400).json({ message: "Start 2FA setup first." });
+    }
+
+    if (!verifyTwoFactorCode(admin.twoFactorSecret, code)) {
+      return response.status(400).json({ message: "Invalid 2FA code." });
+    }
+
+    const updatedAdmin = await prisma.adminUser.update({
+      where: { id: admin.id },
+      data: {
+        twoFactorEnabled: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        twoFactorEnabled: true,
+      },
+    });
+
+    return response.json({
+      admin: updatedAdmin,
+      message: "2FA enabled successfully.",
+    });
+  } catch (error) {
+    console.error("Failed to enable 2FA:", error.message);
+    return response.status(500).json({ message: "Failed to enable 2FA." });
+  }
+});
+
+router.post("/2fa/disable", requireAdmin, async (request, response) => {
+  try {
+    const code = String(request.body?.code || "");
+    const admin = await prisma.adminUser.findUnique({
+      where: { email: request.admin.email },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        twoFactorEnabled: true,
+        twoFactorSecret: true,
+      },
+    });
+
+    if (!admin) {
+      return response.status(404).json({ message: "Admin not found." });
+    }
+
+    if (!admin.twoFactorEnabled || !admin.twoFactorSecret) {
+      return response.status(400).json({ message: "2FA is not enabled." });
+    }
+
+    if (!verifyTwoFactorCode(admin.twoFactorSecret, code)) {
+      return response.status(400).json({ message: "Invalid 2FA code." });
+    }
+
+    const updatedAdmin = await prisma.adminUser.update({
+      where: { id: admin.id },
+      data: {
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        twoFactorEnabled: true,
+      },
+    });
+
+    return response.json({
+      admin: updatedAdmin,
+      message: "2FA disabled successfully.",
+    });
+  } catch (error) {
+    console.error("Failed to disable 2FA:", error.message);
+    return response.status(500).json({ message: "Failed to disable 2FA." });
   }
 });
 

@@ -4,8 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useEffect, useRef } from "react";
-
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
 export default function ProjectCard({ project }) {
   const cardRef = useRef(null);
@@ -29,7 +28,7 @@ export default function ProjectCard({ project }) {
         }
 
         window.sessionStorage.setItem(sessionKey, "1");
-        fetch(`${backendUrl}/api/site/projects/${encodeURIComponent(project.slug)}/impression`, {
+        fetch(buildPublicApiUrl(`/api/site/projects/${encodeURIComponent(project.slug)}/impression`), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

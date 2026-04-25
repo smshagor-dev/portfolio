@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FiEye, FiMessageSquare, FiTrendingUp } from "react-icons/fi";
-
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
 function StatPill({ label, value, icon: Icon }) {
   return (
@@ -34,7 +33,7 @@ export default function ServiceDetailStats({ serviceSlug, views = 0, impressions
 
     window.sessionStorage.setItem(sessionKey, "1");
 
-    fetch(`${backendUrl}/api/site/services/${encodeURIComponent(serviceSlug)}/impression`, {
+    fetch(buildPublicApiUrl(`/api/site/services/${encodeURIComponent(serviceSlug)}/impression`), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

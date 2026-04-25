@@ -5,7 +5,7 @@ const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
 const prisma = require("./lib/prisma");
-const { verifyAdminToken } = require("./lib/auth");
+const { validateAuthConfig, verifyAdminToken } = require("./lib/auth");
 const adminRoutes = require("./routes/admin");
 const siteRoutes = require("./routes/site");
 
@@ -14,6 +14,7 @@ const server = http.createServer(app);
 const port = Number(process.env.PORT || 5000);
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
 const allowedOrigins = frontendUrl.split(",").map((item) => item.trim());
+const serverBaseUrl = process.env.BACKEND_URL || `http://127.0.0.1:${port}`;
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -31,6 +32,59 @@ app.use(
   }),
 );
 app.use(express.json());
+
+function buildReadyPage() {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Server Ready</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Arial, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at top, #1e3a5f, #09111d 55%);
+        color: #ecf8ff;
+      }
+      main {
+        width: min(92vw, 640px);
+        padding: 40px 32px;
+        border: 1px solid rgba(137, 213, 255, 0.24);
+        border-radius: 24px;
+        background: rgba(8, 18, 32, 0.82);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(2rem, 4vw, 3rem);
+      }
+      p {
+        margin: 10px 0;
+        line-height: 1.6;
+        color: #b8d9ea;
+      }
+      code {
+        color: #8fe3ff;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Server ready</h1>
+      <p>The Node backend is running and ready to accept requests.</p>
+      <p>Health check: <code>/health</code></p>
+      <p>Base URL: <code>${serverBaseUrl}</code></p>
+    </main>
+  </body>
+</html>`;
+}
 
 io.on("connection", (socket) => {
   socket.on("project:join", (slug) => {
@@ -161,13 +215,23 @@ io.on("connection", (socket) => {
   });
 });
 
+app.get("/", (_request, response) => {
+  response.type("html").send(buildReadyPage());
+});
+
+app.get("/ready", (_request, response) => {
+  response.type("html").send(buildReadyPage());
+});
+
 app.get("/health", (_request, response) => {
-  response.json({ status: "ok" });
+  response.json({ status: "ok", message: "server ready" });
 });
 
 app.use("/api/site", siteRoutes);
 app.use("/api/admin", adminRoutes);
 
+validateAuthConfig();
+
 server.listen(port, () => {
-  console.log(`Backend server is running on http://localhost:${port}`);
+  console.log(`Backend server is running on ${serverBaseUrl}`);
 });

@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
+import { buildPublicApiUrl, getSocketServerUrl } from "@/lib/public-backend-url";
 import SectionHeading from "../section-heading";
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+const socketServerUrl = getSocketServerUrl();
 
 const fallbackTestimonials = [
   {
@@ -125,7 +126,7 @@ export default function TestimonialsSection({
   }, []);
 
   useEffect(() => {
-    const socket = io(backendUrl, {
+    const socket = io(socketServerUrl, {
       transports: ["websocket", "polling"],
     });
 
@@ -182,7 +183,7 @@ export default function TestimonialsSection({
       const formData = new FormData();
       formData.append("image", file);
 
-      const response = await fetch(`${backendUrl}/api/site/testimonials/upload-image`, {
+      const response = await fetch(buildPublicApiUrl("/api/site/testimonials/upload-image"), {
         method: "POST",
         body: formData,
       });
@@ -217,7 +218,7 @@ export default function TestimonialsSection({
       setIsSubmitting(true);
       setStatus(createStatus());
 
-      const response = await fetch(`${backendUrl}/api/site/testimonials`, {
+      const response = await fetch(buildPublicApiUrl("/api/site/testimonials"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

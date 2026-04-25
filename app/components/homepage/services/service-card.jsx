@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 import { getServiceIconOption } from "@/utils/service-icons";
-
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
 
 function stripHtml(html) {
   return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -45,7 +44,7 @@ export default function ServiceCard({ service, compact = false }) {
         }
 
         window.sessionStorage.setItem(sessionKey, "1");
-        fetch(`${backendUrl}/api/site/services/${encodeURIComponent(service.slug)}/impression`, {
+        fetch(buildPublicApiUrl(`/api/site/services/${encodeURIComponent(service.slug)}/impression`), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

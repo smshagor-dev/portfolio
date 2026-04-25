@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
+import { buildPublicApiUrl, getSocketServerUrl } from "@/lib/public-backend-url";
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+const socketServerUrl = getSocketServerUrl();
 
 function formatDate(value) {
   return new Intl.DateTimeFormat("en-US", {
@@ -62,7 +63,7 @@ export default function ProjectCommentsPanel({ projectSlug, comments = [] }) {
   );
 
   useEffect(() => {
-    const socket = io(backendUrl, {
+    const socket = io(socketServerUrl, {
       transports: ["websocket", "polling"],
     });
 
@@ -134,7 +135,7 @@ export default function ProjectCommentsPanel({ projectSlug, comments = [] }) {
       setStatus(createStatus());
 
       const response = await fetch(
-        `${backendUrl}/api/site/projects/${encodeURIComponent(projectSlug)}/comments`,
+        buildPublicApiUrl(`/api/site/projects/${encodeURIComponent(projectSlug)}/comments`),
         {
           method: "POST",
           headers: {
@@ -195,7 +196,7 @@ export default function ProjectCommentsPanel({ projectSlug, comments = [] }) {
       }));
 
       const response = await fetch(
-        `${backendUrl}/api/site/projects/${encodeURIComponent(projectSlug)}/comments/${commentId}/replies`,
+        buildPublicApiUrl(`/api/site/projects/${encodeURIComponent(projectSlug)}/comments/${commentId}/replies`),
         {
           method: "POST",
           headers: {

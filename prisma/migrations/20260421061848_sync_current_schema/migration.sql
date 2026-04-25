@@ -1,5 +1,5 @@
 -- AlterTable
-ALTER TABLE `profile` ADD COLUMN `socialLinks` JSON NOT NULL;
+ALTER TABLE `Profile` ADD COLUMN `socialLinks` JSON NOT NULL;
 
 -- CreateTable
 CREATE TABLE `StatsCounter` (

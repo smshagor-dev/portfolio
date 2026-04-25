@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
 function MetricItem({ title, value, children }) {
   return (
@@ -46,7 +45,7 @@ export default function ArticleCardMetrics({
         }
 
         window.sessionStorage.setItem(sessionKey, "1");
-        fetch(`${backendUrl}/api/site/articles/${encodeURIComponent(slug)}/impression`, {
+        fetch(buildPublicApiUrl(`/api/site/articles/${encodeURIComponent(slug)}/impression`), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

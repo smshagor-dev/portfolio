@@ -1,6 +1,8 @@
 const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
+const canonicalUrl =
+  process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || "http://localhost:3000";
 const adminUser = {
   id: 1,
   name: "Admin",
@@ -74,7 +76,7 @@ const siteSettings = {
   contactEmail: "smshagor.ru@gmail.com",
   mobileNumber: "+79954949836",
   footerText: "Developer Portfolio by Shahanur Islam Shagor",
-  canonicalUrl: "http://localhost:3000",
+  canonicalUrl,
   googleSiteVerification: "",
   googleAnalyticsId: "",
   googleTagManagerId: "",
