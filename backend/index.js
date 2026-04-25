@@ -15,6 +15,8 @@ const port = Number(process.env.PORT || 5000);
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
 const allowedOrigins = frontendUrl.split(",").map((item) => item.trim());
 const serverBaseUrl = process.env.BACKEND_URL || `http://127.0.0.1:${port}`;
+const forceHttps =
+  String(process.env.FORCE_HTTPS || "").trim().toLowerCase() === "true";
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
@@ -24,6 +26,35 @@ const io = new Server(server, {
 
 app.set("trust proxy", true);
 app.set("io", io);
+
+if (forceHttps) {
+  app.use((request, response, next) => {
+    const forwardedProtoHeader = request.headers["x-forwarded-proto"];
+    const forwardedProto = Array.isArray(forwardedProtoHeader)
+      ? forwardedProtoHeader[0]
+      : String(forwardedProtoHeader || "").split(",")[0].trim();
+
+    if (request.secure || forwardedProto === "https") {
+      return next();
+    }
+
+    const host = request.headers.host;
+
+    if (!host) {
+      return next();
+    }
+
+    return response.redirect(308, `https://${host}${request.originalUrl}`);
+  });
+
+  app.use((_request, response, next) => {
+    response.setHeader(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains; preload",
+    );
+    next();
+  });
+}
 
 app.use(
   cors({
