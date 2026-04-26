@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 
 
 function AboutSection({ profile }) {
@@ -21,7 +22,7 @@ function AboutSection({ profile }) {
         </div>
         <div className="flex justify-center order-1 lg:order-2">
           <Image
-            src={profile?.profile || "/profile.png"}
+            src={buildPublicAssetUrl(profile?.profile || "/profile.png")}
             width={280}
             height={280}
             alt={profile?.name || "Profile"}

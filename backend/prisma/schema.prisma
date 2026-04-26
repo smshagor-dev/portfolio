@@ -354,8 +354,13 @@ model SiteSettings {
   footerText            String   @db.Text
   canonicalUrl          String
   googleSiteVerification String
+  googleVerificationFilePath String
   googleAnalyticsId     String
   googleTagManagerId    String
+  adsenseHeadCode       String   @db.LongText
+  adsensePageTopCode    String   @db.LongText
+  adsenseBetweenSectionsCode String @db.LongText
+  adsensePageBottomCode String   @db.LongText
   robotsIndexingEnabled Boolean  @default(true)
   robotsFollowEnabled   Boolean  @default(true)
   smtpHost              String

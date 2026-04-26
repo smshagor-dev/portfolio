@@ -8,6 +8,30 @@ function getBackendUrl() {
   ).trim().replace(/\/+$/, "");
 }
 
+function toPublicAssetUrl(value) {
+  const normalizedValue = String(value || "").trim();
+
+  if (!normalizedValue.startsWith("/uploads/")) {
+    return value;
+  }
+
+  return `${getBackendUrl()}${normalizedValue}`;
+}
+
+function mapBackendAssets(value) {
+  if (Array.isArray(value)) {
+    return value.map(mapBackendAssets);
+  }
+
+  if (!value || typeof value !== "object") {
+    return typeof value === "string" ? toPublicAssetUrl(value) : value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, mapBackendAssets(item)]),
+  );
+}
+
 async function fetchFromBackend(pathname) {
   const targetUrl = `${getBackendUrl()}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
   const response = await fetch(targetUrl, {
@@ -23,7 +47,7 @@ async function fetchFromBackend(pathname) {
     );
   }
 
-  return response.json();
+  return mapBackendAssets(await response.json());
 }
 
 export async function getHomePageData() {

@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import AdCodeSlot from "./ad-code-slot";
 
 function isAdminPath(pathname) {
   return pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/login/admin";
@@ -10,7 +11,14 @@ function isChatPath(pathname) {
   return pathname === "/chat" || pathname.startsWith("/chat/");
 }
 
-export default function LayoutShell({ children, navbar, footer, scrollToTop }) {
+export default function LayoutShell({
+  children,
+  navbar,
+  footer,
+  scrollToTop,
+  pageTopAdCode,
+  pageBottomAdCode,
+}) {
   const pathname = usePathname();
   const hidePublicChrome = isAdminPath(pathname);
   const isChatRoute = isChatPath(pathname);
@@ -44,7 +52,17 @@ export default function LayoutShell({ children, navbar, footer, scrollToTop }) {
     <>
       <main className="relative mx-auto min-h-screen px-6 text-white sm:px-12 lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem]">
         {navbar}
+        <AdCodeSlot
+          code={pageTopAdCode}
+          label="Sponsored"
+          className="mt-6"
+        />
         {children}
+        <AdCodeSlot
+          code={pageBottomAdCode}
+          label="Sponsored"
+          className="mt-10"
+        />
         {scrollToTop}
       </main>
       {footer}

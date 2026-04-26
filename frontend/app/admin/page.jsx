@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
-import { buildPublicApiUrl, getPublicBackendUrl, getSocketServerUrl } from "@/lib/public-backend-url";
+import { buildPublicApiUrl, buildPublicAssetUrl, getPublicBackendUrl, getSocketServerUrl } from "@/lib/public-backend-url";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
 import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiPhone, FiSend, FiSettings, FiUpload } from "react-icons/fi";
 import { getSocialIconOption, searchSocialIcons, socialIconOptions } from "@/utils/social-icons";
@@ -162,8 +162,13 @@ function emptySiteSettings() {
     footerText: "",
     canonicalUrl: "",
     googleSiteVerification: "",
+    googleVerificationFilePath: "",
     googleAnalyticsId: "",
     googleTagManagerId: "",
+    adsenseHeadCode: "",
+    adsensePageTopCode: "",
+    adsenseBetweenSectionsCode: "",
+    adsensePageBottomCode: "",
     robotsIndexingEnabled: true,
     robotsFollowEnabled: true,
     smtpHost: "",
@@ -603,8 +608,13 @@ function buildSiteSettingsPayload(sourceForm) {
       footerText: sourceForm.siteSettings.footerText.trim(),
       canonicalUrl: sourceForm.siteSettings.canonicalUrl.trim(),
       googleSiteVerification: sourceForm.siteSettings.googleSiteVerification.trim(),
+      googleVerificationFilePath: sourceForm.siteSettings.googleVerificationFilePath.trim(),
       googleAnalyticsId: sourceForm.siteSettings.googleAnalyticsId.trim(),
       googleTagManagerId: sourceForm.siteSettings.googleTagManagerId.trim(),
+      adsenseHeadCode: sourceForm.siteSettings.adsenseHeadCode.trim(),
+      adsensePageTopCode: sourceForm.siteSettings.adsensePageTopCode.trim(),
+      adsenseBetweenSectionsCode: sourceForm.siteSettings.adsenseBetweenSectionsCode.trim(),
+      adsensePageBottomCode: sourceForm.siteSettings.adsensePageBottomCode.trim(),
       robotsIndexingEnabled: Boolean(sourceForm.siteSettings.robotsIndexingEnabled),
       robotsFollowEnabled: Boolean(sourceForm.siteSettings.robotsFollowEnabled),
       smtpHost: sourceForm.siteSettings.smtpHost.trim(),
@@ -2575,6 +2585,49 @@ export function AdminSectionPage({ section = "dashboard" }) {
     } catch {}
   }
 
+  async function handleVerificationFileUpload(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setIsUploadingImage(true);
+      const formData = new FormData();
+      formData.append("verificationFile", file);
+
+      const response = await fetch(`${backendUrl}/api/admin/upload-verification-file`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Verification file upload failed.");
+      }
+
+      const nextForm = {
+        ...form,
+        siteSettings: {
+          ...form.siteSettings,
+          googleVerificationFilePath: data.path || "",
+        },
+      };
+
+      setForm(nextForm);
+      await persistContent(buildSiteSettingsPayload(nextForm), "Verification file uploaded and saved.");
+    } catch (error) {
+      toast.error(error.message || "Verification file upload failed.");
+    } finally {
+      setIsUploadingImage(false);
+      event.target.value = "";
+    }
+  }
+
   async function handleImageUpload(event, options = {}) {
     const file = event.target.files?.[0];
 
@@ -3266,7 +3319,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                             <div className="mt-3 flex flex-wrap gap-2">
                               {message.photo ? (
                                 <Link
-                                  href={message.photo}
+                                  href={buildPublicAssetUrl(message.photo)}
                                   target="_blank"
                                   className="rounded-full border border-[#2f4866] px-3 py-1 text-xs uppercase tracking-[0.18em] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white"
                                 >
@@ -3275,7 +3328,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                               ) : null}
                               {message.file ? (
                                 <Link
-                                  href={message.file}
+                                  href={buildPublicAssetUrl(message.file)}
                                   target="_blank"
                                   className="rounded-full border border-[#2f4866] px-3 py-1 text-xs uppercase tracking-[0.18em] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white"
                                 >
@@ -3358,7 +3411,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                               <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[1.2rem] border border-[#2f4866] bg-[#0f1d2f] sm:h-28 sm:w-28">
                                 {article.featuredImage ? (
                                   <Image
-                                    src={article.featuredImage}
+                                    src={buildPublicAssetUrl(article.featuredImage)}
                                     alt={article.title || "Article image"}
                                     fill
                                     className="object-cover"
@@ -4183,6 +4236,15 @@ export function AdminSectionPage({ section = "dashboard" }) {
                         />
                       </div>
                       <div>
+                        <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Verification File Path</label>
+                        <input
+                          className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                          placeholder="/google1234567890abcdef.html"
+                          value={form.siteSettings.googleVerificationFilePath}
+                          onChange={(event) => updateSiteSettingsField("googleVerificationFilePath", event.target.value)}
+                        />
+                      </div>
+                      <div>
                         <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Google Analytics ID</label>
                         <input
                           className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
@@ -4249,6 +4311,80 @@ export function AdminSectionPage({ section = "dashboard" }) {
                       </label>
                     </div>
                   ))}
+                </div>
+              </section>
+
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">AdSense</p>
+                <h3 className="mt-2 text-2xl font-semibold text-white">Global ad code placements</h3>
+                <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                  Save your AdSense or ad network snippets here. Head code loads site-wide, page top and bottom ads show on every public page, and the between-sections slot repeats across homepage sections.
+                </p>
+                <div className="mt-6 grid gap-4">
+                  {[
+                    {
+                      key: "adsenseHeadCode",
+                      label: "Head Script Code",
+                      hint: "Use this for the global AdSense script snippet.",
+                    },
+                    {
+                      key: "adsensePageTopCode",
+                      label: "Page Top Ad Code",
+                      hint: "Shows near the top of every public page.",
+                    },
+                    {
+                      key: "adsenseBetweenSectionsCode",
+                      label: "Between Sections Ad Code",
+                      hint: "Repeats between homepage sections.",
+                    },
+                    {
+                      key: "adsensePageBottomCode",
+                      label: "Page Bottom Ad Code",
+                      hint: "Shows near the bottom of every public page.",
+                    },
+                  ].map((field) => (
+                    <div key={field.key}>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">{field.label}</label>
+                      <textarea
+                        className="min-h-[140px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 font-mono text-sm text-white outline-none transition focus:border-[#49c1ff]"
+                        placeholder="<script async src='...'></script>"
+                        value={form.siteSettings[field.key]}
+                        onChange={(event) => updateSiteSettingsField(field.key, event.target.value)}
+                      />
+                      <p className="mt-2 text-xs leading-6 text-[#7f96b2]">{field.hint}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Verification File</p>
+                <h3 className="mt-2 text-2xl font-semibold text-white">Upload Google or other verification files</h3>
+                <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                  Upload any verification file and it will be reachable from your public base URL.
+                </p>
+                <div className="mt-6 rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4">
+                  <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Saved Verification Path</label>
+                  <input
+                    className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                    value={form.siteSettings.googleVerificationFilePath}
+                    onChange={(event) => updateSiteSettingsField("googleVerificationFilePath", event.target.value)}
+                    placeholder="/google1234567890abcdef.html"
+                  />
+                  <label className="mt-4 inline-flex cursor-pointer items-center rounded-xl border border-[#36557e] px-4 py-3 text-sm text-[#9ae2ff] transition hover:bg-[#12243b]">
+                    {isUploadingImage ? "Uploading..." : "Upload Verification File"}
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={handleVerificationFileUpload}
+                    />
+                  </label>
+                  {form.siteSettings.googleVerificationFilePath ? (
+                    <p className="mt-4 break-all text-sm leading-7 text-[#9fb1c7]">
+                      Public URL: {String(form.siteSettings.canonicalUrl || "").trim().replace(/\/+$/, "") || "{base_url}"}
+                      {form.siteSettings.googleVerificationFilePath}
+                    </p>
+                  ) : null}
                 </div>
               </section>
 
@@ -4826,7 +4962,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                 <div className="mt-6 grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
                   <div className="overflow-hidden rounded-[1.5rem] border border-[#2c3852] bg-[#101b2d]">
                     <Image
-                      src={form.profile || "/profile.png"}
+                      src={buildPublicAssetUrl(form.profile || "/profile.png")}
                       alt="Profile preview"
                       width={220}
                       height={260}
@@ -5285,7 +5421,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                           <div className="overflow-hidden rounded-[1.25rem] border border-[#2c3852] bg-[#101b2d]">
                             {item.image ? (
                               <Image
-                                src={item.image}
+                                src={buildPublicAssetUrl(item.image)}
                                 alt={item.title || "Achievement preview"}
                                 width={180}
                                 height={180}
@@ -5501,7 +5637,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                             <div className="relative h-44 w-full border-b border-[#24344d] bg-[#09111d]">
                               {projectDraft.image ? (
                                 <Image
-                                  src={projectDraft.image}
+                                  src={buildPublicAssetUrl(projectDraft.image)}
                                   alt={projectDraft.name || "Project preview"}
                                   fill
                                   className="object-cover"
@@ -6573,7 +6709,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                           <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Image</p>
                           <div className="mt-4 overflow-hidden rounded-[1.2rem] border border-[#2c3852] bg-[#101b2d]">
                             <Image
-                              src={testimonialDraft.image || "/profile.png"}
+                              src={buildPublicAssetUrl(testimonialDraft.image || "/profile.png")}
                               alt={testimonialDraft.name || "Testimonial image"}
                               width={280}
                               height={220}

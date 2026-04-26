@@ -16,6 +16,10 @@ const {
 const router = express.Router();
 const uploadDirectory = path.resolve(process.cwd(), "public", "uploads");
 
+if (!fs.existsSync(uploadDirectory)) {
+  fs.mkdirSync(uploadDirectory, { recursive: true });
+}
+
 function buildContactChatHash(ticketId, token) {
   const normalizedId = String(ticketId || "").trim();
   const normalizedToken = String(token || "").trim();
@@ -40,10 +44,6 @@ function buildContactChatUrl(canonicalUrl, ticketId, token) {
   } catch (_error) {
     return "";
   }
-}
-
-if (!fs.existsSync(uploadDirectory)) {
-  fs.mkdirSync(uploadDirectory, { recursive: true });
 }
 
 const storage = multer.diskStorage({

@@ -43,6 +43,14 @@ module.exports = {
         source: "/ready",
         destination: `${backendUrl}/ready`,
       },
+      {
+        source: "/uploads/:path*",
+        destination: `${backendUrl}/uploads/:path*`,
+      },
+      {
+        source: "/:verificationFile([^/]+\\.[^/]+)",
+        destination: `${backendUrl}/:verificationFile`,
+      },
     ];
   },
   async headers() {

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import ArticleCardMetrics from "@/app/components/article/article-card-metrics";
+import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 
 function formatArticleDate(value) {
   if (!value) {
@@ -91,7 +92,7 @@ export default function ArticleCatalog({ articles = [], categories = [] }) {
                 <div className="relative h-56 overflow-hidden border-b border-[#203049] bg-[#0c1523]">
                   {article.featuredImage ? (
                     <Image
-                      src={article.featuredImage}
+                      src={buildPublicAssetUrl(article.featuredImage)}
                       alt={article.title || "Article cover"}
                       fill
                       className="object-cover transition duration-500 group-hover:scale-105"

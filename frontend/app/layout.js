@@ -1,16 +1,15 @@
 import { GoogleAnalytics, GoogleTagManager } from "@next/third-parties/google";
-import { Inter } from "next/font/google";
 import "react-toastify/dist/ReactToastify.css";
 import "ckeditor5/ckeditor5.css";
 import { getHomePageData, getSiteSettings } from "@/lib/api";
 import Footer from "./components/footer";
+import AdCodeSlot from "./components/ad-code-slot";
 import LayoutClientChrome from "./components/layout-client-chrome";
 import LayoutShell from "./components/layout-shell";
 import LiveTicketDock from "./components/live-ticket-dock";
 import SiteAnalyticsTracker from "./components/site-analytics-tracker";
 import "./css/card.scss";
 import "./css/globals.scss";
-const inter = Inter({ subsets: ["latin"] });
 
 function buildAbsoluteUrl(baseUrl, assetPath) {
   if (!assetPath) {
@@ -97,13 +96,16 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <LayoutShell
           footer={<Footer profile={profile} settings={siteSettings} />}
           navbar={<LayoutClientChrome kind="navbar" profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />}
           scrollToTop={<LayoutClientChrome kind="scrollToTop" />}
+          pageTopAdCode={siteSettings?.adsensePageTopCode}
+          pageBottomAdCode={siteSettings?.adsensePageBottomCode}
         >
           <LayoutClientChrome kind="toast" />
+          <AdCodeSlot code={siteSettings?.adsenseHeadCode} className="hidden" label="Head Script" />
           <SiteAnalyticsTracker />
           <LiveTicketDock emergencyContacts={emergencyContacts} websiteTitle={siteSettings?.websiteTitle || siteSettings?.seoTitle || "Portfolio Website"} />
           {children}

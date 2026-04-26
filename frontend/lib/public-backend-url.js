@@ -16,6 +16,24 @@ export function buildPublicApiUrl(pathname) {
   return normalizedPathname;
 }
 
+export function buildPublicAssetUrl(pathname) {
+  const normalizedPathname = String(pathname || "").trim();
+
+  if (!normalizedPathname) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(normalizedPathname) || normalizedPathname.startsWith("data:")) {
+    return normalizedPathname;
+  }
+
+  if (normalizedPathname.startsWith("/uploads/")) {
+    return buildPublicApiUrl(normalizedPathname);
+  }
+
+  return normalizedPathname;
+}
+
 export function getSocketServerUrl() {
   if (configuredPublicBackendUrl) {
     return configuredPublicBackendUrl;

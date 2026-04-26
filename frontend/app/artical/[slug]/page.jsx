@@ -6,6 +6,7 @@ import ArticleDetailStats from "@/app/components/article/article-detail-stats";
 import ArticleHeaderMetrics from "@/app/components/article/article-header-metrics";
 import ArticleShareStrip from "@/app/components/article/article-share-strip";
 import { getArticleDetailData } from "@/lib/api";
+import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 import { buildPageMetadata } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
@@ -173,7 +174,7 @@ export default async function ArticalDetailPage({ params }) {
             {article.featuredImage ? (
               <div className="relative mt-8 h-[280px] overflow-hidden rounded-[1.75rem] border border-[#24344d] bg-[#0b1422] sm:h-[360px]">
                 <Image
-                  src={article.featuredImage}
+                  src={buildPublicAssetUrl(article.featuredImage)}
                   alt={article.title || "Article image"}
                   fill
                   className="object-cover"

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { buildPublicApiUrl } from "@/lib/public-backend-url";
+import { buildPublicApiUrl, buildPublicAssetUrl } from "@/lib/public-backend-url";
 
 const RichTextEditor = dynamic(() => import("@/app/components/admin/rich-text-editor"), {
   ssr: false,
@@ -485,7 +485,7 @@ export default function ArticleEditorPage({ articleId = null }) {
                 {form.featuredImage ? (
                   <div className="overflow-hidden rounded-[1.5rem] border border-[#24344d] bg-[#101b2d] p-3">
                     <Image
-                      src={form.featuredImage}
+                      src={buildPublicAssetUrl(form.featuredImage)}
                       alt="Featured article"
                       width={1200}
                       height={720}

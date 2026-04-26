@@ -2,6 +2,7 @@ require("./lib/config");
 
 const express = require("express");
 const http = require("http");
+const path = require("path");
 const cors = require("cors");
 const { Server } = require("socket.io");
 const prisma = require("./lib/prisma");
@@ -11,10 +12,18 @@ const siteRoutes = require("./routes/site");
 
 const app = express();
 const server = http.createServer(app);
+const publicDirectory = path.resolve(process.cwd(), "public");
 const port = Number(process.env.PORT || 5000);
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
 const allowedOrigins = frontendUrl.split(",").map((item) => item.trim());
 const serverBaseUrl = process.env.BACKEND_URL || `http://127.0.0.1:${port}`;
+let canonicalBackendOrigin = "";
+
+try {
+  canonicalBackendOrigin = new URL(serverBaseUrl).origin;
+} catch (_error) {
+  canonicalBackendOrigin = "";
+}
 const forceHttps =
   String(process.env.FORCE_HTTPS || "").trim().toLowerCase() === "true";
 const io = new Server(server, {
@@ -24,27 +33,78 @@ const io = new Server(server, {
   },
 });
 
+function getForwardedHeaderValue(header) {
+  if (Array.isArray(header)) {
+    return String(header[0] || "").split(",")[0].trim();
+  }
+
+  return String(header || "").split(",")[0].trim();
+}
+
+function isLoopbackHost(host) {
+  const normalizedHost = String(host || "").trim().toLowerCase();
+  return (
+    normalizedHost.startsWith("127.0.0.1") ||
+    normalizedHost.startsWith("localhost") ||
+    normalizedHost.startsWith("[::1]") ||
+    normalizedHost.startsWith("0.0.0.0")
+  );
+}
+
+function isHttpsForwarded(request) {
+  const forwardedProto = getForwardedHeaderValue(request.headers["x-forwarded-proto"]);
+  const forwardedSsl = getForwardedHeaderValue(request.headers["x-forwarded-ssl"]);
+  const frontendHttps = getForwardedHeaderValue(request.headers["front-end-https"]);
+
+  return (
+    request.secure ||
+    forwardedProto === "https" ||
+    forwardedSsl === "on" ||
+    frontendHttps === "on"
+  );
+}
+
+function isPhpRequestPath(pathname) {
+  return /\.php(?:\/|$)/i.test(String(pathname || "").trim());
+}
+
 app.set("trust proxy", true);
 app.set("io", io);
 
+app.use((request, response, next) => {
+  const originalPath = String(request.path || "").trim();
+
+  if (!isPhpRequestPath(originalPath)) {
+    return next();
+  }
+
+  if (/^\/index\.php\/?$/i.test(originalPath)) {
+    const query = request.url.includes("?") ? request.url.slice(request.url.indexOf("?")) : "";
+    return response.redirect(308, `/${query}`);
+  }
+
+  return response.status(404).type("text/plain").send("Not found");
+});
+
 if (forceHttps) {
   app.use((request, response, next) => {
-    const forwardedProtoHeader = request.headers["x-forwarded-proto"];
-    const forwardedProto = Array.isArray(forwardedProtoHeader)
-      ? forwardedProtoHeader[0]
-      : String(forwardedProtoHeader || "").split(",")[0].trim();
+    const forwardedHost = getForwardedHeaderValue(request.headers["x-forwarded-host"]);
+    const requestHost = String(request.headers.host || "").trim();
+    const publicHost = forwardedHost || requestHost;
 
-    if (request.secure || forwardedProto === "https") {
+    if (isHttpsForwarded(request)) {
       return next();
     }
 
-    const host = request.headers.host;
+    if (canonicalBackendOrigin) {
+      return response.redirect(308, `${canonicalBackendOrigin}${request.originalUrl}`);
+    }
 
-    if (!host) {
+    if (!publicHost || isLoopbackHost(publicHost)) {
       return next();
     }
 
-    return response.redirect(308, `https://${host}${request.originalUrl}`);
+    return response.redirect(308, `https://${publicHost}${request.originalUrl}`);
   });
 
   app.use((_request, response, next) => {
@@ -63,6 +123,47 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use(
+  "/uploads",
+  express.static(path.resolve(process.cwd(), "public", "uploads"), {
+    fallthrough: false,
+    maxAge: "7d",
+  }),
+);
+app.get(/^\/[^/]+\.[A-Za-z0-9_-]+$/, async (request, response, next) => {
+  const requestedPath = String(request.path || "").trim();
+
+  if (!requestedPath || requestedPath === "/favicon.ico") {
+    return next();
+  }
+
+  try {
+    const settings = await prisma.siteSettings.findUnique({
+      where: { id: 1 },
+      select: { googleVerificationFilePath: true },
+    });
+    const verificationPath = String(settings?.googleVerificationFilePath || "").trim();
+
+    if (!verificationPath || verificationPath !== requestedPath) {
+      return next();
+    }
+
+    const filename = path.basename(verificationPath);
+    const resolvedPath = path.resolve(publicDirectory, filename);
+
+    if (!resolvedPath.startsWith(publicDirectory)) {
+      return response.status(400).end();
+    }
+
+    return response.sendFile(resolvedPath, (error) => {
+      if (error) {
+        next(error);
+      }
+    });
+  } catch (_error) {
+    return next();
+  }
+});
 
 function buildReadyPage() {
   return `<!doctype html>

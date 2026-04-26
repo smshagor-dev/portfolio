@@ -36,8 +36,13 @@ function getDefaultSiteSettings() {
     footerText: "All rights reserved.",
     canonicalUrl: appUrl,
     googleSiteVerification: "",
+    googleVerificationFilePath: "",
     googleAnalyticsId: normalizeString(process.env.NEXT_PUBLIC_GA_ID),
     googleTagManagerId: normalizeString(process.env.NEXT_PUBLIC_GTM),
+    adsenseHeadCode: "",
+    adsensePageTopCode: "",
+    adsenseBetweenSectionsCode: "",
+    adsensePageBottomCode: "",
     robotsIndexingEnabled: true,
     robotsFollowEnabled: true,
     smtpHost: "",
@@ -79,8 +84,21 @@ function normalizeSiteSettings(value, fallback = {}) {
     googleSiteVerification: normalizeString(
       value?.googleSiteVerification ?? defaults.googleSiteVerification,
     ),
+    googleVerificationFilePath: normalizeString(
+      value?.googleVerificationFilePath ?? defaults.googleVerificationFilePath,
+    ),
     googleAnalyticsId: normalizeString(value?.googleAnalyticsId ?? defaults.googleAnalyticsId),
     googleTagManagerId: normalizeString(value?.googleTagManagerId ?? defaults.googleTagManagerId),
+    adsenseHeadCode: String(value?.adsenseHeadCode ?? (defaults.adsenseHeadCode || "")).trim(),
+    adsensePageTopCode: String(
+      value?.adsensePageTopCode ?? (defaults.adsensePageTopCode || ""),
+    ).trim(),
+    adsenseBetweenSectionsCode: String(
+      value?.adsenseBetweenSectionsCode ?? (defaults.adsenseBetweenSectionsCode || ""),
+    ).trim(),
+    adsensePageBottomCode: String(
+      value?.adsensePageBottomCode ?? (defaults.adsensePageBottomCode || ""),
+    ).trim(),
     robotsIndexingEnabled: toBoolean(
       value?.robotsIndexingEnabled,
       defaults.robotsIndexingEnabled,

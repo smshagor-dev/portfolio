@@ -22,8 +22,13 @@ const {
 } = require("../lib/site-settings");
 
 const router = express.Router();
+const publicDirectory = path.resolve(process.cwd(), "public");
 const uploadDirectory = path.resolve(process.cwd(), "public", "uploads");
 const contactReplyReminderTimers = new Map();
+
+if (!fs.existsSync(publicDirectory)) {
+  fs.mkdirSync(publicDirectory, { recursive: true });
+}
 
 if (!fs.existsSync(uploadDirectory)) {
   fs.mkdirSync(uploadDirectory, { recursive: true });
@@ -93,6 +98,33 @@ const resumeUpload = multer({
     }
 
     callback(null, true);
+  },
+});
+
+const verificationFileStorage = multer.diskStorage({
+  destination: (_request, _file, callback) => {
+    callback(null, publicDirectory);
+  },
+  filename: (_request, file, callback) => {
+    const extension = path
+      .extname(file.originalname || "")
+      .trim()
+      .replace(/[^a-zA-Z0-9.]/g, "")
+      .slice(0, 20);
+    const safeBaseName = path
+      .basename(file.originalname || "google-verification", extension)
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 100) || "google-verification";
+
+    callback(null, `${safeBaseName}${extension.toLowerCase()}`);
+  },
+});
+
+const verificationFileUpload = multer({
+  storage: verificationFileStorage,
+  limits: {
+    fileSize: 1024 * 1024,
   },
 });
 
@@ -2269,6 +2301,39 @@ router.post(
     return response.status(201).json({
       message: "Resume uploaded successfully.",
       path: `/uploads/${request.file.filename}`,
+    });
+  },
+);
+
+router.post(
+  "/upload-verification-file",
+  requireAdmin,
+  (request, response, next) => {
+    verificationFileUpload.single("verificationFile")(request, response, (error) => {
+      if (error) {
+        return response.status(400).json({ message: error.message || "Upload failed." });
+      }
+
+      return next();
+    });
+  },
+  async (request, response) => {
+    if (!request.file) {
+      return response.status(400).json({ message: "Please choose a verification file to upload." });
+    }
+
+    const relativePath = `/${request.file.filename}`;
+    const siteSettings = await prisma.siteSettings.findUnique({
+      where: { id: 1 },
+    });
+    const canonicalBase = String(
+      siteSettings?.canonicalUrl || process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || "",
+    ).trim().replace(/\/+$/, "");
+
+    return response.status(201).json({
+      message: "Verification file uploaded successfully.",
+      path: relativePath,
+      publicUrl: canonicalBase ? `${canonicalBase}${relativePath}` : relativePath,
     });
   },
 );

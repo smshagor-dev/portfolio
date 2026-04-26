@@ -1,5 +1,6 @@
 "use client";
 
+import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 import { skillsImage } from "@/utils/skill-image";
 import Image from "next/image";
 import Link from "next/link";
@@ -98,7 +99,8 @@ function TypeLines({
 function HeroSection({ profile }) {
   const heroTitle = profile?.name || "Your Name";
   const heroDescription = profile?.description || "";
-  const heroImage = profile?.profile || "/profile.png";
+  const heroImage = buildPublicAssetUrl(profile?.profile || "/profile.png");
+  const resumeUrl = buildPublicAssetUrl(profile?.resume || "#");
   const nameLines = useMemo(
     () => splitAnimatedLines(heroTitle),
     [heroTitle]
@@ -246,7 +248,7 @@ function HeroSection({ profile }) {
                     className="flex items-center gap-1 rounded-full bg-gradient-to-r from-pink-500 to-violet-600 px-3 py-3 text-center text-[0.68rem] font-medium uppercase tracking-wider text-white no-underline transition-all duration-200 ease-out hover:gap-3 hover:text-white hover:no-underline sm:px-5 sm:text-xs md:px-8 md:py-4 md:text-sm md:font-semibold"
                     role="button"
                     target="_blank"
-                    href={profile?.resume || "#"}
+                    href={resumeUrl}
                   >
                     <span>Download CV</span>
                     <MdDownload size={16} />
