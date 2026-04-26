@@ -122,6 +122,13 @@ app.use(
     credentials: true,
   }),
 );
+app.use("/api", (_request, response, next) => {
+  response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  response.setHeader("Pragma", "no-cache");
+  response.setHeader("Expires", "0");
+  response.setHeader("Surrogate-Control", "no-store");
+  next();
+});
 app.use(express.json());
 app.use(
   "/uploads",

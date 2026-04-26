@@ -29,6 +29,86 @@ body {
     sans-serif;
 }
 
+.page-load-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(124, 240, 183, 0.12), transparent 28%),
+    radial-gradient(circle at bottom, rgba(112, 213, 255, 0.14), transparent 32%),
+    linear-gradient(180deg, rgba(8, 14, 25, 0.98), rgba(6, 10, 18, 0.98));
+  transition:
+    opacity 420ms ease,
+    visibility 420ms ease;
+}
+
+.page-load-overlay--closing {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.page-load-overlay__glow {
+  position: absolute;
+  height: 18rem;
+  width: 18rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(124, 240, 183, 0.18), rgba(112, 213, 255, 0.06), transparent 72%);
+  filter: blur(12px);
+  animation: pageOverlayGlow 2.4s ease-in-out infinite;
+}
+
+.page-load-overlay__shell {
+  position: relative;
+  display: flex;
+  height: 9rem;
+  width: 9rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-load-overlay__ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(124, 240, 183, 0.3);
+  border-radius: 999px;
+  animation: pageOverlayPulse 1.8s ease-out infinite;
+}
+
+.page-load-overlay__ring--delayed {
+  animation-delay: 0.9s;
+}
+
+.page-load-overlay__core {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.page-load-overlay__dot {
+  display: block;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #6cc8ff, #7cf0b7);
+  box-shadow: 0 0 22px rgba(124, 240, 183, 0.35);
+  animation: pageOverlayDot 1.15s ease-in-out infinite;
+}
+
+.page-load-overlay__label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+  color: #d8e7f5;
+}
+
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -220,5 +300,45 @@ body {
 
   50% {
     transform: translateY(-10px);
+  }
+}
+
+@keyframes pageOverlayPulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.62);
+  }
+
+  35% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.28);
+  }
+}
+
+@keyframes pageOverlayDot {
+  0%,
+  100% {
+    transform: scale(0.88);
+  }
+
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@keyframes pageOverlayGlow {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
   }
 }

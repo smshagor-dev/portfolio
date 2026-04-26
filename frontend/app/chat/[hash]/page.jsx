@@ -3,6 +3,8 @@ import ChatPageClient from "./chat-page-client";
 import { getHomePageData, getSiteSettings } from "@/lib/api";
 import { parseContactChatHash } from "@/lib/contact-chat-link";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
   const settings = await getSiteSettings().catch(() => null);

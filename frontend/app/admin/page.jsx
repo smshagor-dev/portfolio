@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
+import { showChatMessageNotification } from "@/lib/browser-notifications";
 import { buildPublicApiUrl, buildPublicAssetUrl, getPublicBackendUrl, getSocketServerUrl } from "@/lib/public-backend-url";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
 import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiPhone, FiSend, FiSettings, FiUpload } from "react-icons/fi";
@@ -33,6 +34,16 @@ const RichTextEditor = dynamic(() => import("@/app/components/admin/rich-text-ed
 
 const backendUrl = getPublicBackendUrl();
 const socketServerUrl = getSocketServerUrl();
+
+function adminFetch(input, init = {}) {
+  return fetch(input, {
+    cache: "no-store",
+    ...init,
+    headers: {
+      ...(init.headers || {}),
+    },
+  });
+}
 
 function emptyHeroSkill() {
   return { name: "", image: "" };
@@ -692,6 +703,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const [isSendingMessageReply, setIsSendingMessageReply] = useState(false);
   const messageReplyPhotoInputRef = useRef(null);
   const messageReplyFileInputRef = useRef(null);
+  const messagesRef = useRef([]);
   const [messageActionId, setMessageActionId] = useState(null);
   const [socialSearch, setSocialSearch] = useState({});
   const [openCounterIconIndex, setOpenCounterIconIndex] = useState(null);
@@ -702,6 +714,10 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [editingPricingIndex, setEditingPricingIndex] = useState(-1);
   const [pricingDraft, setPricingDraft] = useState(emptyPricingItem());
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
   const [editingTestimonialIndex, setEditingTestimonialIndex] = useState(-1);
   const [testimonialDraft, setTestimonialDraft] = useState(emptyTestimonialItem());
@@ -742,7 +758,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
   }, []);
 
   const loadAdminProfile = useCallback(async (authToken) => {
-    const response = await fetch(`${backendUrl}/api/admin/me`, {
+    const response = await adminFetch(`${backendUrl}/api/admin/me`, {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
@@ -764,7 +780,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
     try {
       setIsTwoFactorLoading(true);
-      const response = await fetch(`${backendUrl}/api/admin/2fa/setup`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/2fa/setup`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -799,7 +815,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
     try {
       setIsTwoFactorSubmitting(true);
-      const response = await fetch(`${backendUrl}/api/admin/2fa/enable`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/2fa/enable`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -836,7 +852,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
     try {
       setIsTwoFactorSubmitting(true);
-      const response = await fetch(`${backendUrl}/api/admin/2fa/disable`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/2fa/disable`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -865,7 +881,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
     async (authToken) => {
       try {
         setIsLoading(true);
-        const response = await fetch(`${backendUrl}/api/admin/dashboard`, {
+        const response = await adminFetch(`${backendUrl}/api/admin/dashboard`, {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
@@ -1080,7 +1096,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
           setIsAnalyticsLoading(true);
         }
 
-        const response = await fetch(`${backendUrl}/api/admin/analytics`, {
+        const response = await adminFetch(`${backendUrl}/api/admin/analytics`, {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
@@ -1128,7 +1144,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
     try {
       setIsArticlesLoading(true);
-      const response = await fetch(`${backendUrl}/api/admin/articles`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/articles`, {
         headers: {
           Authorization: `Bearer ${authToken}`,
         },
@@ -1153,7 +1169,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
     }
 
     try {
-      const response = await fetch(`${backendUrl}/api/admin/article-categories`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/article-categories`, {
         headers: {
           Authorization: `Bearer ${authToken}`,
         },
@@ -1178,7 +1194,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
     try {
       setIsSavingArticleCategory(true);
-      const response = await fetch(`${backendUrl}/api/admin/article-categories`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/article-categories`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1224,7 +1240,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
     try {
       setIsSavingArticleCategory(true);
-      const response = await fetch(`${backendUrl}/api/admin/article-categories/${editingArticleCategoryId}`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/article-categories/${editingArticleCategoryId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1267,7 +1283,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
       try {
         setDeletingArticleCategoryId(category.id);
-        const response = await fetch(`${backendUrl}/api/admin/article-categories/${category.id}`, {
+        const response = await adminFetch(`${backendUrl}/api/admin/article-categories/${category.id}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1300,7 +1316,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
     try {
       setIsEmergencyContactsLoading(true);
-      const response = await fetch(`${backendUrl}/api/admin/emergency-contacts`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/emergency-contacts`, {
         headers: {
           Authorization: `Bearer ${authToken}`,
         },
@@ -1332,7 +1348,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
       try {
         setDeletingArticleId(article.id);
-        const response = await fetch(`${backendUrl}/api/admin/articles/${article.id}`, {
+        const response = await adminFetch(`${backendUrl}/api/admin/articles/${article.id}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1392,7 +1408,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
     try {
       setIsSavingEmergencyContact(true);
-      const response = await fetch(
+      const response = await adminFetch(
         `${backendUrl}/api/admin/emergency-contacts${editingEmergencyContactId ? `/${editingEmergencyContactId}` : ""}`,
         {
           method: editingEmergencyContactId ? "PUT" : "POST",
@@ -1445,7 +1461,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
       try {
         setEmergencyContactActionId(contactId);
-        const response = await fetch(`${backendUrl}/api/admin/emergency-contacts/${contactId}`, {
+        const response = await adminFetch(`${backendUrl}/api/admin/emergency-contacts/${contactId}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1476,7 +1492,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
       try {
         setIsMessageThreadLoading(true);
-        const response = await fetch(`${backendUrl}/api/admin/messages/${messageId}`, {
+        const response = await adminFetch(`${backendUrl}/api/admin/messages/${messageId}`, {
           headers: {
             Authorization: `Bearer ${authToken}`,
           },
@@ -1520,7 +1536,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
           formData.append("file", messageReplyAttachments.file);
         }
 
-        const response = await fetch(`${backendUrl}/api/admin/messages/${selectedMessageThread.id}/replies`, {
+        const response = await adminFetch(`${backendUrl}/api/admin/messages/${selectedMessageThread.id}/replies`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${authToken}`,
@@ -1576,7 +1592,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
       try {
         setMessageActionId(messageId);
-        const response = await fetch(`${backendUrl}/api/admin/messages/${messageId}/status`, {
+        const response = await adminFetch(`${backendUrl}/api/admin/messages/${messageId}/status`, {
           method: "PATCH",
           headers: {
             Authorization: `Bearer ${authToken}`,
@@ -1615,7 +1631,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
       try {
         setMessageActionId(messageId);
-        const response = await fetch(`${backendUrl}/api/admin/messages/${messageId}`, {
+        const response = await adminFetch(`${backendUrl}/api/admin/messages/${messageId}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${authToken}`,
@@ -1826,6 +1842,19 @@ export function AdminSectionPage({ section = "dashboard" }) {
     socket.on("contact:message_created", (payload) => {
       if (!payload?.ticketId || !payload?.message) {
         return;
+      }
+
+      const isAdminMessage = payload.message.senderType === "admin";
+
+      if (!isAdminMessage) {
+        const matchingTicket = messagesRef.current.find((item) => item.id === payload.ticketId);
+        showChatMessageNotification({
+          audience: "admin",
+          senderName: payload.message.senderName || matchingTicket?.name,
+          ticketId: payload.ticketId,
+          message: payload.message.message,
+          tag: `admin-inbox-${payload.message.id}`,
+        });
       }
 
       setMessages((current) =>
@@ -2473,7 +2502,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
   async function persistContent(payload, successMessage) {
     try {
       setIsSaving(true);
-      const response = await fetch(`${backendUrl}/api/admin/content`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/content`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -2597,7 +2626,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
       const formData = new FormData();
       formData.append("verificationFile", file);
 
-      const response = await fetch(`${backendUrl}/api/admin/upload-verification-file`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/upload-verification-file`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -2640,7 +2669,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
       const formData = new FormData();
       formData.append("image", file);
 
-      const response = await fetch(`${backendUrl}/api/admin/upload-image`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/upload-image`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -2730,7 +2759,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
       const formData = new FormData();
       formData.append("resume", file);
 
-      const response = await fetch(`${backendUrl}/api/admin/upload-resume`, {
+      const response = await adminFetch(`${backendUrl}/api/admin/upload-resume`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

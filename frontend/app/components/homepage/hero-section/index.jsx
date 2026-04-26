@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import Marquee from "react-fast-marquee";
 import { MdDownload } from "react-icons/md";
 import { RiContactsFill } from "react-icons/ri";
+import OpenChatButton from "@/app/components/open-chat-button";
 
 function splitAnimatedLines(value) {
   if (!value) {
@@ -234,15 +235,14 @@ function HeroSection({ profile }) {
                 </p>
 
                 <div className="mt-8 flex flex-wrap items-center gap-3 sm:mt-10">
-                  <Link
-                    href="/contact"
+                  <OpenChatButton
                     className="rounded-full bg-gradient-to-r from-violet-600 to-pink-500 p-[1px] transition-all duration-300 hover:from-pink-500 hover:to-violet-600"
                   >
-                    <button className="flex items-center gap-1 rounded-full border-none bg-[#0d1224] px-3 py-3 text-center text-[0.68rem] font-medium uppercase tracking-wider text-white no-underline transition-all duration-200 ease-out hover:gap-3 sm:px-5 sm:text-xs md:px-8 md:py-4 md:text-sm md:font-semibold">
+                    <span className="flex items-center gap-1 rounded-full border-none bg-[#0d1224] px-3 py-3 text-center text-[0.68rem] font-medium uppercase tracking-wider text-white no-underline transition-all duration-200 ease-out hover:gap-3 sm:px-5 sm:text-xs md:px-8 md:py-4 md:text-sm md:font-semibold">
                       <span>Contact me</span>
                       <RiContactsFill size={16} />
-                    </button>
-                  </Link>
+                    </span>
+                  </OpenChatButton>
 
                   <Link
                     className="flex items-center gap-1 rounded-full bg-gradient-to-r from-pink-500 to-violet-600 px-3 py-3 text-center text-[0.68rem] font-medium uppercase tracking-wider text-white no-underline transition-all duration-200 ease-out hover:gap-3 hover:text-white hover:no-underline sm:px-5 sm:text-xs md:px-8 md:py-4 md:text-sm md:font-semibold"

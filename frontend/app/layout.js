@@ -4,12 +4,17 @@ import "ckeditor5/ckeditor5.css";
 import { getHomePageData, getSiteSettings } from "@/lib/api";
 import Footer from "./components/footer";
 import AdCodeSlot from "./components/ad-code-slot";
+import BrowserNotificationBootstrap from "./components/browser-notification-bootstrap";
+import ContentLiveRefresh from "./components/content-live-refresh";
 import LayoutClientChrome from "./components/layout-client-chrome";
 import LayoutShell from "./components/layout-shell";
 import LiveTicketDock from "./components/live-ticket-dock";
+import PageLoadOverlay from "./components/page-load-overlay";
 import SiteAnalyticsTracker from "./components/site-analytics-tracker";
 import "./css/card.scss";
 import "./css/globals.scss";
+
+export const dynamic = "force-dynamic";
 
 function buildAbsoluteUrl(baseUrl, assetPath) {
   if (!assetPath) {
@@ -104,9 +109,12 @@ export default async function RootLayout({ children }) {
           pageTopAdCode={siteSettings?.adsensePageTopCode}
           pageBottomAdCode={siteSettings?.adsensePageBottomCode}
         >
+          <PageLoadOverlay />
+          <BrowserNotificationBootstrap />
           <LayoutClientChrome kind="toast" />
           <AdCodeSlot code={siteSettings?.adsenseHeadCode} className="hidden" label="Head Script" />
           <SiteAnalyticsTracker />
+          <ContentLiveRefresh />
           <LiveTicketDock emergencyContacts={emergencyContacts} websiteTitle={siteSettings?.websiteTitle || siteSettings?.seoTitle || "Portfolio Website"} />
           {children}
         </LayoutShell>

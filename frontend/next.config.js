@@ -1,6 +1,19 @@
 const path = require("path");
 
 const backendUrl = process.env.BACKEND_URL || "http://127.0.0.1:5000";
+let backendImagePattern = null;
+
+try {
+  const parsedBackendUrl = new URL(backendUrl);
+  backendImagePattern = {
+    protocol: parsedBackendUrl.protocol.replace(":", ""),
+    hostname: parsedBackendUrl.hostname,
+    port: parsedBackendUrl.port || "",
+    pathname: "/uploads/**",
+  };
+} catch (_error) {
+  backendImagePattern = null;
+}
  
 module.exports = {
   sassOptions: {
@@ -8,20 +21,21 @@ module.exports = {
   },
   images: {
     remotePatterns: [
+      ...(backendImagePattern ? [backendImagePattern] : []),
       {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
-        pathname: '**',
+        pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'media.dev.to',
-        pathname: '**',
+        pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'media2.dev.to',
-        pathname: '**',
+        pathname: '/**',
       },
     ],
   },

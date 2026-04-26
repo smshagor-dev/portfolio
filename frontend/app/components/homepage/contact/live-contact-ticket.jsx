@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { FiClock, FiHome, FiImage, FiMessageSquare, FiPaperclip, FiPlusSquare, FiSend, FiUpload, FiX } from "react-icons/fi";
 import { toast } from "react-toastify";
+import { showChatMessageNotification } from "@/lib/browser-notifications";
 import { buildPublicApiUrl, getSocketServerUrl } from "@/lib/public-backend-url";
 import { getSocialIconOption } from "@/utils/social-icons";
 
@@ -194,8 +195,22 @@ export default function LiveContactTicket({
         return;
       }
 
-      if (!isOpen && payload.message.senderType !== "visitor") {
+      const isVisitorMessage = payload.message.senderType === "visitor";
+
+      if (!isOpen && !isVisitorMessage) {
         setUnreadCount((current) => current + 1);
+      }
+
+      if (!isVisitorMessage) {
+        showChatMessageNotification({
+          audience: "visitor",
+          senderName: payload.message.senderName,
+          ticketId: ticketSession.id,
+          ticketToken: ticketSession.token,
+          message: payload.message.message,
+          websiteTitle,
+          tag: `visitor-reply-${payload.message.id}`,
+        });
       }
 
       setTicket((current) => {
@@ -220,7 +235,7 @@ export default function LiveContactTicket({
       socket.emit("contact:leave", { messageId: ticketSession.id });
       socket.disconnect();
     };
-  }, [isOpen, ticketSession]);
+  }, [isOpen, ticketSession, websiteTitle]);
 
   useEffect(() => {
     if (!isOpen || !listRef.current) {

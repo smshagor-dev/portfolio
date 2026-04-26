@@ -63,19 +63,11 @@ function getInitials(name = "") {
 }
 
 function getVisibleCount(width = 0) {
-  if (width >= 1280) {
+  if (width >= 1024) {
     return 3;
   }
 
-  if (width >= 768) {
-    return 2;
-  }
-
   return 1;
-}
-
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
 }
 
 function StarRow({ stars = 5 }) {
@@ -103,6 +95,7 @@ export default function TestimonialsSection({
   const [activeTestimonial, setActiveTestimonial] = useState(null);
   const [visibleCount, setVisibleCount] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
+  const [isTrackTransitionEnabled, setIsTrackTransitionEnabled] = useState(true);
   const touchStartXRef = useRef(0);
   const touchDeltaRef = useRef(0);
 
@@ -153,23 +146,20 @@ export default function TestimonialsSection({
   }, []);
 
   useEffect(() => {
-    const maxSlide = Math.max(items.length - visibleCount, 0);
-    setCurrentSlide((current) => clamp(current, 0, maxSlide));
-  }, [items.length, visibleCount]);
-
-  useEffect(() => {
-    const maxSlide = Math.max(items.length - visibleCount, 0);
+    const sourceItems = items.length ? items : fallbackTestimonials;
+    const maxSlide = Math.max(sourceItems.length, 0);
 
     if (maxSlide === 0 || isPaused) {
       return undefined;
     }
 
     const interval = window.setInterval(() => {
-      setCurrentSlide((current) => (current >= maxSlide ? 0 : current + 1));
+      setIsTrackTransitionEnabled(true);
+      setCurrentSlide((current) => current + 1);
     }, 4800);
 
     return () => window.clearInterval(interval);
-  }, [items.length, visibleCount, isPaused]);
+  }, [isPaused, items]);
 
   async function handleImageUpload(event) {
     const file = event.target.files?.[0];
@@ -257,13 +247,29 @@ export default function TestimonialsSection({
   }
 
   const sliderItems = items.length ? items : fallbackTestimonials;
-  const maxSlide = Math.max(sliderItems.length - visibleCount, 0);
+  const loopedSliderItems = sliderItems.length > 1 ? [...sliderItems, ...sliderItems] : sliderItems;
+  const maxSlide = Math.max(sliderItems.length - 1, 0);
   const slideGap = "1.5rem";
   const slideBasis = `calc((100% - (${slideGap} * ${Math.max(visibleCount - 1, 0)})) / ${visibleCount})`;
   const trackTransform = `translateX(calc(-${currentSlide} * (${slideBasis} + ${slideGap})))`;
 
   function goToSlide(index) {
-    setCurrentSlide(clamp(index, 0, maxSlide));
+    if (sliderItems.length <= 1) {
+      setCurrentSlide(0);
+      return;
+    }
+
+    setIsTrackTransitionEnabled(true);
+    setCurrentSlide(((index % sliderItems.length) + sliderItems.length) % sliderItems.length);
+  }
+
+  function handleTrackTransitionEnd() {
+    if (sliderItems.length <= 1 || currentSlide < sliderItems.length) {
+      return;
+    }
+
+    setIsTrackTransitionEnabled(false);
+    setCurrentSlide(currentSlide % sliderItems.length);
   }
 
   function renderShareCard() {
@@ -422,12 +428,15 @@ export default function TestimonialsSection({
                   className="flex snap-x snap-mandatory gap-6"
                   style={{
                     transform: trackTransform,
-                    transition: "transform 800ms cubic-bezier(.22,.61,.36,1)",
+                    transition: isTrackTransitionEnabled
+                      ? "transform 800ms cubic-bezier(.22,.61,.36,1)"
+                      : "none",
                     willChange: "transform",
                     touchAction: "pan-y",
                   }}
+                  onTransitionEnd={handleTrackTransitionEnd}
                 >
-                  {sliderItems.map((item, index) => {
+                  {loopedSliderItems.map((item, index) => {
                     const imageFailed = Boolean(failedImages[item.id]);
                     const avatarLabel = getInitials(item.name || "Client");
 
@@ -514,7 +523,9 @@ export default function TestimonialsSection({
                     aria-label={`Show testimonial set ${index + 1}`}
                     onClick={() => goToSlide(index)}
                     className={`h-2.5 rounded-full transition-all ${
-                      currentSlide === index ? "w-8 bg-[#7cf0b7]" : "w-2.5 bg-[#33506c] hover:bg-[#4b6f90]"
+                      currentSlide % Math.max(sliderItems.length, 1) === index
+                        ? "w-8 bg-[#7cf0b7]"
+                        : "w-2.5 bg-[#33506c] hover:bg-[#4b6f90]"
                     }`}
                   />
                 ))}

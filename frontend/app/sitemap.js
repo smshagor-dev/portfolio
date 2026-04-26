@@ -1,5 +1,7 @@
 import { getArticles, getHomePageData, getPricingPageData, getServicesPageData, getSiteSettings } from "@/lib/api";
 
+export const dynamic = "force-dynamic";
+
 function normalizeUrl(baseUrl, path = "") {
   return `${String(baseUrl || "http://localhost:3000").replace(/\/$/, "")}${path}`;
 }

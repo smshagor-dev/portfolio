@@ -12,6 +12,16 @@ const RichTextEditor = dynamic(() => import("@/app/components/admin/rich-text-ed
   ssr: false,
 });
 
+function adminFetch(input, init = {}) {
+  return fetch(input, {
+    cache: "no-store",
+    ...init,
+    headers: {
+      ...(init.headers || {}),
+    },
+  });
+}
+
 function slugify(value) {
   return String(value || "")
     .trim()
@@ -74,7 +84,7 @@ export default function ArticleEditorPage({ articleId = null }) {
     setToken(savedToken);
 
     async function loadCategories() {
-      const response = await fetch(buildPublicApiUrl("/api/admin/article-categories"), {
+      const response = await adminFetch(buildPublicApiUrl("/api/admin/article-categories"), {
         headers: {
           Authorization: `Bearer ${savedToken}`,
         },
@@ -97,7 +107,7 @@ export default function ArticleEditorPage({ articleId = null }) {
           return;
         }
 
-        const response = await fetch(buildPublicApiUrl(`/api/admin/articles/${articleId}`), {
+        const response = await adminFetch(buildPublicApiUrl(`/api/admin/articles/${articleId}`), {
           headers: {
             Authorization: `Bearer ${savedToken}`,
           },
@@ -171,7 +181,7 @@ export default function ArticleEditorPage({ articleId = null }) {
       const formData = new FormData();
       formData.append("image", file);
 
-      const response = await fetch(buildPublicApiUrl("/api/admin/upload-image"), {
+      const response = await adminFetch(buildPublicApiUrl("/api/admin/upload-image"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -235,7 +245,7 @@ export default function ArticleEditorPage({ articleId = null }) {
         isFeatured: Boolean(form.isFeatured),
       };
 
-      const response = await fetch(
+      const response = await adminFetch(
         buildPublicApiUrl(`/api/admin/articles${isEditing ? `/${articleId}` : ""}`),
         {
           method: isEditing ? "PUT" : "POST",

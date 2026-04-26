@@ -26,6 +26,14 @@ const publicDirectory = path.resolve(process.cwd(), "public");
 const uploadDirectory = path.resolve(process.cwd(), "public", "uploads");
 const contactReplyReminderTimers = new Map();
 
+function emitContentUpdated(request, scope = "content", extra = {}) {
+  request.app.get("io")?.emit("content:updated", {
+    scope,
+    updatedAt: new Date().toISOString(),
+    ...extra,
+  });
+}
+
 if (!fs.existsSync(publicDirectory)) {
   fs.mkdirSync(publicDirectory, { recursive: true });
 }
@@ -1618,10 +1626,14 @@ router.post("/article-categories", requireAdmin, async (request, response) => {
     const category = await prisma.articleCategory.create({
       data: { name, slug },
     });
+    const serializedCategory = serializeArticleCategory(category);
+    emitContentUpdated(request, "article-categories", {
+      categoryId: serializedCategory.id,
+    });
 
     return response.status(201).json({
       message: "Article category created successfully.",
-      category: serializeArticleCategory(category),
+      category: serializedCategory,
     });
   } catch (error) {
     if (error?.code === "P2002") {
@@ -1663,10 +1675,14 @@ router.put("/article-categories/:id", requireAdmin, async (request, response) =>
       where: { id: categoryId },
       data: { name, slug },
     });
+    const serializedCategory = serializeArticleCategory(category);
+    emitContentUpdated(request, "article-categories", {
+      categoryId: serializedCategory.id,
+    });
 
     return response.json({
       message: "Article category updated successfully.",
-      category: serializeArticleCategory(category),
+      category: serializedCategory,
     });
   } catch (error) {
     if (error?.code === "P2002") {
@@ -1700,6 +1716,9 @@ router.delete("/article-categories/:id", requireAdmin, async (request, response)
 
     await prisma.articleCategory.delete({
       where: { id: categoryId },
+    });
+    emitContentUpdated(request, "article-categories", {
+      categoryId,
     });
 
     return response.json({
@@ -1759,10 +1778,14 @@ router.post("/emergency-contacts", requireAdmin, async (request, response) => {
         sortOrder: Math.max(1, Number.parseInt(lastContact?.sortOrder, 10) || 0) + 1,
       },
     });
+    const serializedContact = serializeEmergencyContact(contact);
+    emitContentUpdated(request, "emergency-contacts", {
+      contactId: serializedContact.id,
+    });
 
     return response.status(201).json({
       message: "Emergency contact created successfully.",
-      contact: serializeEmergencyContact(contact),
+      contact: serializedContact,
     });
   } catch (error) {
     console.error("Failed to create emergency contact:", error.message);
@@ -1807,10 +1830,14 @@ router.put("/emergency-contacts/:contactId", requireAdmin, async (request, respo
         link,
       },
     });
+    const serializedContact = serializeEmergencyContact(contact);
+    emitContentUpdated(request, "emergency-contacts", {
+      contactId: serializedContact.id,
+    });
 
     return response.json({
       message: "Emergency contact updated successfully.",
-      contact: serializeEmergencyContact(contact),
+      contact: serializedContact,
     });
   } catch (error) {
     console.error("Failed to update emergency contact:", error.message);
@@ -1831,6 +1858,9 @@ router.delete("/emergency-contacts/:contactId", requireAdmin, async (request, re
 
     await prisma.emergencyContact.delete({
       where: { id: contactId },
+    });
+    emitContentUpdated(request, "emergency-contacts", {
+      contactId,
     });
 
     return response.json({
@@ -1937,10 +1967,15 @@ router.post("/articles", requireAdmin, async (request, response) => {
         },
       },
     });
+    const serializedArticle = serializeArticle(article);
+    emitContentUpdated(request, "articles", {
+      articleId: serializedArticle.id,
+      slug: serializedArticle.slug,
+    });
 
     return response.status(201).json({
       message: "Article created successfully.",
-      article: serializeArticle(article),
+      article: serializedArticle,
     });
   } catch (error) {
     if (error?.code === "P2002") {
@@ -2039,10 +2074,15 @@ router.put("/articles/:articleId", requireAdmin, async (request, response) => {
         },
       });
     });
+    const serializedArticle = serializeArticle(article);
+    emitContentUpdated(request, "articles", {
+      articleId: serializedArticle.id,
+      slug: serializedArticle.slug,
+    });
 
     return response.json({
       message: "Article updated successfully.",
-      article: serializeArticle(article),
+      article: serializedArticle,
     });
   } catch (error) {
     if (error?.code === "P2002") {
@@ -2076,6 +2116,9 @@ router.delete("/articles/:articleId", requireAdmin, async (request, response) =>
 
     await prisma.article.delete({
       where: { id: articleId },
+    });
+    emitContentUpdated(request, "articles", {
+      articleId,
     });
 
     return response.json({
@@ -2641,6 +2684,7 @@ router.put("/content", requireAdmin, async (request, response) => {
         }
       }
     });
+    emitContentUpdated(request, "content");
 
     return response.json({
       message: "Content updated successfully.",
