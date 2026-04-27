@@ -1,7 +1,17 @@
 const path = require("path");
 const dotenv = require("dotenv");
 
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+const backendRoot = path.resolve(__dirname, "..");
+const envCandidates = [
+  path.resolve(process.cwd(), ".env"),
+  path.resolve(process.cwd(), ".env.local"),
+  path.resolve(backendRoot, ".env"),
+  path.resolve(backendRoot, ".env.local"),
+];
+
+for (const envPath of envCandidates) {
+  dotenv.config({ path: envPath, override: false });
+}
 
 function getDbConfig() {
   return {

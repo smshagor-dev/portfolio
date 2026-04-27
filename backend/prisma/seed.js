@@ -460,6 +460,30 @@ const pricings = [
   },
 ].map((item, index) => ({ ...item, sortOrder: index + 1 }));
 
+const faqs = [
+  {
+    id: 1,
+    question: "How quickly can a new project start?",
+    answer:
+      "<p>Most projects can start within a few days after the scope, timeline, and priorities are aligned. For larger builds, I usually begin with a short planning phase so delivery stays clean and predictable.</p>",
+    status: true,
+  },
+  {
+    id: 2,
+    question: "Do you work on both frontend and backend?",
+    answer:
+      "<p>Yes. I handle full-stack delivery, including product UI, backend APIs, admin dashboards, database design, deployment support, and ongoing improvements after launch.</p>",
+    status: true,
+  },
+  {
+    id: 3,
+    question: "Can you support an existing product instead of building from scratch?",
+    answer:
+      "<p>Absolutely. I can step into existing codebases for new features, bug fixing, cleanup, performance improvements, admin workflows, and long-term maintenance support.</p>",
+    status: true,
+  },
+].map((item, index) => ({ ...item, sortOrder: index + 1 }));
+
 const testimonials = [
   {
     id: 1,
@@ -485,6 +509,33 @@ const testimonials = [
   },
 ].map((item, index) => ({ ...item, sortOrder: index + 1 }));
 
+const aiProviders = [
+  {
+    name: "openai",
+    apiKey: "",
+    baseUrl: "",
+    isActive: false,
+  },
+  {
+    name: "deepseek",
+    apiKey: "",
+    baseUrl: "",
+    isActive: false,
+  },
+  {
+    name: "gemini",
+    apiKey: "",
+    baseUrl: "",
+    isActive: false,
+  },
+];
+
+const aiSettings = {
+  id: 1,
+  activeProvider: "",
+  modelName: "",
+};
+
 async function main() {
   await prisma.adminUser.upsert({
     where: { email: adminUser.email },
@@ -497,6 +548,20 @@ async function main() {
     update: {},
     create: siteSettings,
   });
+
+  await prisma.aiSettings.upsert({
+    where: { id: aiSettings.id },
+    update: {},
+    create: aiSettings,
+  });
+
+  for (const provider of aiProviders) {
+    await prisma.aiProvider.upsert({
+      where: { name: provider.name },
+      update: {},
+      create: provider,
+    });
+  }
 
   const existingProfile = await prisma.profile.findUnique({
     where: { id: profile.id },
@@ -518,6 +583,7 @@ async function main() {
     educationsCount,
     projectsCount,
     pricingsCount,
+    faqsCount,
     testimonialsCount,
   ] = await Promise.all([
     prisma.serviceSection.count(),
@@ -529,6 +595,7 @@ async function main() {
     prisma.education.count(),
     prisma.project.count(),
     prisma.pricing.count(),
+    prisma.faq.count(),
     prisma.testimonial.count(),
   ]);
 
@@ -600,6 +667,10 @@ async function main() {
 
   if (pricingsCount === 0) {
     await prisma.pricing.createMany({ data: pricings });
+  }
+
+  if (faqsCount === 0) {
+    await prisma.faq.createMany({ data: faqs });
   }
 
   if (testimonialsCount === 0) {

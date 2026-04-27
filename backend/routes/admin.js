@@ -14,6 +14,7 @@ const {
   signAdminToken,
   verifyTwoFactorCode,
 } = require("../lib/auth");
+const { encryptText } = require("../utils/encryption");
 const {
   getDefaultSiteSettings,
   isSmtpConfigured,
@@ -166,6 +167,31 @@ const verificationFileUpload = multer({
 
 function normalizeString(value) {
   return String(value || "").trim();
+}
+
+function normalizeAiModelName(provider, modelName) {
+  const normalizedProvider = normalizeString(provider).toLowerCase();
+  const normalizedModel = normalizeString(modelName);
+
+  if (!normalizedModel) {
+    return "";
+  }
+
+  if (normalizedProvider !== "deepseek") {
+    return normalizedModel;
+  }
+
+  const loweredModel = normalizedModel.toLowerCase();
+
+  if (["deepseek-v4-pro", "deepseek-v4-flash"].includes(loweredModel)) {
+    return loweredModel;
+  }
+
+  if (["deepseek-v4", "deepseek", "deepseek-chat"].includes(loweredModel)) {
+    return "deepseek-v4-pro";
+  }
+
+  return normalizedModel;
 }
 
 function buildContactChatHash(ticketId, token) {
@@ -604,6 +630,25 @@ function normalizePricings(items) {
   });
 }
 
+function normalizeFaqs(items) {
+  return normalizeCollection(items, (item, index) => {
+    const question = normalizeString(item?.question);
+    const answer = String(item?.answer || "").trim();
+
+    if (!question || !answer) {
+      return null;
+    }
+
+    return {
+      id: index + 1,
+      question,
+      answer,
+      status: typeof item?.status === "boolean" ? item.status : true,
+      sortOrder: index + 1,
+    };
+  });
+}
+
 function normalizeTestimonials(items) {
   return normalizeCollection(items, (item, index) => {
     const name = normalizeString(item?.name);
@@ -735,10 +780,32 @@ function serializeAdminUser(admin) {
   };
 }
 
+function serializeAiProvider(provider) {
+  return {
+    id: provider.id,
+    name: provider.name,
+    baseUrl: provider.baseUrl || "",
+    isActive: Boolean(provider.isActive),
+    createdAt: provider.createdAt,
+    hasApiKey: Boolean(normalizeString(provider.apiKey)),
+  };
+}
+
+function serializeAiTrainingEntry(entry) {
+  return {
+    id: entry.id,
+    question: entry.question,
+    answer: entry.answer,
+    isActive: Boolean(entry.isActive),
+    createdAt: entry.createdAt,
+  };
+}
+
 function buildDashboardSummary(data) {
   const services = data.services || [];
   const projects = data.projects || [];
   const pricings = data.pricings || [];
+  const faqs = data.faqs || [];
   const testimonials = data.testimonials || [];
   const skills = data.skills || [];
   const experiences = data.experiences || [];
@@ -756,6 +823,7 @@ function buildDashboardSummary(data) {
   const totalProjectImpressions = projects.reduce((sum, item) => sum + (Number(item?.impressionCount) || 0), 0);
   const activePricings = countFilled(pricings, (item) => item?.status);
   const popularPricings = countFilled(pricings, (item) => item?.isPopular);
+  const activeFaqs = countFilled(faqs, (item) => item?.status);
   const activeTestimonials = countFilled(testimonials, (item) => item?.status);
   const totalSkills = countFilled(skills, (item) => normalizeString(item?.name));
   const averageSkillPercentage = totalSkills
@@ -777,6 +845,7 @@ function buildDashboardSummary(data) {
     services.length +
     projects.length +
     pricings.length +
+    faqs.length +
     testimonials.length +
     skills.length +
     experiences.length +
@@ -852,6 +921,11 @@ function buildDashboardSummary(data) {
         detail: siteSettings.smtpFromEmail || "SMTP sender email is not saved yet",
       },
       {
+        label: "FAQs",
+        value: `${activeFaqs}/${faqs.length || 0}`,
+        detail: `${countFilled(faqs, (item) => stripHtml(item?.answer))} answers are ready for visitors`,
+      },
+      {
         label: "Testimonials",
         value: `${activeTestimonials}/${testimonials.length || 0}`,
         detail: `${countFilled(testimonials, (item) => normalizeString(item?.image))} testimonials include a client image`,
@@ -882,6 +956,12 @@ function buildDashboardSummary(data) {
         accentClass: "from-[#f59e0b] to-[#f97316]",
       },
       {
+        label: "FAQs",
+        value: activeFaqs,
+        total: faqs.length,
+        accentClass: "from-[#14b8a6] to-[#06b6d4]",
+      },
+      {
         label: "Testimonials",
         value: activeTestimonials,
         total: testimonials.length,
@@ -894,6 +974,7 @@ function buildDashboardSummary(data) {
       { label: "Average skill strength", value: `${averageSkillPercentage}%` },
       { label: "Social links", value: socialLinksCount },
       { label: "Popular pricing plans", value: popularPricings },
+      { label: "Published FAQs", value: activeFaqs },
       { label: "Stats counters", value: statsCounters.length },
     ],
     recentMessages: messages.slice(0, 4),
@@ -902,6 +983,22 @@ function buildDashboardSummary(data) {
 
 function hasPricingModel() {
   return Boolean(prisma?.pricing && typeof prisma.pricing.findMany === "function");
+}
+
+function hasAiProviderModel() {
+  return Boolean(prisma?.aiProvider && typeof prisma.aiProvider.findMany === "function");
+}
+
+function hasAiSettingsModel() {
+  return Boolean(prisma?.aiSettings && typeof prisma.aiSettings.findUnique === "function");
+}
+
+function hasAiTrainingEntryModel() {
+  return Boolean(prisma?.aiTrainingEntry && typeof prisma.aiTrainingEntry.findMany === "function");
+}
+
+function hasFaqModel() {
+  return Boolean(prisma?.faq && typeof prisma.faq.findMany === "function");
 }
 
 function hasTestimonialModel() {
@@ -965,8 +1062,24 @@ async function getTestimonialsSafely() {
   }
 }
 
+async function getFaqsSafely() {
+  if (!hasFaqModel()) {
+    return [];
+  }
+
+  try {
+    return await prisma.faq.findMany({ orderBy: { sortOrder: "asc" } });
+  } catch (error) {
+    if (isMissingTableError(error, "Faq")) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
 async function getDashboardData() {
-  const [profile, siteSettings, serviceSection, services, statsCounters, achievements, skills, experiences, educations, projects, pricings, testimonials, messages] = await Promise.all([
+  const [profile, siteSettings, serviceSection, services, statsCounters, achievements, skills, experiences, educations, projects, pricings, faqs, testimonials, messages] = await Promise.all([
     prisma.profile.findUnique({ where: { id: 1 } }),
     prisma.siteSettings.findUnique({ where: { id: 1 } }),
     prisma.serviceSection.findUnique({ where: { id: 1 } }),
@@ -992,6 +1105,7 @@ async function getDashboardData() {
     hasPricingModel()
       ? prisma.pricing.findMany({ orderBy: { sortOrder: "asc" } })
       : Promise.resolve([]),
+    getFaqsSafely(),
     getTestimonialsSafely(),
     prisma.contactMessage.findMany({
       orderBy: { createdAt: "desc" },
@@ -1021,6 +1135,7 @@ async function getDashboardData() {
     educations,
     projects,
     pricings,
+    faqs,
     testimonials,
     messages: messages.map(serializeContactMessageSummary),
   };
@@ -1590,6 +1705,241 @@ router.get("/dashboard", requireAdmin, async (_request, response) => {
   } catch (error) {
     console.error("Failed to load dashboard:", error.message);
     return response.status(500).json({ message: "Failed to load dashboard data." });
+  }
+});
+
+router.get("/ai/providers", requireAdmin, async (_request, response) => {
+  try {
+    if (!hasAiProviderModel()) {
+      return response.status(503).json({ message: "AI provider model is not available yet." });
+    }
+
+    const providers = await prisma.aiProvider.findMany({
+      orderBy: { createdAt: "asc" },
+    });
+
+    return response.json({
+      providers: providers.map(serializeAiProvider),
+    });
+  } catch (error) {
+    console.error("Failed to load AI providers:", error.message);
+    return response.status(500).json({ message: "Failed to load AI providers." });
+  }
+});
+
+router.put("/ai/providers/:name", requireAdmin, async (request, response) => {
+  try {
+    if (!hasAiProviderModel()) {
+      return response.status(503).json({ message: "AI provider model is not available yet." });
+    }
+
+    const name = normalizeString(request.params.name).toLowerCase();
+    const apiKey = normalizeString(request.body?.apiKey);
+    const baseUrl = normalizeString(request.body?.baseUrl);
+    const isActive =
+      typeof request.body?.isActive === "boolean" ? request.body.isActive : undefined;
+
+    if (!["openai", "deepseek", "gemini"].includes(name)) {
+      return response.status(400).json({ message: "Unsupported AI provider name." });
+    }
+
+    const existingProvider = await prisma.aiProvider.findUnique({
+      where: { name },
+    });
+    let encryptedApiKey;
+
+    if (apiKey) {
+      try {
+        encryptedApiKey = encryptText(apiKey);
+      } catch (error) {
+        console.error("Failed to encrypt AI provider API key:", error.message);
+        return response.status(500).json({
+          message: error.message || "AI provider encryption is not configured correctly.",
+        });
+      }
+    }
+
+    const provider = await prisma.aiProvider.upsert({
+      where: { name },
+      update: {
+        baseUrl,
+        ...(typeof isActive === "boolean" ? { isActive } : {}),
+        ...(encryptedApiKey ? { apiKey: encryptedApiKey } : {}),
+      },
+      create: {
+        name,
+        baseUrl,
+        isActive: Boolean(isActive),
+        apiKey: encryptedApiKey || existingProvider?.apiKey || "",
+      },
+    });
+
+    return response.json({
+      message: "AI provider updated successfully.",
+      provider: serializeAiProvider(provider),
+    });
+  } catch (error) {
+    console.error("Failed to update AI provider:", error.message);
+    return response.status(500).json({ message: "Failed to update AI provider." });
+  }
+});
+
+router.get("/ai/settings", requireAdmin, async (_request, response) => {
+  try {
+    if (!hasAiSettingsModel()) {
+      return response.status(503).json({ message: "AI settings model is not available yet." });
+    }
+
+    const settings = await prisma.aiSettings.findUnique({
+      where: { id: 1 },
+    });
+
+    return response.json({
+      settings: settings || {
+        id: 1,
+        activeProvider: "",
+        modelName: "",
+      },
+    });
+  } catch (error) {
+    console.error("Failed to load AI settings:", error.message);
+    return response.status(500).json({ message: "Failed to load AI settings." });
+  }
+});
+
+router.put("/ai/settings", requireAdmin, async (request, response) => {
+  try {
+    if (!hasAiSettingsModel() || !hasAiProviderModel()) {
+      return response.status(503).json({ message: "AI settings are not available yet." });
+    }
+
+    const activeProvider = normalizeString(request.body?.activeProvider).toLowerCase();
+    const modelName = normalizeAiModelName(
+      request.body?.activeProvider,
+      request.body?.modelName,
+    );
+
+    if (!["openai", "deepseek", "gemini"].includes(activeProvider)) {
+      return response.status(400).json({ message: "A valid active provider is required." });
+    }
+
+    if (!modelName) {
+      return response.status(400).json({ message: "Model name is required." });
+    }
+
+    const provider = await prisma.aiProvider.findUnique({
+      where: { name: activeProvider },
+    });
+
+    if (!provider) {
+      return response.status(404).json({ message: "Selected AI provider was not found." });
+    }
+
+    const settings = await prisma.$transaction(async (tx) => {
+      await tx.aiProvider.update({
+        where: { name: activeProvider },
+        data: {
+          isActive: true,
+        },
+      });
+
+      return tx.aiSettings.upsert({
+        where: { id: 1 },
+        update: {
+          activeProvider,
+          modelName,
+        },
+        create: {
+          id: 1,
+          activeProvider,
+          modelName,
+        },
+      });
+    });
+
+    return response.json({
+      message: "AI settings updated successfully.",
+      settings,
+    });
+  } catch (error) {
+    console.error("Failed to update AI settings:", error.message);
+    return response.status(500).json({ message: "Failed to update AI settings." });
+  }
+});
+
+router.get("/ai/training", requireAdmin, async (_request, response) => {
+  try {
+    if (!hasAiTrainingEntryModel()) {
+      return response.status(503).json({ message: "AI training model is not available yet." });
+    }
+
+    const entries = await prisma.aiTrainingEntry.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
+    return response.json({
+      entries: entries.map(serializeAiTrainingEntry),
+    });
+  } catch (error) {
+    console.error("Failed to load AI training entries:", error.message);
+    return response.status(500).json({ message: "Failed to load AI training entries." });
+  }
+});
+
+router.post("/ai/training", requireAdmin, async (request, response) => {
+  try {
+    if (!hasAiTrainingEntryModel()) {
+      return response.status(503).json({ message: "AI training model is not available yet." });
+    }
+
+    const question = normalizeString(request.body?.question);
+    const answer = String(request.body?.answer || "").trim();
+    const isActive =
+      typeof request.body?.isActive === "boolean" ? request.body.isActive : true;
+
+    if (!question || !answer) {
+      return response.status(400).json({ message: "Training question and answer are required." });
+    }
+
+    const entry = await prisma.aiTrainingEntry.create({
+      data: {
+        question,
+        answer,
+        isActive,
+      },
+    });
+
+    return response.status(201).json({
+      message: "AI training entry saved successfully.",
+      entry: serializeAiTrainingEntry(entry),
+    });
+  } catch (error) {
+    console.error("Failed to save AI training entry:", error.message);
+    return response.status(500).json({ message: "Failed to save AI training entry." });
+  }
+});
+
+router.delete("/ai/training/:id", requireAdmin, async (request, response) => {
+  try {
+    if (!hasAiTrainingEntryModel()) {
+      return response.status(503).json({ message: "AI training model is not available yet." });
+    }
+
+    const id = Number.parseInt(request.params.id, 10);
+    if (!id) {
+      return response.status(400).json({ message: "A valid training entry id is required." });
+    }
+
+    await prisma.aiTrainingEntry.delete({
+      where: { id },
+    });
+
+    return response.json({
+      message: "AI training entry deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Failed to delete AI training entry:", error.message);
+    return response.status(500).json({ message: "Failed to delete AI training entry." });
   }
 });
 
@@ -2429,6 +2779,7 @@ router.put("/content", requireAdmin, async (request, response) => {
     const hasServiceSection = Object.prototype.hasOwnProperty.call(request.body || {}, "serviceSection");
     const hasServices = Object.prototype.hasOwnProperty.call(request.body || {}, "services");
     const hasPricings = Object.prototype.hasOwnProperty.call(request.body || {}, "pricings");
+    const hasFaqs = Object.prototype.hasOwnProperty.call(request.body || {}, "faqs");
     const hasTestimonials = Object.prototype.hasOwnProperty.call(request.body || {}, "testimonials");
     const hasSiteSettings = Object.prototype.hasOwnProperty.call(request.body || {}, "siteSettings");
     const skills = request.body?.skills || [];
@@ -2439,6 +2790,7 @@ router.put("/content", requireAdmin, async (request, response) => {
     const achievements = request.body?.achievements || [];
     const services = request.body?.services || [];
     const pricings = request.body?.pricings || [];
+    const faqs = request.body?.faqs || [];
     const testimonials = request.body?.testimonials || [];
     const existingProfile = await prisma.profile.findUnique({
       where: { id: 1 },
@@ -2578,6 +2930,7 @@ router.put("/content", requireAdmin, async (request, response) => {
     const normalizedServiceSection = normalizeServiceSection(serviceSection, existingServiceSection);
     const normalizedServices = normalizeServices(services);
     const normalizedPricings = normalizePricings(pricings);
+    const normalizedFaqs = normalizeFaqs(faqs);
     const normalizedTestimonials = normalizeTestimonials(testimonials);
 
     if (hasPricings && !hasPricingModel()) {
@@ -2589,6 +2942,12 @@ router.put("/content", requireAdmin, async (request, response) => {
     if (hasTestimonials && !hasTestimonialModel()) {
       return response.status(503).json({
         message: "Testimonial model is not available yet. Please restart the backend so Prisma reloads the new schema.",
+      });
+    }
+
+    if (hasFaqs && !hasFaqModel()) {
+      return response.status(503).json({
+        message: "FAQ model is not available yet. Please restart the backend so Prisma reloads the new schema.",
       });
     }
 
@@ -2708,6 +3067,13 @@ router.put("/content", requireAdmin, async (request, response) => {
         await tx.pricing.deleteMany();
         if (normalizedPricings.length) {
           await tx.pricing.createMany({ data: normalizedPricings });
+        }
+      }
+
+      if (hasFaqs) {
+        await tx.faq.deleteMany();
+        if (normalizedFaqs.length) {
+          await tx.faq.createMany({ data: normalizedFaqs });
         }
       }
 

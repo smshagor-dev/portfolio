@@ -4,6 +4,7 @@ import Blog from "./components/homepage/blog";
 import ContactSection from "./components/homepage/contact";
 import Education from "./components/homepage/education";
 import Experience from "./components/homepage/experience";
+import FaqSection from "./components/homepage/faq";
 import HomeClientSections from "./components/homepage/home-client-sections";
 import Skills from "./components/homepage/skills";
 import TestimonialsSection from "./components/homepage/testimonials";
@@ -12,7 +13,7 @@ import { getHomePageData } from "@/lib/api";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const { profile, siteSettings, serviceSection, services, statsCounters, achievements, experiences, skills, projects, educations, articles, pricings, testimonials, emergencyContacts } =
+  const { profile, siteSettings, serviceSection, services, statsCounters, achievements, experiences, skills, projects, educations, articles, pricings, faqs, testimonials, emergencyContacts } =
     await getHomePageData();
   const betweenSectionsAdCode = siteSettings?.adsenseBetweenSectionsCode;
 
@@ -40,6 +41,8 @@ export default async function Home() {
       <Blog articles={articles} />
       <AdCodeSlot code={betweenSectionsAdCode} className="mt-8" />
       <ContactSection profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />
+      <AdCodeSlot code={betweenSectionsAdCode} className="mt-8" />
+      <FaqSection faqs={faqs} />
     </div>
   )
 };

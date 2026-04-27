@@ -12,6 +12,7 @@ const {
   normalizeSiteSettings,
   serializeSiteSettings,
 } = require("../lib/site-settings");
+const { generatePortfolioAssistantReply } = require("../services/contact-assistant");
 
 const router = express.Router();
 const uploadDirectory = path.resolve(process.cwd(), "public", "uploads");
@@ -124,6 +125,14 @@ function serializePricing(pricing) {
   return {
     ...pricing,
     features: Array.isArray(pricing?.features) ? pricing.features : [],
+  };
+}
+
+function serializeFaq(faq) {
+  return {
+    ...faq,
+    answer: faq?.answer || "",
+    status: typeof faq?.status === "boolean" ? faq.status : true,
   };
 }
 
@@ -412,6 +421,35 @@ function serializeContactTicket(contactMessage) {
   };
 }
 
+async function createAssistantChatReply(contactMessageId, visitorMessage) {
+  const normalizedMessage = normalizeString(visitorMessage);
+
+  if (!contactMessageId || !normalizedMessage) {
+    return null;
+  }
+
+  const reply = await generatePortfolioAssistantReply(normalizedMessage).catch((error) => {
+    console.error("Failed to generate assistant chat reply:", error.message);
+    return "";
+  });
+
+  const normalizedReply = normalizeString(reply);
+  if (!normalizedReply) {
+    return null;
+  }
+
+  return prisma.contactChatMessage.create({
+    data: {
+      contactMessageId,
+      senderType: "assistant",
+      senderName: "Shagor Assistant",
+      message: normalizedReply,
+      photo: "",
+      file: "",
+    },
+  });
+}
+
 async function getContactTicketById(id) {
   return prisma.contactMessage.findUnique({
     where: { id },
@@ -425,6 +463,10 @@ async function getContactTicketById(id) {
 
 function hasPricingModel() {
   return Boolean(prisma?.pricing && typeof prisma.pricing.findMany === "function");
+}
+
+function hasFaqModel() {
+  return Boolean(prisma?.faq && typeof prisma.faq.findMany === "function");
 }
 
 function hasTestimonialModel() {
@@ -745,9 +787,36 @@ async function getBlogs(devUsername) {
   }
 }
 
+async function getFaqsSafely() {
+  if (!hasFaqModel()) {
+    return [];
+  }
+
+  try {
+    const publishedFaqs = await prisma.faq.findMany({
+      where: { status: true },
+      orderBy: { sortOrder: "asc" },
+    });
+
+    if (publishedFaqs.length > 0) {
+      return publishedFaqs;
+    }
+
+    return await prisma.faq.findMany({
+      orderBy: { sortOrder: "asc" },
+    });
+  } catch (error) {
+    if (isMissingTableError(error, "Faq")) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
 router.get("/home", async (_request, response) => {
   try {
-    const [profile, siteSettings, serviceSection, services, statsCounters, achievements, skills, experiences, projects, educations, pricings, testimonials, articles, emergencyContacts] = await Promise.all([
+    const [profile, siteSettings, serviceSection, services, statsCounters, achievements, skills, experiences, projects, educations, pricings, faqs, testimonials, articles, emergencyContacts] = await Promise.all([
       prisma.profile.findUnique({ where: { id: 1 } }),
       getSiteSettingsRecord(),
       prisma.serviceSection.findUnique({ where: { id: 1 } }),
@@ -777,6 +846,7 @@ router.get("/home", async (_request, response) => {
             orderBy: [{ isPopular: "desc" }, { sortOrder: "asc" }],
           })
         : Promise.resolve([]),
+      getFaqsSafely(),
       getTestimonialsSafely(),
         hasArticleModel()
           ? prisma.article.findMany({
@@ -825,6 +895,7 @@ router.get("/home", async (_request, response) => {
       projects: projects.map(serializeProject),
       educations,
       pricings: pricings.map(serializePricing),
+      faqs: faqs.map(serializeFaq),
       testimonials: testimonials.map(serializeTestimonial),
       blogs,
       articles: (await attachArticleMetrics(articles)).map(serializeArticle),
@@ -1921,13 +1992,39 @@ router.post(
       console.error("Failed to send contact email:", mailError.message);
     }
 
+    request.app.get("io")?.to(`contact:ticket:${savedMessage.id}`).emit("contact:assistant_typing", {
+      ticketId: savedMessage.id,
+      isTyping: true,
+    });
+
+    const assistantReply = await createAssistantChatReply(savedMessage.id, String(message).trim());
+    const ticketWithAssistantReply = assistantReply
+      ? {
+          ...savedMessage,
+          chatMessages: [...(savedMessage.chatMessages || []), assistantReply],
+        }
+      : savedMessage;
+
     request.app.get("io")?.emit("contact:ticket_created", {
-      ticket: serializeContactTicket(savedMessage),
+      ticket: serializeContactTicket(ticketWithAssistantReply),
+    });
+
+    if (assistantReply) {
+      request.app.get("io")?.to(`contact:ticket:${savedMessage.id}`).emit("contact:message_created", {
+        ticketId: savedMessage.id,
+        message: serializeContactChatMessage(assistantReply),
+      });
+    }
+
+    request.app.get("io")?.to(`contact:ticket:${savedMessage.id}`).emit("contact:assistant_typing", {
+      ticketId: savedMessage.id,
+      isTyping: false,
     });
 
     return response.status(201).json({
       message: "Message sent successfully.",
-      data: serializeContactTicket(savedMessage),
+      data: serializeContactTicket(ticketWithAssistantReply),
+      assistantReply: assistantReply ? serializeContactChatMessage(assistantReply) : null,
       ticket: {
         id: savedMessage.id,
         token: ticketToken,
@@ -2022,9 +2119,29 @@ router.post(
       message: serializeContactChatMessage(savedChatMessage),
     });
 
+    request.app.get("io")?.to(`contact:ticket:${ticket.id}`).emit("contact:assistant_typing", {
+      ticketId: ticket.id,
+      isTyping: true,
+    });
+
+    const assistantReply = await createAssistantChatReply(ticket.id, message);
+
+    if (assistantReply) {
+      request.app.get("io")?.to(`contact:ticket:${ticket.id}`).emit("contact:message_created", {
+        ticketId: ticket.id,
+        message: serializeContactChatMessage(assistantReply),
+      });
+    }
+
+    request.app.get("io")?.to(`contact:ticket:${ticket.id}`).emit("contact:assistant_typing", {
+      ticketId: ticket.id,
+      isTyping: false,
+    });
+
     return response.status(201).json({
       message: "Reply sent successfully.",
       data: serializeContactChatMessage(savedChatMessage),
+      assistantReply: assistantReply ? serializeContactChatMessage(assistantReply) : null,
     });
   } catch (error) {
     console.error("Failed to save contact ticket reply:", error.message);

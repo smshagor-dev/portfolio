@@ -199,6 +199,16 @@ model Pricing {
   updatedAt   DateTime @updatedAt
 }
 
+model Faq {
+  id        Int      @id
+  question  String
+  answer    String   @db.LongText
+  status    Boolean  @default(true)
+  sortOrder Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Testimonial {
   id        Int      @id @default(autoincrement())
   name      String
@@ -333,6 +343,36 @@ model AdminUser {
   twoFactorEnabled Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model AiProvider {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  apiKey    String   @db.LongText @map("api_key")
+  baseUrl   String   @default("") @map("base_url")
+  isActive  Boolean  @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("ai_providers")
+}
+
+model AiSettings {
+  id             Int      @id
+  activeProvider String   @map("active_provider")
+  modelName      String   @map("model_name")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("ai_settings")
+}
+
+model AiTrainingEntry {
+  id        Int      @id @default(autoincrement())
+  question  String   @db.Text
+  answer    String   @db.LongText
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("ai_training_entries")
 }
 
 model SiteSettings {

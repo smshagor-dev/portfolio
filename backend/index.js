@@ -8,6 +8,7 @@ const { Server } = require("socket.io");
 const prisma = require("./lib/prisma");
 const { validateAuthConfig, verifyAdminToken } = require("./lib/auth");
 const adminRoutes = require("./routes/admin");
+const assistantRoutes = require("./routes/assistant");
 const siteRoutes = require("./routes/site");
 
 const app = express();
@@ -64,6 +65,10 @@ function isHttpsForwarded(request) {
   );
 }
 
+function isHttpsUrl(url) {
+  return String(url || "").trim().toLowerCase().startsWith("https://");
+}
+
 function isPhpRequestPath(pathname) {
   return /\.php(?:\/|$)/i.test(String(pathname || "").trim());
 }
@@ -96,7 +101,7 @@ if (forceHttps) {
       return next();
     }
 
-    if (canonicalBackendOrigin) {
+    if (canonicalBackendOrigin && isHttpsUrl(canonicalBackendOrigin)) {
       return response.redirect(308, `${canonicalBackendOrigin}${request.originalUrl}`);
     }
 
@@ -368,6 +373,7 @@ app.get("/health", (_request, response) => {
 
 app.use("/api/site", siteRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api", assistantRoutes);
 
 validateAuthConfig();
 

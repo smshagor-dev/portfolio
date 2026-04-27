@@ -47,6 +47,14 @@ function formatTicketDate(value) {
   return new Date(value).toLocaleString();
 }
 
+function shouldSubmitOnEnter() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+
+  return window.matchMedia("(pointer: fine) and (min-width: 768px)").matches;
+}
+
 export default function LiveContactTicket({
   ticketSession,
   isOpen,
@@ -55,6 +63,7 @@ export default function LiveContactTicket({
   websiteTitle = "Portfolio Website",
   viewMode = "dock",
 }) {
+  const [activeTicketSession, setActiveTicketSession] = useState(ticketSession || null);
   const [ticket, setTicket] = useState(null);
   const [ticketHistory, setTicketHistory] = useState([]);
   const [draft, setDraft] = useState("");
@@ -62,6 +71,8 @@ export default function LiveContactTicket({
   const [isCreatingTicket, setIsCreatingTicket] = useState(false);
   const [isCreatingNewTicket, setIsCreatingNewTicket] = useState(false);
   const [isHomeView, setIsHomeView] = useState(false);
+  const [isAssistantTyping, setIsAssistantTyping] = useState(false);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [attachments, setAttachments] = useState({ photo: null, file: null });
   const [newTicketInput, setNewTicketInput] = useState({
@@ -98,6 +109,7 @@ export default function LiveContactTicket({
     }
 
     window.localStorage.setItem("portfolio_contact_ticket", JSON.stringify(nextTicket));
+    setActiveTicketSession(nextTicket);
 
     try {
       const safeTickets = loadTicketHistory();
@@ -138,8 +150,21 @@ export default function LiveContactTicket({
   }
 
   useEffect(() => {
-    if (!ticketSession?.id || !ticketSession?.token) {
+    if (ticketSession?.id && ticketSession?.token) {
+      setActiveTicketSession(ticketSession);
+      return;
+    }
+
+    if (!ticketSession) {
+      setActiveTicketSession(null);
+    }
+  }, [ticketSession]);
+
+  useEffect(() => {
+    if (!activeTicketSession?.id || !activeTicketSession?.token) {
       setTicket(null);
+      setIsAssistantTyping(false);
+      setIsSocketConnected(false);
       return undefined;
     }
 
@@ -148,10 +173,22 @@ export default function LiveContactTicket({
       transports: ["websocket", "polling"],
     });
 
+    socket.on("connect", () => {
+      setIsSocketConnected(true);
+      socket.emit("contact:join", {
+        messageId: activeTicketSession.id,
+        token: activeTicketSession.token,
+      });
+    });
+
+    socket.on("disconnect", () => {
+      setIsSocketConnected(false);
+    });
+
     async function loadTicket() {
       try {
         const response = await fetch(
-          buildPublicApiUrl(`/api/site/contact-ticket/${ticketSession.id}?token=${encodeURIComponent(ticketSession.token)}`),
+          buildPublicApiUrl(`/api/site/contact-ticket/${activeTicketSession.id}?token=${encodeURIComponent(activeTicketSession.token)}`),
           { cache: "no-store" },
         );
         const data = await response.json();
@@ -164,15 +201,15 @@ export default function LiveContactTicket({
           setTicket(data.ticket || null);
           const updatedHistory = [
             {
-              id: data.ticket?.id || ticketSession.id,
-              token: ticketSession.token,
+              id: data.ticket?.id || activeTicketSession.id,
+              token: activeTicketSession.token,
               subject: data.ticket?.subject || "Conversation",
               createdAt: data.ticket?.createdAt || new Date().toISOString(),
-              name: data.ticket?.name || ticketSession.name || "",
+              name: data.ticket?.name || activeTicketSession.name || "",
               email: data.ticket?.email || "",
               status: data.ticket?.status || "not_solved",
             },
-            ...loadTicketHistory().filter((item) => item?.id !== ticketSession.id),
+            ...loadTicketHistory().filter((item) => item?.id !== activeTicketSession.id),
           ];
           setTicketHistory(updatedHistory);
           if (typeof window !== "undefined") {
@@ -185,17 +222,16 @@ export default function LiveContactTicket({
     }
 
     loadTicket();
-    socket.emit("contact:join", {
-      messageId: ticketSession.id,
-      token: ticketSession.token,
-    });
 
     socket.on("contact:message_created", (payload) => {
-      if (Number(payload?.ticketId) !== Number(ticketSession.id) || !payload?.message) {
+      if (Number(payload?.ticketId) !== Number(activeTicketSession.id) || !payload?.message) {
         return;
       }
 
       const isVisitorMessage = payload.message.senderType === "visitor";
+      if (!isVisitorMessage) {
+        setIsAssistantTyping(false);
+      }
 
       if (!isOpen && !isVisitorMessage) {
         setUnreadCount((current) => current + 1);
@@ -205,8 +241,8 @@ export default function LiveContactTicket({
         showChatMessageNotification({
           audience: "visitor",
           senderName: payload.message.senderName,
-          ticketId: ticketSession.id,
-          ticketToken: ticketSession.token,
+          ticketId: activeTicketSession.id,
+          ticketToken: activeTicketSession.token,
           message: payload.message.message,
           websiteTitle,
           tag: `visitor-reply-${payload.message.id}`,
@@ -230,12 +266,20 @@ export default function LiveContactTicket({
       });
     });
 
+    socket.on("contact:assistant_typing", (payload) => {
+      if (Number(payload?.ticketId) !== Number(activeTicketSession.id)) {
+        return;
+      }
+
+      setIsAssistantTyping(Boolean(payload?.isTyping));
+    });
+
     return () => {
       isMounted = false;
-      socket.emit("contact:leave", { messageId: ticketSession.id });
+      socket.emit("contact:leave", { messageId: activeTicketSession.id });
       socket.disconnect();
     };
-  }, [isOpen, ticketSession, websiteTitle]);
+  }, [activeTicketSession, isOpen, websiteTitle]);
 
   useEffect(() => {
     if (!isOpen || !listRef.current) {
@@ -248,15 +292,15 @@ export default function LiveContactTicket({
 
   useEffect(() => {
     setUnreadCount(0);
-  }, [ticketSession?.id]);
+  }, [activeTicketSession?.id]);
 
   useEffect(() => {
     setTicketHistory(loadTicketHistory());
-  }, [ticketSession?.id]);
+  }, [activeTicketSession?.id]);
 
   useEffect(() => {
     setIsCreatingTicket(false);
-    setIsCreatingNewTicket(!ticketSession?.id || !ticketSession?.token);
+    setIsCreatingNewTicket(!activeTicketSession?.id || !activeTicketSession?.token);
     setIsHomeView(false);
     setNewTicketInput({
       name: ticket?.name || "",
@@ -274,7 +318,7 @@ export default function LiveContactTicket({
     if (newTicketFileInputRef.current) {
       newTicketFileInputRef.current.value = "";
     }
-  }, [ticket?.email, ticket?.name, ticketSession?.id, ticketSession?.token]);
+  }, [activeTicketSession?.id, activeTicketSession?.token, ticket?.email, ticket?.name]);
 
   const chatMessages = useMemo(() => ticket?.chatMessages || [], [ticket?.chatMessages]);
   const isClosedTicket = ticket?.status === "solved";
@@ -295,12 +339,13 @@ export default function LiveContactTicket({
       return;
     }
 
-    if ((!draft.trim() && !attachments.photo && !attachments.file) || !ticketSession?.id || !ticketSession?.token) {
+    if ((!draft.trim() && !attachments.photo && !attachments.file) || !activeTicketSession?.id || !activeTicketSession?.token) {
       return;
     }
 
     try {
       setIsSending(true);
+      setIsAssistantTyping(true);
       const formData = new FormData();
       formData.append("message", draft.trim());
 
@@ -313,7 +358,7 @@ export default function LiveContactTicket({
       }
 
       const response = await fetch(
-        buildPublicApiUrl(`/api/site/contact-ticket/${ticketSession.id}/messages?token=${encodeURIComponent(ticketSession.token)}`),
+        buildPublicApiUrl(`/api/site/contact-ticket/${activeTicketSession.id}/messages?token=${encodeURIComponent(activeTicketSession.token)}`),
         {
           method: "POST",
           body: formData,
@@ -341,17 +386,24 @@ export default function LiveContactTicket({
           return current;
         }
 
-        const exists = (current.chatMessages || []).some((item) => item.id === data.data.id);
-        if (exists) {
-          return current;
+        const nextMessages = [...(current.chatMessages || [])];
+        const hasVisitorMessage = nextMessages.some((item) => item.id === data.data.id);
+        if (!hasVisitorMessage) {
+          nextMessages.push(data.data);
+        }
+
+        if (data.assistantReply && !nextMessages.some((item) => item.id === data.assistantReply.id)) {
+          nextMessages.push(data.assistantReply);
         }
 
         return {
           ...current,
-          chatMessages: [...(current.chatMessages || []), data.data],
+          chatMessages: nextMessages,
         };
       });
+      setIsAssistantTyping(false);
     } catch (error) {
+      setIsAssistantTyping(false);
       toast.error(error.message || "Failed to send reply.");
     } finally {
       setIsSending(false);
@@ -373,6 +425,7 @@ export default function LiveContactTicket({
 
     try {
       setIsCreatingTicket(true);
+      setIsAssistantTyping(true);
       const formData = new FormData();
       formData.append("name", newTicketInput.name.trim());
       formData.append("email", newTicketInput.email.trim());
@@ -407,7 +460,9 @@ export default function LiveContactTicket({
       };
 
       syncCreatedTicket(nextTicket, data?.data);
+      setActiveTicketSession(nextTicket);
       setTicket(data?.data || null);
+      setIsAssistantTyping(false);
       setDraft("");
       setUnreadCount(0);
       setIsCreatingNewTicket(false);
@@ -431,13 +486,27 @@ export default function LiveContactTicket({
 
       toast.success("New chat started successfully.");
     } catch (error) {
+      setIsAssistantTyping(false);
       toast.error(error.message || "Failed to start chat.");
     } finally {
       setIsCreatingTicket(false);
     }
   }
 
-  const hasActiveTicket = Boolean(ticketSession?.id && ticketSession?.token);
+  function handleComposerKeyDown(event, submitCallback) {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent?.isComposing) {
+      return;
+    }
+
+    if (!shouldSubmitOnEnter()) {
+      return;
+    }
+
+    event.preventDefault();
+    submitCallback();
+  }
+
+  const hasActiveTicket = Boolean(activeTicketSession?.id && activeTicketSession?.token);
   const showNewTicketView = !hasActiveTicket || isCreatingNewTicket;
   const panelTitle = showNewTicketView ? "New Chat" : ticket?.subject || "Conversation";
 
@@ -489,9 +558,16 @@ export default function LiveContactTicket({
             <div className="shrink-0 border-b border-[#86e5ff]/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] px-5 py-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Live Chat</p>
+                  <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Shagor Assistant</p>
                   <div className="mt-2 flex items-center gap-2">
                     <h3 className="truncate text-lg font-semibold text-white">{panelTitle}</h3>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                      isSocketConnected
+                        ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                        : "border border-white/10 bg-white/[0.05] text-[#9fdcff]"
+                    }`}>
+                      {isSocketConnected ? "Online" : "Connecting"}
+                    </span>
                     {hasActiveTicket && isClosedTicket ? (
                       <span className="inline-flex items-center rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-200">
                         Closed
@@ -599,7 +675,7 @@ export default function LiveContactTicket({
                   </div>
                 ) : (
                   ticketHistory.map((item) => {
-                    const isSelected = Number(item.id) === Number(ticketSession?.id);
+                    const isSelected = Number(item.id) === Number(activeTicketSession?.id);
                     const isClosed = item.status === "solved";
 
                     return (
@@ -615,6 +691,7 @@ export default function LiveContactTicket({
                               },
                             }),
                           );
+                          setActiveTicketSession(item);
                           setIsHomeView(false);
                         }}
                         className={`w-full rounded-[1.2rem] border p-4 text-left transition ${
@@ -653,8 +730,6 @@ export default function LiveContactTicket({
           ) : showNewTicketView ? (
             <form onSubmit={handleCreateNewTicket} className="flex min-h-0 flex-1 flex-col">
               <div className="flex-1 min-h-0 space-y-4 overflow-y-auto px-4 py-4 sm:px-4 sm:py-4">
-                
-
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9fdcff]">Name</label>
                   <input
@@ -691,6 +766,7 @@ export default function LiveContactTicket({
                   <textarea
                     value={newTicketInput.message}
                     onChange={(event) => setNewTicketInput((current) => ({ ...current, message: event.target.value }))}
+                    onKeyDown={(event) => handleComposerKeyDown(event, () => handleCreateNewTicket(event))}
                     rows={5}
                     className="min-h-[110px] w-full resize-none rounded-[1rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#6f879f] focus:border-[#70d5ff] sm:min-h-[140px]"
                     placeholder="Describe your new request..."
@@ -775,7 +851,7 @@ export default function LiveContactTicket({
               <div ref={listRef} className="flex-1 min-h-0 space-y-3 overflow-y-auto px-4 py-4">
                 {chatMessages.length === 0 ? (
                   <div className="rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-[#93a9c3]">
-                    Waiting for conversation history...
+                    Your full chat history will appear here.
                   </div>
                 ) : (
                   chatMessages.map((message) => {
@@ -813,13 +889,26 @@ export default function LiveContactTicket({
                           ) : null}
 
                           <p className={`mt-2 text-[11px] ${isVisitor ? "text-[#153043]" : "text-[#93a9c3]"}`}>
-                            {isVisitor ? (message.senderName || "You") : websiteTitle} - {formatChatTime(message.createdAt)}
+                            {isVisitor ? (message.senderName || "You") : "Shagor Assistant"} - {formatChatTime(message.createdAt)}
                           </p>
                         </div>
                       </div>
                     );
                   })
                 )}
+                {isAssistantTyping ? (
+                  <div className="flex justify-start">
+                    <div className="rounded-[1.25rem] border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
+                      <p className="text-[11px] text-[#93a9c3]">Shagor Assistant</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-[#70d5ff] [animation-delay:-0.2s]" />
+                        <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-[#70d5ff] [animation-delay:-0.1s]" />
+                        <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-[#70d5ff]" />
+                        <span className="ml-1 text-[#b8deff]">Typing...</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <form onSubmit={handleSendMessage} className="shrink-0 border-t border-white/10 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -893,8 +982,9 @@ export default function LiveContactTicket({
                   <textarea
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => handleComposerKeyDown(event, () => handleSendMessage(event))}
                     rows={2}
-                    placeholder={isClosedTicket ? "This chat is closed" : "Write a reply..."}
+                    placeholder={isClosedTicket ? "This chat is closed" : "Write your message..."}
                     disabled={isClosedTicket}
                     className="min-h-[56px] flex-1 resize-none rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#6f879f] focus:border-[#70d5ff] disabled:cursor-not-allowed disabled:opacity-60"
                   />

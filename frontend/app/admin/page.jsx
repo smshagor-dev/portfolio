@@ -10,7 +10,7 @@ import { toast } from "react-toastify";
 import { showChatMessageNotification } from "@/lib/browser-notifications";
 import { buildPublicApiUrl, buildPublicAssetUrl, getPublicBackendUrl, getSocketServerUrl } from "@/lib/public-backend-url";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
-import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiPhone, FiSend, FiSettings, FiUpload } from "react-icons/fi";
+import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiHelpCircle, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiPhone, FiSend, FiSettings, FiUpload } from "react-icons/fi";
 import { getSocialIconOption, searchSocialIcons, socialIconOptions } from "@/utils/social-icons";
 import { getServiceIconOption, serviceIconOptions } from "@/utils/service-icons";
 import { getStatsIconOption, statsIconOptions } from "@/utils/stats-icons";
@@ -88,6 +88,14 @@ function emptyPricingItem() {
     features: [""],
     status: true,
     isPopular: false,
+  };
+}
+
+function emptyFaqItem() {
+  return {
+    question: "",
+    answer: "",
+    status: true,
   };
 }
 
@@ -469,6 +477,18 @@ function buildPricingPayload(sourceForm) {
   };
 }
 
+function buildFaqPayload(sourceForm) {
+  return {
+    faqs: sourceForm.faqs
+      .map((item) => ({
+        question: item.question.trim(),
+        answer: item.answer,
+        status: Boolean(item.status),
+      }))
+      .filter((item) => item.question && item.answer),
+  };
+}
+
 function buildSkillsPayload(sourceForm) {
   return {
     skills: sourceForm.skills
@@ -649,6 +669,8 @@ const tabs = [
   { id: "artical-categories", label: "Artical Categories", icon: FiBookOpen, href: "/admin/artical-categories" },
   { id: "projects", label: "Projects", icon: FiFolder, href: "/admin/projects" },
   { id: "pricing", label: "Pricing", icon: FiDollarSign, href: "/admin/pricing" },
+  { id: "faq", label: "FAQ", icon: FiHelpCircle, href: "/admin/faq" },
+  { id: "ai", label: "AI Settings", icon: FiSettings, href: "/admin/ai" },
   { id: "testimonials", label: "Testimonials", icon: FiMessageSquare, href: "/admin/testimonials" },
   { id: "skills", label: "Skills", icon: FiCode, href: "/admin/skills" },
   { id: "experience", label: "Experience", icon: FiBriefcase, href: "/admin/experience" },
@@ -716,6 +738,9 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [editingPricingIndex, setEditingPricingIndex] = useState(-1);
   const [pricingDraft, setPricingDraft] = useState(emptyPricingItem());
+  const [isFaqModalOpen, setIsFaqModalOpen] = useState(false);
+  const [editingFaqIndex, setEditingFaqIndex] = useState(-1);
+  const [faqDraft, setFaqDraft] = useState(emptyFaqItem());
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -738,6 +763,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
     experiences: [emptyExperienceItem()],
     educations: [emptyEducationItem()],
     pricings: [],
+    faqs: [],
     testimonials: [],
     projects: [],
     socialLinks: [emptySocialLink()],
@@ -993,6 +1019,14 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     Array.isArray(item?.features) && item.features.length ? item.features : [""],
                   status: typeof item?.status === "boolean" ? item.status : true,
                   isPopular: Boolean(item?.isPopular),
+                }))
+              : [],
+          faqs:
+            Array.isArray(data.faqs) && data.faqs.length
+              ? data.faqs.map((item) => ({
+                  question: item?.question || "",
+                  answer: item?.answer || "",
+                  status: typeof item?.status === "boolean" ? item.status : true,
                 }))
               : [],
           testimonials:
@@ -1998,6 +2032,10 @@ export function AdminSectionPage({ section = "dashboard" }) {
     setPricingDraft((current) => ({ ...current, [key]: value }));
   }
 
+  function updateFaqDraft(key, value) {
+    setFaqDraft((current) => ({ ...current, [key]: value }));
+  }
+
   function updateTestimonialDraft(key, value) {
     setTestimonialDraft((current) => ({ ...current, [key]: value }));
   }
@@ -2137,6 +2175,12 @@ export function AdminSectionPage({ section = "dashboard" }) {
     setIsPricingModalOpen(true);
   }
 
+  function addFaqItem() {
+    setEditingFaqIndex(-1);
+    setFaqDraft(emptyFaqItem());
+    setIsFaqModalOpen(true);
+  }
+
   function addTestimonialItem() {
     setEditingTestimonialIndex(-1);
     setTestimonialDraft(emptyTestimonialItem());
@@ -2151,6 +2195,13 @@ export function AdminSectionPage({ section = "dashboard" }) {
         pricings: nextPricings,
       };
     });
+  }
+
+  function removeFaqItem(index) {
+    setForm((current) => ({
+      ...current,
+      faqs: current.faqs.filter((_, itemIndex) => itemIndex !== index),
+    }));
   }
 
   function removeTestimonialItem(index) {
@@ -2245,6 +2296,21 @@ export function AdminSectionPage({ section = "dashboard" }) {
     setIsPricingModalOpen(false);
     setEditingPricingIndex(-1);
     setPricingDraft(emptyPricingItem());
+  }
+
+  function openEditFaqModal(index) {
+    setEditingFaqIndex(index);
+    setFaqDraft({
+      ...form.faqs[index],
+      status: typeof form.faqs[index]?.status === "boolean" ? form.faqs[index].status : true,
+    });
+    setIsFaqModalOpen(true);
+  }
+
+  function closeFaqModal() {
+    setIsFaqModalOpen(false);
+    setEditingFaqIndex(-1);
+    setFaqDraft(emptyFaqItem());
   }
 
   function openEditTestimonialModal(index) {
@@ -2431,6 +2497,37 @@ export function AdminSectionPage({ section = "dashboard" }) {
     closePricingModal();
   }
 
+  function saveFaqDraft() {
+    const normalizedDraft = {
+      ...faqDraft,
+      question: faqDraft.question.trim(),
+      answer: faqDraft.answer,
+      status: Boolean(faqDraft.status),
+    };
+
+    if (!normalizedDraft.question || !normalizedDraft.answer) {
+      toast.error("FAQ question and answer are required.");
+      return;
+    }
+
+    setForm((current) => {
+      const nextFaqs = [...current.faqs];
+
+      if (editingFaqIndex >= 0) {
+        nextFaqs[editingFaqIndex] = normalizedDraft;
+      } else {
+        nextFaqs.push(normalizedDraft);
+      }
+
+      return {
+        ...current,
+        faqs: nextFaqs,
+      };
+    });
+
+    closeFaqModal();
+  }
+
   function saveTestimonialDraft() {
     const normalizedDraft = {
       ...testimonialDraft,
@@ -2596,6 +2693,13 @@ export function AdminSectionPage({ section = "dashboard" }) {
     event.preventDefault();
     try {
       await persistContent(buildPricingPayload(form), "Pricing section updated.");
+    } catch {}
+  }
+
+  async function handleFaqSave(event) {
+    event.preventDefault();
+    try {
+      await persistContent(buildFaqPayload(form), "FAQ section updated.");
     } catch {}
   }
 
@@ -2843,6 +2947,9 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const activePricings = form.pricings.filter((item) => item.status).length;
   const popularPricings = form.pricings.filter((item) => item.isPopular).length;
   const totalPricings = form.pricings.length;
+  const activeFaqs = form.faqs.filter((item) => item.status).length;
+  const totalFaqs = form.faqs.length;
+  const faqWithRichAnswers = form.faqs.filter((item) => stripHtml(item.answer).trim()).length;
   const activeTestimonials = form.testimonials.filter((item) => item.status).length;
   const totalTestimonials = form.testimonials.length;
   const testimonialsWithImage = form.testimonials.filter((item) => item.image.trim()).length;
@@ -2855,6 +2962,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
     projects: FiFolder,
     messages: FiMail,
     settings: FiSettings,
+    faq: FiHelpCircle,
     testimonials: FiMessageSquare,
   };
   const dashboardStatusCards = [
@@ -2891,6 +2999,12 @@ export function AdminSectionPage({ section = "dashboard" }) {
           { label: "Active Plans", value: activePricings, icon: FiDollarSign },
           { label: "Popular Plans", value: popularPricings, icon: HiOutlineSparkles },
           { label: "Total Plans", value: totalPricings, icon: FiBarChart2 },
+        ]
+      : activeTab === "faq"
+      ? [
+          { label: "Published FAQs", value: activeFaqs, icon: FiHelpCircle },
+          { label: "Rich Answers", value: faqWithRichAnswers, icon: HiOutlineUsers },
+          { label: "Total Entries", value: totalFaqs, icon: FiBarChart2 },
         ]
       : activeTab === "testimonials"
       ? [
@@ -4047,55 +4161,68 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 md:px-6">
                       {(selectedMessageThread?.chatMessages || []).map((item) => {
                         const isAdminMessage = item.senderType === "admin";
+                        const senderLabel = isAdminMessage ? "Admin" : "User";
+                        const senderName = item.senderName || senderLabel;
 
                         return (
                           <div
                             key={item.id}
                             className={`flex ${isAdminMessage ? "justify-end" : "justify-start"}`}
                           >
-                            <div
-                              className={`max-w-[82%] rounded-[1.4rem] px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.2)] ${
+                            <div className={`flex max-w-[82%] flex-col ${isAdminMessage ? "items-end" : "items-start"}`}>
+                              <span
+                                className={`mb-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                                  isAdminMessage
+                                    ? "border-[#6cc8ff]/25 bg-[#6cc8ff]/12 text-[#9fe7ff]"
+                                    : "border-white/10 bg-white/[0.04] text-[#9fb2c8]"
+                                }`}
+                              >
+                                {senderLabel}
+                              </span>
+                              <div
+                                className={`max-w-full rounded-[1.4rem] px-4 py-3 text-left shadow-[0_18px_40px_rgba(0,0,0,0.2)] ${
                                 isAdminMessage
                                   ? "bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] text-[#07111d]"
                                   : "border border-white/10 bg-white/[0.05] text-white"
-                              }`}
-                            >
-                              {item.message ? <p className="text-sm leading-7">{item.message}</p> : null}
-                              {item.photo || item.file ? (
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  {item.photo ? (
-                                    <Link
-                                      href={item.photo}
-                                      target="_blank"
-                                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
-                                        isAdminMessage
-                                          ? "border-[#153043]/15 bg-[#07111d]/10 text-[#153043] hover:border-[#153043]/35 hover:bg-[#07111d]/15"
-                                          : "border-white/10 bg-white/[0.03] text-[#9fdcff] hover:border-[#70d5ff] hover:text-white"
-                                      }`}
-                                    >
-                                      <FiImage size={13} />
-                                      View Photo
-                                    </Link>
-                                  ) : null}
-                                  {item.file ? (
-                                    <Link
-                                      href={item.file}
-                                      target="_blank"
-                                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
-                                        isAdminMessage
-                                          ? "border-[#153043]/15 bg-[#07111d]/10 text-[#153043] hover:border-[#153043]/35 hover:bg-[#07111d]/15"
-                                          : "border-white/10 bg-white/[0.03] text-[#9fdcff] hover:border-[#70d5ff] hover:text-white"
-                                      }`}
-                                    >
-                                      <FiPaperclip size={13} />
-                                      Open File
-                                    </Link>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                              <p className={`mt-2 text-[11px] ${isAdminMessage ? "text-[#173447]" : "text-[#8ea7c2]"}`}>
-                                {item.senderName || (isAdminMessage ? "Admin" : "Visitor")} | {formatThreadTimestamp(item.createdAt)}
-                              </p>
+                                }`}
+                              >
+                                {item.message ? <p className="text-sm leading-7">{item.message}</p> : null}
+                                {item.photo || item.file ? (
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {item.photo ? (
+                                      <Link
+                                        href={item.photo}
+                                        target="_blank"
+                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
+                                          isAdminMessage
+                                            ? "border-[#153043]/15 bg-[#07111d]/10 text-[#153043] hover:border-[#153043]/35 hover:bg-[#07111d]/15"
+                                            : "border-white/10 bg-white/[0.03] text-[#9fdcff] hover:border-[#70d5ff] hover:text-white"
+                                        }`}
+                                      >
+                                        <FiImage size={13} />
+                                        View Photo
+                                      </Link>
+                                    ) : null}
+                                    {item.file ? (
+                                      <Link
+                                        href={item.file}
+                                        target="_blank"
+                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
+                                          isAdminMessage
+                                            ? "border-[#153043]/15 bg-[#07111d]/10 text-[#153043] hover:border-[#153043]/35 hover:bg-[#07111d]/15"
+                                            : "border-white/10 bg-white/[0.03] text-[#9fdcff] hover:border-[#70d5ff] hover:text-white"
+                                        }`}
+                                      >
+                                        <FiPaperclip size={13} />
+                                        Open File
+                                      </Link>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+                                <p className={`mt-2 text-[11px] ${isAdminMessage ? "text-[#173447]" : "text-[#8ea7c2]"}`}>
+                                  {senderName} | {formatThreadTimestamp(item.createdAt)}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         );
@@ -6577,6 +6704,183 @@ export function AdminSectionPage({ section = "dashboard" }) {
                           </p>
                           <p className="mt-3 text-sm leading-7 text-[#9fb1c7]">
                             {pricingDraft.description || "No description added yet."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </form>
+          )}
+
+          {activeTab === "faq" && (
+            <form className="space-y-6" onSubmit={handleFaqSave}>
+              <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">FAQ Section</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">Frequently asked questions</h3>
+                    <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                      Add common questions and detailed answers. The compact list stays clean, and full editing opens in a popup with CKEditor support.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addFaqItem}
+                    className="rounded-xl border border-[#4dc4ff] px-4 py-3 text-sm font-medium text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white"
+                  >
+                    Add FAQ
+                  </button>
+                </div>
+
+                <div className="mt-8 grid gap-4">
+                  {form.faqs.length === 0 ? (
+                    <div className="rounded-[1.5rem] border border-dashed border-[#2b3b55] bg-[#0c1627] p-8 text-center text-sm text-[#95a9bf]">
+                      No FAQ entries added yet.
+                    </div>
+                  ) : (
+                    form.faqs.map((faq, index) => (
+                      <div
+                        key={`faq-${index}`}
+                        className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-5"
+                      >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-[#2e5074] bg-[#10243a] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#8ad7ff]">
+                                FAQ Entry
+                              </span>
+                              <span className="rounded-full border border-[#32445d] bg-[#111d31] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#b3c2d4]">
+                                {faq.status ? "Published" : "Draft"}
+                              </span>
+                            </div>
+                            <h4 className="mt-4 text-xl font-semibold text-white">
+                              {faq.question || "Untitled question"}
+                            </h4>
+                            <p className="mt-3 line-clamp-3 text-sm leading-7 text-[#9fb1c7]">
+                              {stripHtml(faq.answer) || "No answer added yet."}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => openEditFaqModal(index)}
+                              className="rounded-xl border border-[#36557e] px-4 py-2 text-sm text-[#9ae2ff] transition hover:bg-[#12243b]"
+                            >
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeFaqItem(index)}
+                              className="rounded-xl border border-[#5a3040] px-4 py-2 text-sm text-[#ffb6c6] transition hover:bg-[#2b1420]"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <div className="flex justify-end">
+                <button
+                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isSaving}
+                  type="submit"
+                >
+                  {isSaving ? "Saving..." : "Save FAQs"}
+                </button>
+              </div>
+
+              {isFaqModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+                  <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+                    <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">FAQ Form</p>
+                        <h4 className="mt-2 text-2xl font-semibold text-white">
+                          {editingFaqIndex >= 0 ? "View or Edit FAQ" : "Create New FAQ"}
+                        </h4>
+                        <p className="mt-2 text-sm text-[#97a9be]">
+                          Write the question and a polished answer. Answers support rich formatting through CKEditor.
+                        </p>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={closeFaqModal}
+                          className="rounded-xl border border-[#334862] px-4 py-2 text-sm text-[#c1cfde] transition hover:border-[#4a678b]"
+                        >
+                          Close
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveFaqDraft}
+                          className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-5 py-2 text-sm font-semibold text-[#08111d] transition hover:opacity-90"
+                        >
+                          {editingFaqIndex >= 0 ? "Update FAQ" : "Add FAQ"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_320px]">
+                      <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                        <div className="mb-5 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Core Details</p>
+                            <h5 className="mt-2 text-lg font-semibold text-white">FAQ information</h5>
+                          </div>
+                          <span className="rounded-full border border-[#2b4c70] bg-[#10233a] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#8ad7ff]">
+                            {faqDraft.status ? "Published" : "Draft"}
+                          </span>
+                        </div>
+
+                        <div className="grid gap-4">
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Question</label>
+                            <input
+                              className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                              placeholder="Write the question..."
+                              value={faqDraft.question}
+                              onChange={(event) => updateFaqDraft("question", event.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <RichTextEditor
+                              id={`faq-answer-editor-${editingFaqIndex >= 0 ? editingFaqIndex : "new"}`}
+                              label="Answer"
+                              value={faqDraft.answer}
+                              onChange={(nextValue) => updateFaqDraft("answer", nextValue)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4">
+                          <p className="text-sm uppercase tracking-[0.24em] text-[#79d4ff]">Visibility</p>
+                          <label className="mt-4 flex items-center gap-3 rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-sm text-[#d3d8e8]">
+                            <input
+                              type="checkbox"
+                              checked={faqDraft.status}
+                              onChange={(event) => updateFaqDraft("status", event.target.checked)}
+                            />
+                            Show this FAQ publicly
+                          </label>
+                        </div>
+
+                        <div className="rounded-[1.5rem] border border-[#24344d] bg-[#0b1524] p-4">
+                          <p className="text-sm uppercase tracking-[0.24em] text-[#79d4ff]">Preview</p>
+                          <p className="mt-3 text-lg font-semibold text-white">
+                            {faqDraft.question || "Question preview"}
+                          </p>
+                          <p className="mt-4 text-sm leading-7 text-[#9fb1c7]">
+                            {stripHtml(faqDraft.answer) || "Answer preview will appear here."}
                           </p>
                         </div>
                       </div>

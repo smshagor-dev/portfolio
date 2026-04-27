@@ -44,8 +44,19 @@ if (!Number.isInteger(pid) || pid <= 0) {
 }
 
 const isPortfolioServer =
-  /node(.exe)?/i.test(commandLine) &&
-  commandLine.toLowerCase().includes("server/index.js");
+  (() => {
+    const normalizedCommandLine = String(commandLine || "").toLowerCase().replace(/\\/g, "/");
+    const normalizedCwd = String(process.cwd() || "").toLowerCase().replace(/\\/g, "/");
+    const backendEntryNames = [`${normalizedCwd}/index.js`, "/backend/index.js"];
+    const isBackendIndexProcess =
+      /\bnode(\.exe)?["']?\s+index\.js\b/i.test(String(commandLine || "")) ||
+      /\bnodemon(\.cmd)?["']?\s+index\.js\b/i.test(String(commandLine || ""));
+
+    return (
+      /node(.exe)?/i.test(commandLine) &&
+      (isBackendIndexProcess || backendEntryNames.some((entry) => normalizedCommandLine.includes(entry)))
+    );
+  })();
 
 if (!isPortfolioServer) {
   console.log(`Port ${port} is already in use by another process. Skipping auto-stop.`);
