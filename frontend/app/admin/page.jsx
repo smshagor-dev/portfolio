@@ -662,6 +662,7 @@ const tabs = [
 ];
 
 export function AdminSectionPage({ section = "dashboard" }) {
+  const analyticsVisitorsPerPage = 10;
   const router = useRouter();
   const [token, setToken] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -696,6 +697,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const [dashboardSummary, setDashboardSummary] = useState(emptyDashboardSummary());
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
   const [selectedAnalyticsVisitor, setSelectedAnalyticsVisitor] = useState(null);
+  const [analyticsVisitorsPage, setAnalyticsVisitorsPage] = useState(1);
   const [selectedMessageThread, setSelectedMessageThread] = useState(null);
   const [messageReplyDraft, setMessageReplyDraft] = useState("");
   const [messageReplyAttachments, setMessageReplyAttachments] = useState({ photo: null, file: null });
@@ -751,11 +753,22 @@ export function AdminSectionPage({ section = "dashboard" }) {
     .map((service) => String(service?.slug || "").trim().toLowerCase())
     .filter(Boolean);
   const serviceSocketKey = serviceSocketSlugs.join("|");
+  const analyticsVisitors = analytics.visitors || [];
+  const analyticsVisitorsTotalPages = Math.max(1, Math.ceil(analyticsVisitors.length / analyticsVisitorsPerPage));
+  const analyticsVisitorsStartIndex = (analyticsVisitorsPage - 1) * analyticsVisitorsPerPage;
+  const paginatedAnalyticsVisitors = analyticsVisitors.slice(
+    analyticsVisitorsStartIndex,
+    analyticsVisitorsStartIndex + analyticsVisitorsPerPage,
+  );
 
   const updateAdminSession = useCallback((nextAdmin) => {
     setAdmin(nextAdmin);
     localStorage.setItem("portfolio_admin_user", JSON.stringify(nextAdmin));
   }, []);
+
+  useEffect(() => {
+    setAnalyticsVisitorsPage((current) => Math.min(current, analyticsVisitorsTotalPages));
+  }, [analyticsVisitorsTotalPages]);
 
   const loadAdminProfile = useCallback(async (authToken) => {
     const response = await adminFetch(`${backendUrl}/api/admin/me`, {
@@ -3131,7 +3144,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                           </tr>
                         </thead>
                         <tbody>
-                          {(analytics.visitors || []).length === 0 ? (
+                          {analyticsVisitors.length === 0 ? (
                             <tr>
                               <td
                                 colSpan={7}
@@ -3141,7 +3154,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                               </td>
                             </tr>
                           ) : (
-                            analytics.visitors.map((visitor) => (
+                            paginatedAnalyticsVisitors.map((visitor) => (
                               <tr key={visitor.id} className="rounded-[1.2rem]">
                                 <td className="rounded-l-[1.2rem] border border-white/10 border-r-0 bg-white/[0.03] px-3 py-4 text-sm text-white">
                                   <span className="block max-w-[180px] truncate">{visitor.userId}</span>
@@ -3192,6 +3205,35 @@ export function AdminSectionPage({ section = "dashboard" }) {
                         </tbody>
                       </table>
                     </div>
+
+                    {analyticsVisitors.length > analyticsVisitorsPerPage ? (
+                      <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm text-[#8ea7c2]">
+                          Showing {analyticsVisitorsStartIndex + 1}-{Math.min(analyticsVisitorsStartIndex + paginatedAnalyticsVisitors.length, analyticsVisitors.length)} of {analyticsVisitors.length} visitors
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setAnalyticsVisitorsPage((current) => Math.max(1, current - 1))}
+                            disabled={analyticsVisitorsPage === 1}
+                            className="rounded-xl border border-[#36557e] px-3 py-2 text-xs uppercase tracking-[0.18em] text-[#9fdcff] transition hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Previous
+                          </button>
+                          <span className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs uppercase tracking-[0.18em] text-[#d4e2f0]">
+                            Page {analyticsVisitorsPage} / {analyticsVisitorsTotalPages}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setAnalyticsVisitorsPage((current) => Math.min(analyticsVisitorsTotalPages, current + 1))}
+                            disabled={analyticsVisitorsPage === analyticsVisitorsTotalPages}
+                            className="rounded-xl border border-[#36557e] px-3 py-2 text-xs uppercase tracking-[0.18em] text-[#9fdcff] transition hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 

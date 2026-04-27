@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { HiOutlineBars3BottomLeft } from "react-icons/hi2";
+import { ArrowUpRight, Mail, Phone } from "lucide-react";
 import { getSocialIconOption } from "@/utils/social-icons";
 
 const navItems = [
@@ -38,7 +39,36 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
       };
     })
     .filter((item) => item && item.icon);
-
+  const desktopContactItems = [
+    settings?.contactEmail?.trim()
+      ? {
+          key: `email-${settings.contactEmail}`,
+          label: "Email",
+          name: settings.contactEmail.trim(),
+          link: `mailto:${settings.contactEmail.trim()}`,
+          icon: Mail,
+        }
+      : null,
+    settings?.mobileNumber?.trim()
+      ? {
+          key: `phone-${settings.mobileNumber}`,
+          label: "Mobile",
+          name: settings.mobileNumber.trim(),
+          link: `tel:${settings.mobileNumber.trim()}`,
+          icon: Phone,
+        }
+      : null,
+    ...visibleEmergencyContacts.map((item) => {
+      const config = getSocialIconOption(item.icon);
+      return {
+        key: `${item.label}-${item.name}-${item.link}`,
+        label: item.label,
+        name: item.name,
+        link: item.link,
+        icon: config?.icon || HiOutlineBars3BottomLeft,
+      };
+    }),
+  ].filter(Boolean);
   useEffect(() => {
     function handleScroll() {
       setIsStickyVisible(window.scrollY > 140);
@@ -199,7 +229,7 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
         />
 
         <aside
-          className={`absolute inset-y-0 right-0 flex w-[min(88vw,340px)] flex-col border-l border-[#2d3a52] bg-[linear-gradient(180deg,#0d1422,#0a101b)] shadow-[0_24px_80px_rgba(0,0,0,0.45)] transition duration-300 ${
+          className={`absolute inset-y-0 right-0 flex w-[min(88vw,340px)] flex-col border-l border-[#2d3a52] bg-[linear-gradient(180deg,#0d1422,#0a101b)] shadow-[0_24px_80px_rgba(0,0,0,0.45)] transition duration-300 lg:hidden ${
             isDrawerOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -288,6 +318,115 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
           </div>
 
           <div className="border-t border-[#223047] px-5 py-5">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#84deff]">Social</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {socialLinks.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    aria-label={item.label}
+                    onClick={() => setIsDrawerOpen(false)}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04] text-[#f3ede2] transition hover:border-[#72ddff]/35 hover:text-[#8ce6ff]"
+                  >
+                    <Icon size={16} />
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
+
+        <aside
+          className={`absolute inset-y-0 left-0 hidden w-[min(34vw,420px)] flex-col border-r border-[#2d3a52] bg-[linear-gradient(180deg,#0d1422,#0a101b)] shadow-[0_24px_80px_rgba(0,0,0,0.45)] transition duration-300 lg:flex ${
+            isDrawerOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="border-b border-[#223047] px-6 py-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-[#84deff]">Contact</p>
+                <h5
+                  className="mt-2 truncate text-2xl text-[#f3ede2]"
+                  style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+                >
+                  {brandTitle}
+                </h5>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(false)}
+                className="rounded-full border border-white/10 px-3 py-2 text-xs uppercase tracking-[0.18em] text-[#c8d2df] transition hover:border-[#72ddff]/35 hover:text-white"
+              >
+                X
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="group relative overflow-hidden rounded-[28px] border border-cyan-100/[0.1] bg-slate-950/45 p-5 shadow-[0_24px_70px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl">
+              <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(103,232,249,0.55),transparent)] opacity-70" />
+              <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-cyan-300/10 blur-3xl transition group-hover:bg-cyan-300/16" />
+
+              <div className="relative mx-auto max-w-2xl text-center">
+                <div className="flex justify-center">
+                  <div className="relative inline-flex items-center gap-0">
+                    <span className="h-[2px] w-8 bg-[linear-gradient(90deg,transparent,#2f5f8b)]" />
+                    <div className="relative overflow-hidden rounded-xl border border-[#35506f] bg-[linear-gradient(180deg,#14243a,#0d1728)] px-4 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]">
+                      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.95),rgba(255,214,102,0.75),transparent)]" />
+                      <h5 className="relative text-[11px] font-medium uppercase tracking-[0.28em] text-white">
+                        Get In Touch
+                      </h5>
+                    </div>
+                    <span className="h-[2px] w-8 bg-[linear-gradient(90deg,#2f5f8b,transparent)]" />
+                  </div>
+                </div>
+                <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#b8c7d8]">
+                  I&apos;m always excited to take on new projects and collaborate with innovative minds.
+                </p>
+              </div>
+
+              <div className="mt-6 grid gap-3">
+                {desktopContactItems.length > 0 ? (
+                  desktopContactItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.key}
+                        href={item.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => setIsDrawerOpen(false)}
+                        className="group/item flex min-w-0 items-center gap-4 rounded-[22px] border border-white/[0.08] bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:border-cyan-200/25 hover:bg-cyan-100/[0.06] hover:shadow-[0_16px_44px_rgba(8,145,178,0.12)]"
+                      >
+                        <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-100/10 bg-[linear-gradient(135deg,rgba(103,232,249,0.16),rgba(16,185,129,0.1))] text-cyan-100 shadow-[0_0_30px_rgba(103,232,249,0.08)] transition group-hover/item:border-cyan-200/25 group-hover/item:text-cyan-50">
+                          <Icon size={21} aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                            {item.label}
+                          </span>
+                          <span className="mt-1 block truncate text-sm font-medium text-slate-100">
+                            {item.name}
+                          </span>
+                        </span>
+                        <ArrowUpRight className="shrink-0 text-slate-500 transition group-hover/item:text-cyan-100" size={17} aria-hidden="true" />
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-[22px] border border-dashed border-white/10 bg-white/[0.03] p-5 text-sm leading-7 text-slate-300">
+                    No contact links available right now.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-[#223047] px-6 py-6">
             <p className="text-[11px] uppercase tracking-[0.28em] text-[#84deff]">Social</p>
             <div className="mt-4 flex flex-wrap gap-3">
               {socialLinks.map((item) => {

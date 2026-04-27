@@ -34,6 +34,34 @@ function emitContentUpdated(request, scope = "content", extra = {}) {
   });
 }
 
+function isArticleLive(article) {
+  if (!article || article.status !== "published") {
+    return false;
+  }
+
+  if (!article.publishDate) {
+    return true;
+  }
+
+  const publishDate = new Date(article.publishDate);
+  return Number.isFinite(publishDate.getTime()) && publishDate <= new Date();
+}
+
+function emitArticlePublished(request, article) {
+  if (!isArticleLive(article)) {
+    return;
+  }
+
+  request.app.get("io")?.emit("article:published", {
+    articleId: article.id,
+    slug: article.slug,
+    title: article.title,
+    publishDate: article.publishDate,
+    url: `/artical/${article.slug}`,
+    publishedAt: new Date().toISOString(),
+  });
+}
+
 if (!fs.existsSync(publicDirectory)) {
   fs.mkdirSync(publicDirectory, { recursive: true });
 }
@@ -1972,6 +2000,7 @@ router.post("/articles", requireAdmin, async (request, response) => {
       articleId: serializedArticle.id,
       slug: serializedArticle.slug,
     });
+    emitArticlePublished(request, serializedArticle);
 
     return response.status(201).json({
       message: "Article created successfully.",
@@ -2037,6 +2066,8 @@ router.put("/articles/:articleId", requireAdmin, async (request, response) => {
       return response.status(400).json({ message: "Please select at least one valid category." });
     }
 
+    const articleWasLive = isArticleLive(existingArticle);
+
     const article = await prisma.$transaction(async (tx) => {
       await tx.articleCategoryAssignment.deleteMany({
         where: { articleId },
@@ -2079,6 +2110,9 @@ router.put("/articles/:articleId", requireAdmin, async (request, response) => {
       articleId: serializedArticle.id,
       slug: serializedArticle.slug,
     });
+    if (!articleWasLive && isArticleLive(serializedArticle)) {
+      emitArticlePublished(request, serializedArticle);
+    }
 
     return response.json({
       message: "Article updated successfully.",

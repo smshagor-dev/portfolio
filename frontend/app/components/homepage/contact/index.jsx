@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowUpRight, Sparkles } from "lucide-react";
+import { ArrowUpRight, Mail, Phone, Sparkles } from "lucide-react";
 import { getSocialIconOption } from "@/utils/social-icons";
 import ContactForm from "./contact-form";
 import SectionHeading from "../section-heading";
@@ -16,6 +16,36 @@ function ContactSection({ profile, settings, emergencyContacts = [] }) {
   const visibleEmergencyContacts = (emergencyContacts || []).filter(
     (item) => item?.label && item?.name && item?.icon && item?.link,
   );
+  const contactItems = [
+    settings?.contactEmail?.trim()
+      ? {
+          key: `email-${settings.contactEmail}`,
+          label: "Email",
+          name: settings.contactEmail.trim(),
+          link: `mailto:${settings.contactEmail.trim()}`,
+          icon: Mail,
+        }
+      : null,
+    settings?.mobileNumber?.trim()
+      ? {
+          key: `phone-${settings.mobileNumber}`,
+          label: "Mobile",
+          name: settings.mobileNumber.trim(),
+          link: `tel:${settings.mobileNumber.trim()}`,
+          icon: Phone,
+        }
+      : null,
+    ...visibleEmergencyContacts.map((item) => {
+      const iconConfig = getSocialIconOption(item.icon);
+      return {
+        key: `${item.label}-${item.name}-${item.link}`,
+        label: item.label,
+        name: item.name,
+        link: item.link,
+        icon: iconConfig?.icon || null,
+      };
+    }),
+  ].filter(Boolean);
 
   return (
     <section id="contact" className="my-12 text-white lg:my-24">
@@ -94,14 +124,12 @@ function ContactSection({ profile, settings, emergencyContacts = [] }) {
               </div>
 
               <div className="mt-6 grid gap-3">
-                {visibleEmergencyContacts.length > 0 ? (
-                  visibleEmergencyContacts.map((item) => {
-                    const iconConfig = getSocialIconOption(item.icon);
-                    const Icon = iconConfig?.icon;
-
+                {contactItems.length > 0 ? (
+                  contactItems.map((item) => {
+                    const Icon = item.icon;
                     return (
                       <Link
-                        key={`${item.label}-${item.name}-${item.link}`}
+                        key={item.key}
                         href={item.link}
                         target="_blank"
                         rel="noreferrer"
