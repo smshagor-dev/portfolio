@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { FiClock, FiHome, FiImage, FiMessageSquare, FiPaperclip, FiPlusSquare, FiSend, FiUpload, FiX } from "react-icons/fi";
+import { FiClock, FiHome, FiImage, FiMessageSquare, FiPaperclip, FiSend, FiUpload, FiX } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { showChatMessageNotification } from "@/lib/browser-notifications";
 import { buildPublicApiUrl, getSocketServerUrl } from "@/lib/public-backend-url";
@@ -343,18 +343,32 @@ export default function LiveContactTicket({
       return;
     }
 
+    const messageText = draft.trim();
+    const pendingAttachments = attachments;
+
     try {
       setIsSending(true);
       setIsAssistantTyping(true);
-      const formData = new FormData();
-      formData.append("message", draft.trim());
+      setDraft("");
+      setAttachments({ photo: null, file: null });
 
-      if (attachments.photo) {
-        formData.append("photo", attachments.photo);
+      if (photoInputRef.current) {
+        photoInputRef.current.value = "";
       }
 
-      if (attachments.file) {
-        formData.append("file", attachments.file);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      const formData = new FormData();
+      formData.append("message", messageText);
+
+      if (pendingAttachments.photo) {
+        formData.append("photo", pendingAttachments.photo);
+      }
+
+      if (pendingAttachments.file) {
+        formData.append("file", pendingAttachments.file);
       }
 
       const response = await fetch(
@@ -368,17 +382,6 @@ export default function LiveContactTicket({
 
       if (!response.ok) {
         throw new Error(data.message || "Failed to send reply.");
-      }
-
-      setDraft("");
-      setAttachments({ photo: null, file: null });
-
-      if (photoInputRef.current) {
-        photoInputRef.current.value = "";
-      }
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
       }
 
       setTicket((current) => {
@@ -404,6 +407,8 @@ export default function LiveContactTicket({
       setIsAssistantTyping(false);
     } catch (error) {
       setIsAssistantTyping(false);
+      setDraft(messageText);
+      setAttachments(pendingAttachments);
       toast.error(error.message || "Failed to send reply.");
     } finally {
       setIsSending(false);
@@ -423,21 +428,45 @@ export default function LiveContactTicket({
       return;
     }
 
+    const pendingTicketInput = {
+      ...newTicketInput,
+      name: newTicketInput.name.trim(),
+      email: newTicketInput.email.trim(),
+      subject: newTicketInput.subject.trim(),
+      message: newTicketInput.message.trim(),
+    };
+
     try {
       setIsCreatingTicket(true);
       setIsAssistantTyping(true);
-      const formData = new FormData();
-      formData.append("name", newTicketInput.name.trim());
-      formData.append("email", newTicketInput.email.trim());
-      formData.append("subject", newTicketInput.subject.trim());
-      formData.append("message", newTicketInput.message.trim());
+      setNewTicketInput((current) => ({
+        ...current,
+        subject: "",
+        message: "",
+        photo: null,
+        file: null,
+      }));
 
-      if (newTicketInput.photo) {
-        formData.append("photo", newTicketInput.photo);
+      if (newTicketPhotoInputRef.current) {
+        newTicketPhotoInputRef.current.value = "";
       }
 
-      if (newTicketInput.file) {
-        formData.append("file", newTicketInput.file);
+      if (newTicketFileInputRef.current) {
+        newTicketFileInputRef.current.value = "";
+      }
+
+      const formData = new FormData();
+      formData.append("name", pendingTicketInput.name);
+      formData.append("email", pendingTicketInput.email);
+      formData.append("subject", pendingTicketInput.subject);
+      formData.append("message", pendingTicketInput.message);
+
+      if (pendingTicketInput.photo) {
+        formData.append("photo", pendingTicketInput.photo);
+      }
+
+      if (pendingTicketInput.file) {
+        formData.append("file", pendingTicketInput.file);
       }
 
       const response = await fetch(buildPublicApiUrl("/api/site/contact"), {
@@ -453,10 +482,10 @@ export default function LiveContactTicket({
       const nextTicket = {
         id: data.ticket?.id,
         token: data.ticket?.token,
-        subject: data?.data?.subject || newTicketInput.subject.trim(),
+        subject: data?.data?.subject || pendingTicketInput.subject,
         createdAt: data?.data?.createdAt || new Date().toISOString(),
-        name: data?.data?.name || newTicketInput.name.trim(),
-        email: data?.data?.email || newTicketInput.email.trim(),
+        name: data?.data?.name || pendingTicketInput.name,
+        email: data?.data?.email || pendingTicketInput.email,
       };
 
       syncCreatedTicket(nextTicket, data?.data);
@@ -468,8 +497,8 @@ export default function LiveContactTicket({
       setIsCreatingNewTicket(false);
       setIsHomeView(false);
       setNewTicketInput({
-        name: data?.data?.name || newTicketInput.name.trim(),
-        email: data?.data?.email || newTicketInput.email.trim(),
+        name: data?.data?.name || pendingTicketInput.name,
+        email: data?.data?.email || pendingTicketInput.email,
         subject: "",
         message: "",
         photo: null,
@@ -487,6 +516,7 @@ export default function LiveContactTicket({
       toast.success("New chat started successfully.");
     } catch (error) {
       setIsAssistantTyping(false);
+      setNewTicketInput(pendingTicketInput);
       toast.error(error.message || "Failed to start chat.");
     } finally {
       setIsCreatingTicket(false);
@@ -508,7 +538,6 @@ export default function LiveContactTicket({
 
   const hasActiveTicket = Boolean(activeTicketSession?.id && activeTicketSession?.token);
   const showNewTicketView = !hasActiveTicket || isCreatingNewTicket;
-  const panelTitle = showNewTicketView ? "New Chat" : ticket?.subject || "Conversation";
 
   return (
     <>
@@ -558,15 +587,15 @@ export default function LiveContactTicket({
             <div className="shrink-0 border-b border-[#86e5ff]/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] px-5 py-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Shagor Assistant</p>
+                  <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Chat</p>
                   <div className="mt-2 flex items-center gap-2">
-                    <h3 className="truncate text-lg font-semibold text-white">{panelTitle}</h3>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${
-                      isSocketConnected
-                        ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
-                        : "border border-white/10 bg-white/[0.05] text-[#9fdcff]"
-                    }`}>
-                      {isSocketConnected ? "Online" : "Connecting"}
+                    <h3 className="truncate text-lg font-semibold text-white">{websiteTitle}</h3>
+                    <span
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10"
+                      aria-label="Online"
+                      title="Online"
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.85)]" />
                     </span>
                     {hasActiveTicket && isClosedTicket ? (
                       <span className="inline-flex items-center rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-200">
@@ -596,13 +625,14 @@ export default function LiveContactTicket({
                   <button
                     type="button"
                     onClick={() => {
-                      setIsCreatingNewTicket((current) => !current);
                       setIsHomeView(false);
+                      setIsCreatingNewTicket(true);
                     }}
                     className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
+                    aria-label="Start new chat"
+                    title="New Chat"
                   >
-                    <FiPlusSquare size={13} />
-                    {showNewTicketView && hasActiveTicket ? "Back To Chat" : "New Chat"}
+                    <FiMessageSquare size={13} />
                   </button>
                   {!isPageView ? (
                     <button
@@ -661,17 +691,6 @@ export default function LiveContactTicket({
                 {ticketHistory.length === 0 ? (
                   <div className="rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-[#93a9c3]">
                     <p>you don&apos;t have privious message.</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsHomeView(false);
-                        setIsCreatingNewTicket(true);
-                      }}
-                      className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-white/[0.03] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
-                    >
-                      <FiPlusSquare size={13} />
-                      Make New Chat
-                    </button>
                   </div>
                 ) : (
                   ticketHistory.map((item) => {
@@ -869,7 +888,7 @@ export default function LiveContactTicket({
                               : "border border-white/10 bg-white/[0.05] text-white"
                           }`}
                         >
-                          {message.message ? <p className="leading-6">{message.message}</p> : null}
+                          {message.message ? <p className="whitespace-pre-wrap leading-6">{message.message}</p> : null}
 
                           {message.photo || message.file ? (
                             <div className="mt-3 flex flex-wrap gap-2">

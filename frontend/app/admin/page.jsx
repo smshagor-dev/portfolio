@@ -4160,19 +4160,20 @@ export function AdminSectionPage({ section = "dashboard" }) {
                   <>
                     <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 md:px-6">
                       {(selectedMessageThread?.chatMessages || []).map((item) => {
-                        const isAdminMessage = item.senderType === "admin";
-                        const senderLabel = isAdminMessage ? "Admin" : "User";
+                        const isVisitorMessage = item.senderType === "visitor";
+                        const isStaffMessage = !isVisitorMessage;
+                        const senderLabel = item.senderType === "admin" ? "Admin" : isVisitorMessage ? "User" : "Agent";
                         const senderName = item.senderName || senderLabel;
 
                         return (
                           <div
                             key={item.id}
-                            className={`flex ${isAdminMessage ? "justify-end" : "justify-start"}`}
+                            className={`flex ${isStaffMessage ? "justify-end" : "justify-start"}`}
                           >
-                            <div className={`flex max-w-[82%] flex-col ${isAdminMessage ? "items-end" : "items-start"}`}>
+                            <div className={`flex max-w-[82%] flex-col ${isStaffMessage ? "items-end" : "items-start"}`}>
                               <span
                                 className={`mb-2 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
-                                  isAdminMessage
+                                  isStaffMessage
                                     ? "border-[#6cc8ff]/25 bg-[#6cc8ff]/12 text-[#9fe7ff]"
                                     : "border-white/10 bg-white/[0.04] text-[#9fb2c8]"
                                 }`}
@@ -4181,12 +4182,12 @@ export function AdminSectionPage({ section = "dashboard" }) {
                               </span>
                               <div
                                 className={`max-w-full rounded-[1.4rem] px-4 py-3 text-left shadow-[0_18px_40px_rgba(0,0,0,0.2)] ${
-                                isAdminMessage
+                                isStaffMessage
                                   ? "bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] text-[#07111d]"
                                   : "border border-white/10 bg-white/[0.05] text-white"
                                 }`}
                               >
-                                {item.message ? <p className="text-sm leading-7">{item.message}</p> : null}
+                                {item.message ? <p className="whitespace-pre-wrap text-sm leading-7">{item.message}</p> : null}
                                 {item.photo || item.file ? (
                                   <div className="mt-3 flex flex-wrap gap-2">
                                     {item.photo ? (
@@ -4194,7 +4195,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                                         href={item.photo}
                                         target="_blank"
                                         className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
-                                          isAdminMessage
+                                          isStaffMessage
                                             ? "border-[#153043]/15 bg-[#07111d]/10 text-[#153043] hover:border-[#153043]/35 hover:bg-[#07111d]/15"
                                             : "border-white/10 bg-white/[0.03] text-[#9fdcff] hover:border-[#70d5ff] hover:text-white"
                                         }`}
@@ -4208,7 +4209,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                                         href={item.file}
                                         target="_blank"
                                         className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
-                                          isAdminMessage
+                                          isStaffMessage
                                             ? "border-[#153043]/15 bg-[#07111d]/10 text-[#153043] hover:border-[#153043]/35 hover:bg-[#07111d]/15"
                                             : "border-white/10 bg-white/[0.03] text-[#9fdcff] hover:border-[#70d5ff] hover:text-white"
                                         }`}
@@ -4219,7 +4220,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                                     ) : null}
                                   </div>
                                 ) : null}
-                                <p className={`mt-2 text-[11px] ${isAdminMessage ? "text-[#173447]" : "text-[#8ea7c2]"}`}>
+                                <p className={`mt-2 text-[11px] ${isStaffMessage ? "text-[#173447]" : "text-[#8ea7c2]"}`}>
                                   {senderName} | {formatThreadTimestamp(item.createdAt)}
                                 </p>
                               </div>
