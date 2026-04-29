@@ -6,17 +6,8 @@ import experienceAnimation from "../../../assets/lottie/code.json";
 import AnimationLottie from "../../helper/animation-lottie";
 import SectionHeading from "../section-heading";
 
-function stripHtml(html = "") {
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function truncateText(value, limit = 120) {
-  const text = stripHtml(value);
-  if (!text || text.length <= limit) {
-    return text;
-  }
-
-  return `${text.slice(0, limit).trimEnd()}...`;
+function hasMeaningfulContent(html = "") {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().length > 0;
 }
 
 function Experience({ experiences = [] }) {
@@ -54,15 +45,16 @@ function Experience({ experiences = [] }) {
             </div>
 
             <div className="flex flex-col gap-5">
-              {experiences.map((item) => {
-                const isExpanded = Boolean(expandedItems[item.id]);
-                const plainDescription = stripHtml(item.description || "");
+              {experiences.map((item, index) => {
+                const itemKey = item.id ?? `${item.title}-${index}`;
+                const isExpanded = Boolean(expandedItems[itemKey]);
+                const hasDescription = hasMeaningfulContent(item.description || "");
                 const company = item.company || "Not specified";
                 const rightMeta = item.location || item.workplace || "Not specified";
 
                 return (
                   <article
-                    key={item.id}
+                    key={itemKey}
                     className="relative overflow-hidden rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.88),rgba(11,19,37,0.96))] p-5 shadow-[0_20px_55px_rgba(0,0,0,0.2)]"
                   >
                     <Image
@@ -87,26 +79,35 @@ function Experience({ experiences = [] }) {
                         <p className="mt-4 text-sm text-[#16f2b3]">{item.duration}</p>
                       </div>
 
-                      {plainDescription ? (
+                      {hasDescription ? (
                         <div className="mt-5">
-                          <p className="text-sm leading-7 text-[#d6dfec]">
-                            {isExpanded ? plainDescription : truncateText(item.description, 120)}
-                          </p>
+                          <div className="relative">
+                            <div
+                              className={`experience-content text-sm leading-7 text-[#d6dfec] transition-all duration-300 ${
+                                isExpanded ? "" : "max-h-[11.5rem] overflow-hidden"
+                              }`}
+                              dangerouslySetInnerHTML={{ __html: item.description }}
+                            />
 
-                          {plainDescription.length > 120 ? (
+                            {!isExpanded ? (
+                              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-[linear-gradient(180deg,rgba(11,19,37,0),rgba(11,19,37,0.94)_70%,rgba(11,19,37,1))]" />
+                            ) : null}
+                          </div>
+
+                          <div className="mt-4 flex justify-center">
                             <button
                               type="button"
                               onClick={() =>
                                 setExpandedItems((current) => ({
                                   ...current,
-                                  [item.id]: !current[item.id],
+                                  [itemKey]: !current[itemKey],
                                 }))
                               }
-                              className="mt-3 inline-flex text-sm font-medium text-[#8fdcff] transition hover:text-white"
+                              className="inline-flex min-w-[138px] items-center justify-center rounded-full border border-[#35506f] bg-[#102038] px-5 py-2.5 text-sm font-semibold text-[#dff4ff] transition hover:border-[#70d5ff] hover:text-white"
                             >
-                              {isExpanded ? "Collapse" : "Expand"}
+                              {isExpanded ? "See Less" : "View Full"}
                             </button>
-                          ) : null}
+                          </div>
                         </div>
                       ) : null}
                     </div>

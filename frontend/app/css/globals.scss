@@ -246,6 +246,56 @@ body {
   }
 }
 
+.experience-content {
+  color: #d6dfec;
+  line-height: 1.9;
+  word-break: break-word;
+
+  p,
+  li {
+    color: #d6dfec;
+  }
+
+  p {
+    margin: 0 0 1rem;
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+
+  ul,
+  ol {
+    margin: 0.9rem 0;
+    padding-left: 1.35rem;
+  }
+
+  ul {
+    list-style: disc;
+  }
+
+  ol {
+    list-style: decimal;
+  }
+
+  li + li {
+    margin-top: 0.45rem;
+  }
+
+  strong,
+  b,
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: #ffffff;
+  }
+
+  a {
+    color: #8ad7ff;
+  }
+}
+
 #sticky-card-1 {
   --index: 1;
 }
