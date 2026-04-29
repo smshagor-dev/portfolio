@@ -373,7 +373,7 @@ export default function AdminAiSettingsPage() {
 
   return (
     <div suppressHydrationWarning className="w-full">
-      <div className="mx-auto grid w-full max-w-7xl gap-5 py-4 sm:py-6 2xl:grid-cols-[350px_minmax(0,1fr)]">
+      <div className="grid w-full gap-5 2xl:grid-cols-[350px_minmax(0,1fr)]">
         <aside className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.88),rgba(7,12,23,0.82))] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-2xl 2xl:sticky 2xl:top-6 2xl:h-[calc(100vh-3rem)] 2xl:overflow-y-auto">
           <div className="rounded-[1.6rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.18),transparent_52%),rgba(255,255,255,0.03)] p-5">
             <p className="text-xs uppercase tracking-[0.32em] text-[#8fdcff]">Control Center</p>

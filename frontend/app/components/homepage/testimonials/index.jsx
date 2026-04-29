@@ -67,14 +67,91 @@ function getVisibleCount(width = 0) {
     return 3;
   }
 
+  if (width >= 768) {
+    return 2;
+  }
+
   return 1;
+}
+
+function getSortedTestimonials(testimonials = []) {
+  return [...(testimonials || [])]
+    .filter((item) => item?.content)
+    .sort((left, right) => {
+      const leftTime = left?.createdAt ? new Date(left.createdAt).getTime() : 0;
+      const rightTime = right?.createdAt ? new Date(right.createdAt).getTime() : 0;
+
+      return rightTime - leftTime;
+    });
 }
 
 function StarRow({ stars = 5 }) {
   return (
     <div className="shrink-0 text-sm tracking-[0.2em] text-[#ffd27d]">
-      {"★".repeat(Math.max(1, Math.min(5, Number(stars) || 5)))}
+      {"\u2605".repeat(Math.max(1, Math.min(5, Number(stars) || 5)))}
     </div>
+  );
+}
+
+function TestimonialCard({ item, failedImages, setFailedImages, onOpen }) {
+  const imageFailed = Boolean(failedImages[item.id]);
+  const avatarLabel = getInitials(item.name || "Client");
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(item)}
+      className="group relative flex min-h-[22rem] w-full flex-col overflow-hidden rounded-[1.9rem] border border-[#2a3c54] bg-[linear-gradient(180deg,rgba(18,29,47,0.98),rgba(10,16,28,0.98))] p-6 text-left shadow-[0_24px_55px_rgba(0,0,0,0.24)] transition duration-700 hover:-translate-y-1 hover:border-[#7cf0b7]/60 hover:shadow-[0_34px_90px_rgba(4,10,20,0.42)]"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,240,183,0.12),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(112,213,255,0.14),transparent_28%)] opacity-80 transition duration-700 group-hover:opacity-100" />
+      <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(124,240,183,0.92),rgba(112,213,255,0.82),transparent)]" />
+      <div className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.82),rgba(124,240,183,0.92),transparent)]" />
+
+      <div className="relative flex items-start justify-between gap-4">
+        <div className="min-w-0 flex items-center gap-4">
+          <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden rounded-[1.3rem] border border-[#36506b] bg-[#102038] text-sm font-semibold uppercase tracking-[0.18em] text-[#8fe6c1] shadow-[0_10px_26px_rgba(0,0,0,0.22)]">
+            {!imageFailed && item.image ? (
+              <Image
+                src={item.image}
+                alt={item.name}
+                width={64}
+                height={64}
+                className="h-[64px] w-[64px] object-cover"
+                unoptimized
+                onError={() => setFailedImages((current) => ({ ...current, [item.id]: true }))}
+              />
+            ) : (
+              <span>{avatarLabel}</span>
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-white">{item.name}</p>
+            <p className="mt-1 text-xs uppercase tracking-[0.28em] text-[#7cf0b7]">
+              {item.company || "Client"}
+            </p>
+            <p className="mt-1 text-[11px] uppercase tracking-[0.24em] text-[#8ba0b7]">
+              {item.position || "Reviewer"}
+            </p>
+          </div>
+        </div>
+
+        <StarRow stars={item.stars} />
+      </div>
+
+      <div
+        className="relative mt-6 text-sm leading-7 text-[#c5d3e2]"
+        dangerouslySetInnerHTML={{ __html: item.content }}
+      />
+
+      <div className="relative mt-auto flex items-center justify-between gap-3 border-t border-[#22334a] pt-4">
+        <span className="text-[11px] uppercase tracking-[0.24em] text-[#88a0ba]">
+          {formatDate(item.createdAt)}
+        </span>
+        <span className="rounded-full border border-[#305246] bg-[#0f211b] px-3 py-1 text-[10px] uppercase tracking-[0.26em] text-[#a9edd0] transition duration-500 group-hover:border-[#56b88b] group-hover:bg-[#12281f]">
+          View full review
+        </span>
+      </div>
+    </button>
   );
 }
 
@@ -84,38 +161,31 @@ export default function TestimonialsSection({
   showViewAllButton = false,
   ctaPosition = "bottom",
 }) {
-  const [items, setItems] = useState((testimonials || []).filter((item) => item?.content));
+  const [items, setItems] = useState(getSortedTestimonials(testimonials));
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const [isSliderPaused, setIsSliderPaused] = useState(false);
   const [form, setForm] = useState(buildEmptyForm());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [status, setStatus] = useState(createStatus());
-  const [currentSlide, setCurrentSlide] = useState(0);
   const [failedImages, setFailedImages] = useState({});
   const [activeTestimonial, setActiveTestimonial] = useState(null);
-  const [visibleCount, setVisibleCount] = useState(1);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isTrackTransitionEnabled, setIsTrackTransitionEnabled] = useState(true);
-  const touchStartXRef = useRef(0);
-  const touchDeltaRef = useRef(0);
+  const sliderRef = useRef(null);
 
   useEffect(() => {
-    setItems((testimonials || []).filter((item) => item?.content));
+    setItems(getSortedTestimonials(testimonials));
   }, [testimonials]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return undefined;
-    }
-
-    const updateVisibleCount = () => {
-      setVisibleCount(getVisibleCount(window.innerWidth));
+    const syncViewport = () => {
+      setViewportWidth(window.innerWidth);
     };
 
-    updateVisibleCount();
-    window.addEventListener("resize", updateVisibleCount);
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
 
-    return () => window.removeEventListener("resize", updateVisibleCount);
+    return () => window.removeEventListener("resize", syncViewport);
   }, []);
 
   useEffect(() => {
@@ -135,7 +205,7 @@ export default function TestimonialsSection({
           return current;
         }
 
-        return [payload.testimonial, ...current];
+        return getSortedTestimonials([payload.testimonial, ...current]);
       });
     });
 
@@ -144,22 +214,6 @@ export default function TestimonialsSection({
       socket.disconnect();
     };
   }, []);
-
-  useEffect(() => {
-    const sourceItems = items.length ? items : fallbackTestimonials;
-    const maxSlide = Math.max(sourceItems.length, 0);
-
-    if (maxSlide === 0 || isPaused) {
-      return undefined;
-    }
-
-    const interval = window.setInterval(() => {
-      setIsTrackTransitionEnabled(true);
-      setCurrentSlide((current) => current + 1);
-    }, 4800);
-
-    return () => window.clearInterval(interval);
-  }, [isPaused, items]);
 
   async function handleImageUpload(event) {
     const file = event.target.files?.[0];
@@ -233,7 +287,7 @@ export default function TestimonialsSection({
           return current;
         }
 
-        return [data.testimonial, ...current];
+        return getSortedTestimonials([data.testimonial, ...current]);
       });
       setForm(buildEmptyForm());
       setIsModalOpen(false);
@@ -247,30 +301,97 @@ export default function TestimonialsSection({
   }
 
   const sliderItems = items.length ? items : fallbackTestimonials;
-  const loopedSliderItems = sliderItems.length > 1 ? [...sliderItems, ...sliderItems] : sliderItems;
-  const maxSlide = Math.max(sliderItems.length - 1, 0);
-  const slideGap = "1.5rem";
-  const slideBasis = `calc((100% - (${slideGap} * ${Math.max(visibleCount - 1, 0)})) / ${visibleCount})`;
-  const trackTransform = `translateX(calc(-${currentSlide} * (${slideBasis} + ${slideGap})))`;
+  const visibleCount = getVisibleCount(viewportWidth);
+  const shouldAutoScroll = !showAllReviews && sliderItems.length > visibleCount;
 
-  function goToSlide(index) {
-    if (sliderItems.length <= 1) {
-      setCurrentSlide(0);
+  function getSlideStep() {
+    const slider = sliderRef.current;
+
+    if (!slider) {
+      return 0;
+    }
+
+    const firstSlide = slider.querySelector("[data-testimonial-slide]");
+
+    if (!firstSlide) {
+      return 0;
+    }
+
+    const styles = window.getComputedStyle(slider);
+    const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
+
+    return firstSlide.getBoundingClientRect().width + gap;
+  }
+
+  function scrollTestimonials(direction = 1) {
+    const slider = sliderRef.current;
+
+    if (!slider) {
       return;
     }
 
-    setIsTrackTransitionEnabled(true);
-    setCurrentSlide(((index % sliderItems.length) + sliderItems.length) % sliderItems.length);
-  }
+    const step = getSlideStep();
 
-  function handleTrackTransitionEnd() {
-    if (sliderItems.length <= 1 || currentSlide < sliderItems.length) {
+    if (!step) {
       return;
     }
 
-    setIsTrackTransitionEnabled(false);
-    setCurrentSlide(currentSlide % sliderItems.length);
+    const maxScrollLeft = Math.max(slider.scrollWidth - slider.clientWidth, 0);
+    const nextLeft = slider.scrollLeft + step * direction;
+
+    if (direction > 0 && nextLeft >= maxScrollLeft - step / 3) {
+      slider.scrollTo({ left: 0, behavior: "smooth" });
+      return;
+    }
+
+    if (direction < 0 && slider.scrollLeft <= step / 3) {
+      slider.scrollTo({ left: maxScrollLeft, behavior: "smooth" });
+      return;
+    }
+
+    slider.scrollBy({
+      left: step * direction,
+      behavior: "smooth",
+    });
   }
+
+  useEffect(() => {
+    if (!shouldAutoScroll || isSliderPaused) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const slider = sliderRef.current;
+
+      if (!slider) {
+        return;
+      }
+
+      const firstSlide = slider.querySelector("[data-testimonial-slide]");
+
+      if (!firstSlide) {
+        return;
+      }
+
+      const styles = window.getComputedStyle(slider);
+      const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
+      const step = firstSlide.getBoundingClientRect().width + gap;
+      const maxScrollLeft = Math.max(slider.scrollWidth - slider.clientWidth, 0);
+      const nextLeft = slider.scrollLeft + step;
+
+      if (nextLeft >= maxScrollLeft - step / 3) {
+        slider.scrollTo({ left: 0, behavior: "smooth" });
+        return;
+      }
+
+      slider.scrollBy({
+        left: step,
+        behavior: "smooth",
+      });
+    }, 4200);
+
+    return () => window.clearInterval(intervalId);
+  }, [isSliderPaused, shouldAutoScroll, visibleCount]);
 
   function renderShareCard() {
     return (
@@ -302,27 +423,6 @@ export default function TestimonialsSection({
     );
   }
 
-  function handleTouchStart(event) {
-    touchStartXRef.current = event.touches[0]?.clientX || 0;
-    touchDeltaRef.current = 0;
-  }
-
-  function handleTouchMove(event) {
-    touchDeltaRef.current = (event.touches[0]?.clientX || 0) - touchStartXRef.current;
-  }
-
-  function handleTouchEnd() {
-    const threshold = 50;
-
-    if (touchDeltaRef.current <= -threshold) {
-      goToSlide(currentSlide + 1);
-    } else if (touchDeltaRef.current >= threshold) {
-      goToSlide(currentSlide - 1);
-    }
-
-    touchDeltaRef.current = 0;
-  }
-
   return (
     <section id="testimonials" className="my-12 lg:my-20">
       <div className="overflow-hidden rounded-[2rem] border border-[#24344d] bg-[radial-gradient(circle_at_top,rgba(124,240,183,0.12),transparent_30%),linear-gradient(180deg,#10192b,#09111d)] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)] sm:p-5 md:p-8">
@@ -346,192 +446,85 @@ export default function TestimonialsSection({
 
         {showAllReviews ? (
           <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {sliderItems.map((item, index) => {
-              const imageFailed = Boolean(failedImages[item.id]);
-              const avatarLabel = getInitials(item.name || "Client");
-
-              return (
-                <button
-                  key={`${item.id}-${index}`}
-                  type="button"
-                  onClick={() => setActiveTestimonial(item)}
-                  className="group relative flex min-h-[22rem] w-full flex-col overflow-hidden rounded-[1.9rem] border border-[#2a3c54] bg-[linear-gradient(180deg,rgba(18,29,47,0.98),rgba(10,16,28,0.98))] p-6 text-left shadow-[0_24px_55px_rgba(0,0,0,0.24)] transition duration-500 hover:-translate-y-1 hover:border-[#7cf0b7]/60 hover:shadow-[0_34px_90px_rgba(4,10,20,0.42)]"
-                >
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,240,183,0.12),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(112,213,255,0.14),transparent_28%)] opacity-80 transition duration-700 group-hover:opacity-100" />
-                  <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(124,240,183,0.92),rgba(112,213,255,0.82),transparent)]" />
-                  <div className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.82),rgba(124,240,183,0.92),transparent)]" />
-
-                  <div className="relative flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex items-center gap-4">
-                      <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden rounded-[1.3rem] border border-[#36506b] bg-[#102038] text-sm font-semibold uppercase tracking-[0.18em] text-[#8fe6c1] shadow-[0_10px_26px_rgba(0,0,0,0.22)]">
-                        {!imageFailed && item.image ? (
-                          <Image
-                            src={item.image}
-                            alt={item.name}
-                            width={64}
-                            height={64}
-                            className="h-[64px] w-[64px] object-cover"
-                            unoptimized
-                            onError={() =>
-                              setFailedImages((current) => ({ ...current, [item.id]: true }))
-                            }
-                          />
-                        ) : (
-                          <span>{avatarLabel}</span>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-base font-semibold text-white">{item.name}</p>
-                        <p className="mt-1 text-xs uppercase tracking-[0.28em] text-[#7cf0b7]">
-                          {item.company || "Client"}
-                        </p>
-                        <p className="mt-1 text-[11px] uppercase tracking-[0.24em] text-[#8ba0b7]">
-                          {item.position || "Reviewer"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <StarRow stars={item.stars} />
-                  </div>
-
-                  <div
-                    className="relative mt-6 text-sm leading-7 text-[#c5d3e2]"
-                    dangerouslySetInnerHTML={{ __html: item.content }}
-                  />
-
-                  <div className="relative mt-auto flex items-center justify-between gap-3 border-t border-[#22334a] pt-4">
-                    <span className="text-[11px] uppercase tracking-[0.24em] text-[#88a0ba]">
-                      {formatDate(item.createdAt)}
-                    </span>
-                    <span className="rounded-full border border-[#305246] bg-[#0f211b] px-3 py-1 text-[10px] uppercase tracking-[0.26em] text-[#a9edd0] transition duration-500 group-hover:border-[#56b88b] group-hover:bg-[#12281f]">
-                      View full review
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
+            {sliderItems.map((item, index) => (
+              <TestimonialCard
+                key={`${item.id}-${index}`}
+                item={item}
+                failedImages={failedImages}
+                setFailedImages={setFailedImages}
+                onOpen={setActiveTestimonial}
+              />
+            ))}
           </div>
         ) : (
-          <>
-            <div
-              className="mt-10"
-              onMouseEnter={() => setIsPaused(true)}
-              onMouseLeave={() => setIsPaused(false)}
-            >
-              <div
-                className="overflow-hidden"
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-              >
-                <div
-                  className="flex snap-x snap-mandatory gap-6"
-                  style={{
-                    transform: trackTransform,
-                    transition: isTrackTransitionEnabled
-                      ? "transform 800ms cubic-bezier(.22,.61,.36,1)"
-                      : "none",
-                    willChange: "transform",
-                    touchAction: "pan-y",
-                  }}
-                  onTransitionEnd={handleTrackTransitionEnd}
-                >
-                  {loopedSliderItems.map((item, index) => {
-                    const imageFailed = Boolean(failedImages[item.id]);
-                    const avatarLabel = getInitials(item.name || "Client");
-
-                    return (
-                      <div
-                        key={`${item.id}-${index}`}
-                        className="min-w-0 shrink-0 snap-start perspective-[1600px]"
-                        style={{ flexBasis: slideBasis }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setActiveTestimonial(item)}
-                          className="group relative flex h-full min-h-[22rem] w-full flex-col overflow-hidden rounded-[1.9rem] border border-[#2a3c54] bg-[linear-gradient(180deg,rgba(18,29,47,0.98),rgba(10,16,28,0.98))] p-6 text-left shadow-[0_24px_55px_rgba(0,0,0,0.24)] transition duration-700 [transform-style:preserve-3d] hover:border-[#7cf0b7]/60 hover:shadow-[0_34px_90px_rgba(4,10,20,0.42)] hover:[transform:rotateX(4deg)_rotateY(-4deg)_translateY(-8px)]"
-                        >
-                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,240,183,0.12),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(112,213,255,0.14),transparent_28%)] opacity-80 transition duration-700 group-hover:opacity-100" />
-                          <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(124,240,183,0.92),rgba(112,213,255,0.82),transparent)]" />
-                          <div className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.82),rgba(124,240,183,0.92),transparent)]" />
-                          <div className="absolute -left-8 top-4 h-20 w-20 rounded-full bg-[#7cf0b7]/10 blur-3xl transition duration-700 group-hover:bg-[#7cf0b7]/20" />
-                          <div className="absolute -right-8 bottom-4 h-20 w-20 rounded-full bg-[#70d5ff]/10 blur-3xl transition duration-700 group-hover:bg-[#70d5ff]/20" />
-                          <div className="pointer-events-none absolute right-5 top-5 text-[5rem] font-semibold leading-none text-white/5 transition duration-700 group-hover:text-white/10">
-                            &quot;
-                          </div>
-
-                          <div className="relative flex items-start justify-between gap-4 [transform:translateZ(34px)]">
-                            <div className="min-w-0 flex items-center gap-4">
-                              <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden rounded-[1.3rem] border border-[#36506b] bg-[#102038] text-sm font-semibold uppercase tracking-[0.18em] text-[#8fe6c1] shadow-[0_10px_26px_rgba(0,0,0,0.22)]">
-                                {!imageFailed && item.image ? (
-                                  <Image
-                                    src={item.image}
-                                    alt={item.name}
-                                    width={64}
-                                    height={64}
-                                    className="h-[64px] w-[64px] object-cover"
-                                    unoptimized
-                                    onError={() =>
-                                      setFailedImages((current) => ({ ...current, [item.id]: true }))
-                                    }
-                                  />
-                                ) : (
-                                  <span>{avatarLabel}</span>
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-base font-semibold text-white">{item.name}</p>
-                                <p className="mt-1 text-xs uppercase tracking-[0.28em] text-[#7cf0b7]">
-                                  {item.company || "Client"}
-                                </p>
-                                <p className="mt-1 text-[11px] uppercase tracking-[0.24em] text-[#8ba0b7]">
-                                  {item.position || "Reviewer"}
-                                </p>
-                              </div>
-                            </div>
-
-                            <StarRow stars={item.stars} />
-                          </div>
-
-                          <div
-                            className="relative mt-6 text-sm leading-7 text-[#c5d3e2] [transform:translateZ(28px)]"
-                            dangerouslySetInnerHTML={{ __html: item.content }}
-                          />
-
-                          <div className="relative mt-auto flex items-center justify-between gap-3 border-t border-[#22334a] pt-4 [transform:translateZ(26px)]">
-                            <span className="text-[11px] uppercase tracking-[0.24em] text-[#88a0ba]">
-                              {formatDate(item.createdAt)}
-                            </span>
-                            <span className="rounded-full border border-[#305246] bg-[#0f211b] px-3 py-1 text-[10px] uppercase tracking-[0.26em] text-[#a9edd0] transition duration-500 group-hover:border-[#56b88b] group-hover:bg-[#12281f]">
-                              View full review
-                            </span>
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  })}
+          <div className="relative mt-10">
+            {shouldAutoScroll ? (
+              <>
+                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-[#10192b] to-transparent sm:w-14" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-[#09111d] to-transparent sm:w-14" />
+                <div className="mb-6 flex justify-center">
+                  <div className="relative z-20 inline-flex items-center gap-3 rounded-full border border-[#2e4562] bg-[linear-gradient(180deg,rgba(11,20,35,0.96),rgba(8,15,27,0.96))] px-3 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+                    <button
+                      type="button"
+                      onClick={() => scrollTestimonials(-1)}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#35516d] bg-[#101b2b] text-lg text-[#d8e6f3] transition hover:-translate-y-0.5 hover:border-[#7cf0b7] hover:text-[#7cf0b7]"
+                      aria-label="Show previous testimonials"
+                    >
+                      &#8592;
+                    </button>
+                    <div className="min-w-[7rem] px-2 text-center">
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-[#79d4ff]">
+                        Slide Reviews
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => scrollTestimonials(1)}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#35516d] bg-[#101b2b] text-lg text-[#d8e6f3] transition hover:-translate-y-0.5 hover:border-[#7cf0b7] hover:text-[#7cf0b7]"
+                      aria-label="Show next testimonials"
+                    >
+                      &#8594;
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            {maxSlide > 0 ? (
-              <div className="mt-6 flex items-center justify-center gap-2">
-                {Array.from({ length: maxSlide + 1 }, (_, index) => (
-                  <button
-                    key={`testimonial-group-${index}`}
-                    type="button"
-                    aria-label={`Show testimonial set ${index + 1}`}
-                    onClick={() => goToSlide(index)}
-                    className={`h-2.5 rounded-full transition-all ${
-                      currentSlide % Math.max(sliderItems.length, 1) === index
-                        ? "w-8 bg-[#7cf0b7]"
-                        : "w-2.5 bg-[#33506c] hover:bg-[#4b6f90]"
-                    }`}
+                <div
+                  ref={sliderRef}
+                  className="hide-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 py-2 sm:gap-5"
+                  onMouseEnter={() => setIsSliderPaused(true)}
+                  onMouseLeave={() => setIsSliderPaused(false)}
+                  onTouchStart={() => setIsSliderPaused(true)}
+                  onTouchEnd={() => setIsSliderPaused(false)}
+                >
+                  {sliderItems.map((item, index) => (
+                    <div
+                      key={`${item.id}-${index}`}
+                      data-testimonial-slide
+                      className="w-[88vw] shrink-0 snap-start max-w-[28rem] sm:w-[30rem] lg:w-[24rem]"
+                    >
+                      <TestimonialCard
+                        item={item}
+                        failedImages={failedImages}
+                        setFailedImages={setFailedImages}
+                        onOpen={setActiveTestimonial}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {sliderItems.map((item, index) => (
+                  <TestimonialCard
+                    key={`${item.id}-${index}`}
+                    item={item}
+                    failedImages={failedImages}
+                    setFailedImages={setFailedImages}
+                    onOpen={setActiveTestimonial}
                   />
                 ))}
               </div>
-            ) : null}
-          </>
+            )}
+          </div>
         )}
 
         {ctaPosition !== "top" ? <div className="mt-8">{renderShareCard()}</div> : null}
@@ -599,7 +592,7 @@ export default function TestimonialsSection({
                           star <= Number(form.stars) ? "text-[#ffd27d]" : "text-[#41536a] hover:text-[#9aaec3]"
                         }`}
                       >
-                        {"★"}
+                        {"\u2605"}
                       </button>
                     ))}
                   </div>

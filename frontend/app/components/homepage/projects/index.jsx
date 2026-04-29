@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import ProjectCard from "./project-card";
 import SectionHeading from "../section-heading";
+import { sortProjectsByRecency } from "@/lib/projects";
 
 export default function Projects({
   projects = [],
@@ -9,7 +10,8 @@ export default function Projects({
   showBottomActions = true,
   showIntro = true,
 }) {
-  const visibleProjects = typeof limit === "number" ? projects.slice(0, limit) : projects;
+  const sortedProjects = sortProjectsByRecency(projects);
+  const visibleProjects = typeof limit === "number" ? sortedProjects.slice(0, limit) : sortedProjects;
 
   return (
     <section id="projects" className="my-12 lg:my-20">

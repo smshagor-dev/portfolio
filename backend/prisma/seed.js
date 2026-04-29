@@ -19,7 +19,7 @@ const profile = {
     "Hi, I'm Shahanur Islam Shagor. I am a Software Engineer specializing in Autonomous Systems, UAV Coordination, and Cybersecurity. With over 4 years of experience in Full-Stack Development (Laravel, Node.js, React), I bridge the gap between robust software architecture and cutting-edge hardware innovation. From decentralized drone swarms to secure V2X networks, I build technology that solves complex real-world problems.",
   email: "smshagor.ru@gmail.com",
   phone: "+79954949836",
-  address: "Middle Badda, Dhaka, Bangladesh - 1212",
+  address: " 87, Lomosova, Voronezh - 394087, Russia",
   github: "https://github.com/smshagor-dev",
   facebook: "https://www.facebook.com/smshagor1",
   linkedIn: "https://www.linkedin.com/in/sm-shagor",

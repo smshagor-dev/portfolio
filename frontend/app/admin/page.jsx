@@ -3299,10 +3299,10 @@ export function AdminSectionPage({ section = "dashboard" }) {
                                   {visitor.ipAddress || "Unknown"}
                                 </td>
                                 <td className="border border-white/10 border-l-0 border-r-0 bg-white/[0.03] px-3 py-4 text-sm text-[#d4e2f0]">
-                                  {visitor.country || "Unknown"}
+                                  {visitor.country || "Country"}
                                 </td>
                                 <td className="border border-white/10 border-l-0 border-r-0 bg-white/[0.03] px-3 py-4 text-sm text-[#d4e2f0]">
-                                  {visitor.location || "Unknown"}
+                                  {visitor.location || "Location Unknown"}
                                 </td>
                                 <td className="rounded-r-[1.2rem] border border-white/10 border-l-0 bg-white/[0.03] px-3 py-4 text-sm">
                                   <button
@@ -4060,7 +4060,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Viewed Pages</p>
                     <h4 className="mt-2 text-2xl font-semibold text-white">{selectedAnalyticsVisitor.userId}</h4>
                     <p className="mt-2 text-sm text-[#97a9be]">
-                      {selectedAnalyticsVisitor.ipAddress || "Unknown IP"} • {selectedAnalyticsVisitor.country || "Unknown country"} • {selectedAnalyticsVisitor.location || "Unknown location"}
+                      {selectedAnalyticsVisitor.ipAddress || "Unknown IP"} • {selectedAnalyticsVisitor.country || "Country"} • {selectedAnalyticsVisitor.location || "Location Unknown"}
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em]">
                       <span

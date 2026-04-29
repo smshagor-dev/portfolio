@@ -10,7 +10,7 @@ import { getSocialIconOption } from "@/utils/social-icons";
 const navItems = [
   { label: "Home", href: "/" },
   { label: "Service", href: "/service" },
-  { label: "Portfolio", href: "/portfolio" },
+  { label: "Project", href: "/portfolio" },
   { label: "Pricing", href: "/pricing" },
   { label: "Artical", href: "/artical" },
   { label: "Contact", href: "/contact" },

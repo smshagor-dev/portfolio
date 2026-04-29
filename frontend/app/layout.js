@@ -103,20 +103,22 @@ export default async function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <LayoutShell
-          footer={<Footer profile={profile} settings={siteSettings} />}
-          navbar={<LayoutClientChrome kind="navbar" profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />}
-          scrollToTop={<LayoutClientChrome kind="scrollToTop" />}
+          footer={<Footer key="layout-footer" profile={profile} settings={siteSettings} />}
+          navbar={<LayoutClientChrome key="layout-navbar" kind="navbar" profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />}
+          scrollToTop={<LayoutClientChrome key="layout-scroll-to-top" kind="scrollToTop" />}
           pageTopAdCode={siteSettings?.adsensePageTopCode}
           pageBottomAdCode={siteSettings?.adsensePageBottomCode}
         >
-          <PageLoadOverlay />
-          <BrowserNotificationBootstrap />
-          <LayoutClientChrome kind="toast" />
-          <AdCodeSlot code={siteSettings?.adsenseHeadCode} className="hidden" label="Head Script" />
-          <SiteAnalyticsTracker />
-          <ContentLiveRefresh />
-          <LiveTicketDock emergencyContacts={emergencyContacts} websiteTitle={siteSettings?.websiteTitle || siteSettings?.seoTitle || "Portfolio Website"} />
-          {children}
+          <div key="layout-content">
+            <PageLoadOverlay />
+            <BrowserNotificationBootstrap />
+            <LayoutClientChrome kind="toast" />
+            <AdCodeSlot code={siteSettings?.adsenseHeadCode} className="hidden" label="Head Script" />
+            <SiteAnalyticsTracker />
+            <ContentLiveRefresh />
+            <LiveTicketDock emergencyContacts={emergencyContacts} websiteTitle={siteSettings?.websiteTitle || siteSettings?.seoTitle || "Portfolio Website"} />
+            {children}
+          </div>
         </LayoutShell>
         {googleTagManagerId ? <GoogleTagManager gtmId={googleTagManagerId} /> : null}
         {googleAnalyticsId ? <GoogleAnalytics gaId={googleAnalyticsId} /> : null}

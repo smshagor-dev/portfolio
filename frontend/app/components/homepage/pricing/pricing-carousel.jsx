@@ -1,49 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Marquee from "react-fast-marquee";
 import PricingCard from "./pricing-card";
 
-function getCardsPerView(width) {
-  if (width >= 1280) {
-    return 3;
-  }
-
-  if (width >= 768) {
-    return 2;
-  }
-
-  return 1;
-}
-
 export default function PricingCarousel({ pricings = [] }) {
-  const [cardsPerView, setCardsPerView] = useState(1);
-  const [page, setPage] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const updateCardsPerView = () => {
-      setCardsPerView(getCardsPerView(window.innerWidth));
+    const syncViewport = () => {
+      setIsMobile(window.innerWidth < 768);
     };
 
-    updateCardsPerView();
-    window.addEventListener("resize", updateCardsPerView);
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
 
-    return () => window.removeEventListener("resize", updateCardsPerView);
+    return () => window.removeEventListener("resize", syncViewport);
   }, []);
-
-  const maxPage = Math.max(0, pricings.length - cardsPerView);
-  const activePage = Math.min(page, maxPage);
-
-  useEffect(() => {
-    if (pricings.length <= cardsPerView) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setPage((currentPage) => (currentPage >= maxPage ? 0 : currentPage + 1));
-    }, 4800);
-
-    return () => window.clearInterval(intervalId);
-  }, [cardsPerView, maxPage, pricings.length]);
 
   if (pricings.length === 0) {
     return (
@@ -53,50 +26,40 @@ export default function PricingCarousel({ pricings = [] }) {
     );
   }
 
-  const showControls = pricings.length > cardsPerView;
+  if (pricings.length === 1) {
+    return (
+      <div className="mx-auto max-w-[28rem] px-1 sm:px-2">
+        <PricingCard plan={pricings[0]} compact />
+      </div>
+    );
+  }
 
   return (
-    <div>
-      {showControls ? (
-        <div className="mb-5 flex flex-wrap items-center justify-center gap-3 sm:flex-nowrap">
-          <button
-            type="button"
-            onClick={() => setPage(activePage <= 0 ? maxPage : activePage - 1)}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-[#314762] bg-[#0d1728] text-lg text-white transition hover:border-[#70d5ff] hover:text-[#70d5ff]"
-            aria-label="Previous pricing plans"
-          >
-            {"<"}
-          </button>
-          <div className="order-3 w-full text-center text-[11px] uppercase tracking-[0.24em] text-[#8ea5bd] sm:order-none sm:w-auto sm:text-xs sm:tracking-[0.28em]">
-            Scroll plans
-          </div>
-          <button
-            type="button"
-            onClick={() => setPage(activePage >= maxPage ? 0 : activePage + 1)}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-[#314762] bg-[#0d1728] text-lg text-white transition hover:border-[#70d5ff] hover:text-[#70d5ff]"
-            aria-label="Next pricing plans"
-          >
-            {">"}
-          </button>
-        </div>
-      ) : null}
+    <div className="relative">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-[#101828] to-transparent sm:w-14" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-[#09111d] to-transparent sm:w-14" />
 
-      <div className="overflow-hidden -mx-1 sm:mx-0">
-        <div
-          className="flex transition-transform duration-500 ease-out"
-          style={{ transform: `translateX(-${activePage * (100 / cardsPerView)}%)` }}
-        >
-          {pricings.map((plan) => (
-            <div
-              key={plan.id}
-              className="w-full shrink-0 px-1 sm:px-2"
-              style={{ flexBasis: `${100 / cardsPerView}%` }}
-            >
-              <PricingCard plan={plan} compact />
-            </div>
-          ))}
-        </div>
+      <div className="mb-5 text-center text-[11px] uppercase tracking-[0.24em] text-[#8ea5bd] sm:text-xs sm:tracking-[0.28em]">
+        Auto scrolling plans
       </div>
+
+      <Marquee
+        gradient={false}
+        speed={isMobile ? 26 : 38}
+        pauseOnHover
+        pauseOnClick
+        direction="left"
+        className="overflow-y-hidden py-2"
+      >
+        {pricings.map((plan, index) => (
+          <div
+            key={plan.id || plan.slug || `${plan.name}-${index}`}
+            className="mx-1 w-[88vw] max-w-[26rem] sm:mx-2 sm:w-[32rem] xl:w-[25rem]"
+          >
+            <PricingCard plan={plan} compact />
+          </div>
+        ))}
+      </Marquee>
     </div>
   );
 }

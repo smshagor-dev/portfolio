@@ -139,7 +139,7 @@ function serializeFaq(faq) {
 function serializeTestimonial(testimonial) {
   return {
     ...testimonial,
-    image: testimonial?.image || "/profile.png",
+    image: testimonial?.image || "/DefaultUser.png",
     position: testimonial?.position || "",
     stars: Math.max(1, Math.min(5, Number(testimonial?.stars) || 5)),
   };
@@ -274,6 +274,18 @@ async function lookupGeoDetails(request, ipAddress) {
   } catch (_error) {
     return { country: "", region: "", city: "" };
   }
+}
+
+function buildGeoUpdateData(geoDetails = {}) {
+  const country = normalizeString(geoDetails.country);
+  const region = normalizeString(geoDetails.region);
+  const city = normalizeString(geoDetails.city);
+
+  return {
+    ...(country ? { country } : {}),
+    ...(region ? { region } : {}),
+    ...(city ? { city } : {}),
+  };
 }
 
 async function recordAnalyticsDailyVisit(sessionRef, visitDate, path) {
@@ -1819,6 +1831,7 @@ router.post("/analytics/heartbeat", async (request, response) => {
     const userAgent = String(request.headers["user-agent"] || "").slice(0, 2000);
     const ipAddress = getRequestIp(request).slice(0, 191);
     const geoDetails = await lookupGeoDetails(request, ipAddress);
+    const geoUpdateData = buildGeoUpdateData(geoDetails);
 
     const session = await prisma.analyticsSession.upsert({
       where: { sessionId },
@@ -1827,9 +1840,7 @@ router.post("/analytics/heartbeat", async (request, response) => {
         lastSeenAt: now,
         userAgent: userAgent || undefined,
         ipAddress,
-        country: geoDetails.country,
-        region: geoDetails.region,
-        city: geoDetails.city,
+        ...geoUpdateData,
       },
       create: {
         sessionId,
@@ -1838,9 +1849,9 @@ router.post("/analytics/heartbeat", async (request, response) => {
         lastSeenAt: now,
         userAgent: userAgent || undefined,
         ipAddress,
-        country: geoDetails.country,
-        region: geoDetails.region,
-        city: geoDetails.city,
+        country: normalizeString(geoDetails.country),
+        region: normalizeString(geoDetails.region),
+        city: normalizeString(geoDetails.city),
       },
       select: {
         id: true,
@@ -1896,7 +1907,7 @@ router.post("/testimonials", async (request, response) => {
     const name = normalizeString(request.body?.name);
     const company = normalizeString(request.body?.company);
     const position = normalizeString(request.body?.position);
-    const image = normalizeString(request.body?.image) || "/profile.png";
+    const image = normalizeString(request.body?.image) || "/DefaultUser.png";
     const contentSource = normalizeString(request.body?.content);
     const stars = Math.max(1, Math.min(5, Number.parseInt(request.body?.stars, 10) || 5));
 

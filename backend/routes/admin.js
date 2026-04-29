@@ -1221,6 +1221,100 @@ function addUtcDays(date, days) {
 
 const internalAnalyticsLiveWindowMs = 2 * 60 * 1000;
 
+function isPublicIp(ip) {
+  if (!ip) {
+    return false;
+  }
+
+  const value = String(ip).replace(/^::ffff:/, "");
+  return !(
+    value === "127.0.0.1" ||
+    value === "::1" ||
+    value.startsWith("10.") ||
+    value.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(value)
+  );
+}
+
+async function lookupGeoDetailsByIp(ipAddress) {
+  const normalizedIp = normalizeString(ipAddress).replace(/^::ffff:/, "");
+
+  if (!isPublicIp(normalizedIp)) {
+    return { country: "", region: "", city: "" };
+  }
+
+  try {
+    const geoResponse = await fetch(`https://ipwho.is/${encodeURIComponent(normalizedIp)}`, {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!geoResponse.ok) {
+      return { country: "", region: "", city: "" };
+    }
+
+    const geoData = await geoResponse.json();
+    if (!geoData?.success) {
+      return { country: "", region: "", city: "" };
+    }
+
+    return {
+      country: normalizeString(geoData.country),
+      region: normalizeString(geoData.region),
+      city: normalizeString(geoData.city),
+    };
+  } catch (_error) {
+    return { country: "", region: "", city: "" };
+  }
+}
+
+async function enrichAnalyticsVisitorsGeo(visitors = []) {
+  const cache = new Map();
+
+  return Promise.all(
+    (visitors || []).map(async (visitor) => {
+      const currentCountry = normalizeString(visitor.country);
+      const currentRegion = normalizeString(visitor.region);
+      const currentCity = normalizeString(visitor.city);
+
+      if (currentCountry || currentRegion || currentCity) {
+        return visitor;
+      }
+
+      const normalizedIp = normalizeString(visitor.ipAddress);
+      if (!isPublicIp(normalizedIp)) {
+        return visitor;
+      }
+
+      if (!cache.has(normalizedIp)) {
+        cache.set(normalizedIp, lookupGeoDetailsByIp(normalizedIp));
+      }
+
+      const geoDetails = await cache.get(normalizedIp);
+      if (!geoDetails.country && !geoDetails.region && !geoDetails.city) {
+        return visitor;
+      }
+
+      await prisma.analyticsSession.update({
+        where: { id: visitor.id },
+        data: {
+          ...(geoDetails.country ? { country: geoDetails.country } : {}),
+          ...(geoDetails.region ? { region: geoDetails.region } : {}),
+          ...(geoDetails.city ? { city: geoDetails.city } : {}),
+        },
+      }).catch(() => null);
+
+      return {
+        ...visitor,
+        country: geoDetails.country || currentCountry,
+        region: geoDetails.region || currentRegion,
+        city: geoDetails.city || currentCity,
+      };
+    }),
+  );
+}
+
 async function getInternalAnalyticsData() {
   const now = new Date();
   const today = getUtcDateOnly(now);
@@ -1285,6 +1379,8 @@ async function getInternalAnalyticsData() {
       }),
     ]);
 
+    const visitorsWithGeo = await enrichAnalyticsVisitorsGeo(visitors);
+
     const growthMap = new Map(
       growthRows.map((row) => [formatIsoDate(new Date(row.visitDate)), row._count.id]),
     );
@@ -1319,15 +1415,25 @@ async function getInternalAnalyticsData() {
       last30DaysUsers,
       growth,
       weekly,
-      visitors: visitors.map((visitor) => {
+      visitors: visitorsWithGeo.map((visitor) => {
         const isLive = visitor.lastSeenAt >= activeThreshold;
+        const country = normalizeString(visitor.country);
+        const region = normalizeString(visitor.region);
+        const city = normalizeString(visitor.city);
 
         return {
           id: visitor.id,
           userId: visitor.sessionId,
           ipAddress: visitor.ipAddress || "",
-          country: visitor.country || "",
-          location: [visitor.city, visitor.region].filter(Boolean).join(", "),
+          country,
+          region,
+          city,
+          geo: {
+            country,
+            region,
+            city,
+          },
+          location: [city, region].filter(Boolean).join(", "),
           currentPage: visitor.lastPath || visitor.firstPath || "/",
           status: isLive ? "live" : "away",
           isLive,

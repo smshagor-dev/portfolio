@@ -1,16 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { FiChevronDown } from "react-icons/fi";
 import SectionHeading from "../section-heading";
 
-export default function FaqSection({ faqs = [] }) {
+export default function FaqSection({ faqs = [], showAll = false, showPageLink = true }) {
   const items = Array.isArray(faqs) ? faqs.filter((item) => item?.question && item?.answer) : [];
   const initialVisibleCount = 5;
   const [openIndex, setOpenIndex] = useState(0);
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  const visibleItems = isExpanded ? items : items.slice(0, initialVisibleCount);
+  const visibleItems = showAll ? items : items.slice(0, initialVisibleCount);
   const hasHiddenItems = items.length > initialVisibleCount;
 
   if (!items.length) {
@@ -60,15 +59,14 @@ export default function FaqSection({ faqs = [] }) {
             );
           })}
 
-          {hasHiddenItems ? (
+          {hasHiddenItems && showPageLink ? (
             <div className="flex justify-center pt-2">
-              <button
-                type="button"
-                onClick={() => setIsExpanded((current) => !current)}
+              <Link
+                href="/faq"
                 className="inline-flex items-center gap-2 rounded-full border border-[#35506f] bg-[#102038] px-5 py-3 text-sm font-semibold text-[#dff4ff] transition hover:border-[#70d5ff] hover:text-white"
               >
-                {isExpanded ? "See less" : "See more"}
-              </button>
+                See more
+              </Link>
             </div>
           ) : null}
         </div>
