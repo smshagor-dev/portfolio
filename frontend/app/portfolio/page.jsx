@@ -33,19 +33,16 @@ export default async function PortfolioPage() {
           className="relative"
         />
 
-        <div className="relative mt-8 flex flex-col items-center justify-center gap-4 sm:mt-10">
-          <div className="flex flex-wrap items-center justify-center gap-3">
+        <div className="relative mt-8 flex items-center justify-center gap-3 sm:mt-10">
+          <div className="flex items-center justify-center">
             <span className="rounded-full border border-[#36557e] bg-[rgba(11,26,43,0.78)] px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-[#8ad7ff] backdrop-blur">
-              {sortedProjects.length} active projects
-            </span>
-            <span className="rounded-full border border-[#364760] bg-[rgba(17,29,49,0.78)] px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-[#bfd0e2] backdrop-blur">
-              New additions first
+              {sortedProjects.length} projects
             </span>
           </div>
 
           <Link
             href="/contact"
-            className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-6 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90"
           >
             Start a Project
             <ArrowRight size={16} />

@@ -6,6 +6,7 @@ import PricingCard from "./pricing-card";
 
 export default function PricingCarousel({ pricings = [] }) {
   const [isMobile, setIsMobile] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
     const syncViewport = () => {
@@ -18,6 +19,19 @@ export default function PricingCarousel({ pricings = [] }) {
     return () => window.removeEventListener("resize", syncViewport);
   }, []);
 
+  useEffect(() => {
+    if (!isMobile || pricings.length <= 1) {
+      setActiveIndex(0);
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % pricings.length);
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isMobile, pricings.length]);
+
   if (pricings.length === 0) {
     return (
       <div className="rounded-[1.5rem] border border-dashed border-[#2a3b55] bg-[#0e1829] p-6 text-sm text-[#9fb1c7]">
@@ -28,8 +42,34 @@ export default function PricingCarousel({ pricings = [] }) {
 
   if (pricings.length === 1) {
     return (
-      <div className="mx-auto max-w-[28rem] px-1 sm:px-2">
+      <div className="mx-auto w-full max-w-[28rem] px-0 sm:px-2">
         <PricingCard plan={pricings[0]} compact />
+      </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="relative">
+        <div className="mb-5 text-center text-[11px] uppercase tracking-[0.24em] text-[#8ea5bd]">
+          Auto scrolling plans
+        </div>
+
+        <div className="overflow-hidden py-2">
+          <div
+            className="flex transition-transform duration-700 ease-out"
+            style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+          >
+            {pricings.map((plan, index) => (
+              <div
+                key={plan.id || plan.slug || `${plan.name}-${index}`}
+                className="w-full min-w-full px-1"
+              >
+                <PricingCard plan={plan} compact />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -54,7 +94,7 @@ export default function PricingCarousel({ pricings = [] }) {
         {pricings.map((plan, index) => (
           <div
             key={plan.id || plan.slug || `${plan.name}-${index}`}
-            className="mx-1 w-[88vw] max-w-[26rem] sm:mx-2 sm:w-[32rem] xl:w-[25rem]"
+            className="mx-1 flex w-[88vw] max-w-[26rem] sm:mx-2 sm:w-[32rem] xl:w-[25rem]"
           >
             <PricingCard plan={plan} compact />
           </div>

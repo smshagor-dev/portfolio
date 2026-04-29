@@ -24,26 +24,37 @@ export default function PricingCard({ plan, compact = false }) {
         plan?.isPopular
           ? "border-[#5f6b34] bg-[linear-gradient(160deg,rgba(35,30,15,0.98),rgba(14,18,27,0.98))] shadow-[0_28px_75px_rgba(0,0,0,0.32)]"
           : "border-[#24344d] bg-[linear-gradient(160deg,rgba(17,28,46,0.98),rgba(10,18,31,0.98))] shadow-[0_24px_60px_rgba(0,0,0,0.22)]"
-      } ${compact ? "p-5" : "p-7"} hover:-translate-y-1 hover:border-[#6f9ac8] hover:shadow-[0_32px_80px_rgba(0,0,0,0.3)]`}
+      } ${compact ? "h-full p-5" : "h-full p-7"} hover:-translate-y-1 hover:border-[#6f9ac8] hover:shadow-[0_32px_80px_rgba(0,0,0,0.3)]`}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(112,213,255,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(122,218,181,0.14),transparent_34%)] opacity-90 transition duration-300 group-hover:opacity-100" />
 
-      <div className="relative">
+      <div className="relative flex h-full flex-col">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[#35597f] bg-[linear-gradient(180deg,#10253d,#0b1625)] text-[#8fdcff]">
-              {plan?.isPopular ? <Sparkles size={20} /> : <BadgeCheck size={20} />}
+          <div className="flex min-w-0 items-start gap-4">
+            <div className="shrink-0">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[#35597f] bg-[linear-gradient(180deg,#10253d,#0b1625)] text-[#8fdcff]">
+                {plan?.isPopular ? <Sparkles size={20} /> : <BadgeCheck size={20} />}
+              </div>
+              <p className="mt-3 text-[11px] uppercase tracking-[0.3em] text-[#7dd9ff]">
+                {plan?.duration || "Flexible"}
+              </p>
             </div>
-            <p className="mt-4 text-[11px] uppercase tracking-[0.3em] text-[#7dd9ff]">
-              {plan?.duration || "Flexible"}
-            </p>
-            <h3 className={`mt-2 break-words font-semibold text-white ${compact ? "text-xl" : "text-2xl"}`}>
-              {plan?.name || "Pricing Plan"}
-            </h3>
+
+            <div className="min-w-0 flex-1 pt-1">
+              <h3 className={`break-words font-semibold text-white ${compact ? "text-xl" : "text-2xl"}`}>
+                {plan?.name || "Pricing Plan"}
+              </h3>
+
+              {plan?.isPopular ? (
+                <span className="mt-3 inline-flex self-start rounded-full border border-[#6a6230] bg-[#2b2611] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#ffe08a] sm:hidden">
+                  Most Popular
+                </span>
+              ) : null}
+            </div>
           </div>
 
           {plan?.isPopular ? (
-            <span className="self-start rounded-full border border-[#6a6230] bg-[#2b2611] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#ffe08a]">
+            <span className="hidden self-start rounded-full border border-[#6a6230] bg-[#2b2611] px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-[#ffe08a] sm:inline-flex">
               Most Popular
             </span>
           ) : null}
@@ -62,7 +73,7 @@ export default function PricingCard({ plan, compact = false }) {
           {plan?.description || "Tailored pricing for focused product delivery and long-term support."}
         </p>
 
-        <div className="mt-6 rounded-[1.4rem] border border-[#213147] bg-[rgba(8,14,24,0.44)] p-4">
+        <div className="mt-6 flex-1 rounded-[1.4rem] border border-[#213147] bg-[rgba(8,14,24,0.44)] p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-xs uppercase tracking-[0.28em] text-[#8fdcff]">What&apos;s Included</p>
             <p className="text-xs text-[#91a6be]">{featureCount} items</p>

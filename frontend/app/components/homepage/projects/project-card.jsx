@@ -6,9 +6,25 @@ import { ArrowRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
+function truncateText(value, limit = 120) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) {
+    return "";
+  }
+
+  if (text.length <= limit) {
+    return text;
+  }
+
+  return `${text.slice(0, limit).trimEnd()}...`;
+}
+
 export default function ProjectCard({ project }) {
   const cardRef = useRef(null);
   const tools = Array.isArray(project?.tools) ? project.tools.filter(Boolean).slice(0, 5) : [];
+  const mobileTitle = truncateText(project?.name || "Project title");
+  const mobileDescription = truncateText(project?.description || "Project summary goes here.");
+
   useEffect(() => {
     const node = cardRef.current;
     if (!node || !project?.slug || typeof window === "undefined") {
@@ -91,15 +107,21 @@ export default function ProjectCard({ project }) {
       </div>
 
       <div className="relative p-5 sm:p-6">
-        <h3 className="text-xl font-semibold text-white transition group-hover:text-[#9be3ff] sm:text-2xl">
+        <h3 className="text-xl font-semibold text-white transition group-hover:text-[#9be3ff] sm:hidden">
+          {mobileTitle}
+        </h3>
+        <h3 className="hidden text-xl font-semibold text-white transition group-hover:text-[#9be3ff] sm:text-2xl sm:block">
           {project?.name || "Project title"}
         </h3>
-        <p className="mt-4 text-sm leading-7 text-[#c0cddd]">
+        <p className="mt-4 text-sm leading-7 text-[#c0cddd] sm:hidden">
+          {mobileDescription}
+        </p>
+        <p className="mt-4 hidden text-sm leading-7 text-[#c0cddd] sm:block">
           {project?.description || "Project summary goes here."}
         </p>
 
         {tools.length ? (
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-5 hidden flex-wrap gap-2 sm:flex">
             {tools.map((tool, index) => (
               <span
                 key={`${tool}-${index}`}
@@ -116,7 +138,8 @@ export default function ProjectCard({ project }) {
             href={project?.slug ? `/project/${project.slug}` : "/portfolio"}
             className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90 sm:w-auto"
           >
-            View Case Study
+            <span className="sm:hidden">View Case Study</span>
+            <span className="hidden sm:inline">View Case Study</span>
             <ArrowRight size={16} />
           </Link>
 

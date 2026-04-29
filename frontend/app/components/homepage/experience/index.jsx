@@ -1,9 +1,27 @@
+"use client";
+
 import Image from "next/image";
+import { useState } from "react";
 import experienceAnimation from "../../../assets/lottie/code.json";
 import AnimationLottie from "../../helper/animation-lottie";
 import SectionHeading from "../section-heading";
 
+function stripHtml(html = "") {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function truncateText(value, limit = 120) {
+  const text = stripHtml(value);
+  if (!text || text.length <= limit) {
+    return text;
+  }
+
+  return `${text.slice(0, limit).trimEnd()}...`;
+}
+
 function Experience({ experiences = [] }) {
+  const [expandedItems, setExpandedItems] = useState({});
+
   if (!experiences.length) {
     return null;
   }
@@ -27,7 +45,78 @@ function Experience({ experiences = [] }) {
             className="mb-8"
           />
 
-          <div className="flex flex-col gap-8 lg:gap-10">
+          <div className="sm:hidden">
+            <div className="relative mb-6 rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.92),rgba(11,19,37,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(122,97,255,0.16),transparent_40%),radial-gradient(circle_at_bottom,rgba(34,211,238,0.14),transparent_42%)]" />
+              <div className="relative mx-auto w-full max-w-[520px]">
+                <AnimationLottie animationPath={experienceAnimation} />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-5">
+              {experiences.map((item) => {
+                const isExpanded = Boolean(expandedItems[item.id]);
+                const plainDescription = stripHtml(item.description || "");
+                const company = item.company || "Not specified";
+                const rightMeta = item.location || item.workplace || "Not specified";
+
+                return (
+                  <article
+                    key={item.id}
+                    className="relative overflow-hidden rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.88),rgba(11,19,37,0.96))] p-5 shadow-[0_20px_55px_rgba(0,0,0,0.2)]"
+                  >
+                    <Image
+                      src="/blur-23.svg"
+                      alt="Experience"
+                      width={1080}
+                      height={200}
+                      className="absolute bottom-0 right-0 opacity-70"
+                    />
+
+                    <div className="relative">
+                      <div className="border-b border-[#263953] pb-5">
+                        <h3 className="text-xl font-semibold text-white">{item.title}</h3>
+
+                        <div className="mt-4 flex items-start justify-between gap-4">
+                          <p className="min-w-0 text-sm text-[#d2dceb]">{company}</p>
+                          <p className="max-w-[48%] shrink-0 text-right text-sm text-[#d2dceb]">
+                            {rightMeta}
+                          </p>
+                        </div>
+
+                        <p className="mt-4 text-sm text-[#16f2b3]">{item.duration}</p>
+                      </div>
+
+                      {plainDescription ? (
+                        <div className="mt-5">
+                          <p className="text-sm leading-7 text-[#d6dfec]">
+                            {isExpanded ? plainDescription : truncateText(item.description, 120)}
+                          </p>
+
+                          {plainDescription.length > 120 ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedItems((current) => ({
+                                  ...current,
+                                  [item.id]: !current[item.id],
+                                }))
+                              }
+                              className="mt-3 inline-flex text-sm font-medium text-[#8fdcff] transition hover:text-white"
+                            >
+                              {isExpanded ? "Collapse" : "Expand"}
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="hidden flex-col gap-8 lg:gap-10 sm:flex">
             {experiences.map((item, index) => {
               const isReversed = index % 2 === 1;
 
