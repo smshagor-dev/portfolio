@@ -3052,11 +3052,66 @@ export function AdminSectionPage({ section = "dashboard" }) {
     { label: "Total Users", value: formatMetricValue(analytics.todayUsers), icon: FiBarChart2 },
     { label: "Messages", value: formatMetricValue(messages.length), icon: FiMail, href: "/admin/messages" },
   ];
+  const activeTabMeta = tabs.find((tab) => tab.id === activeTab);
 
   return (
-    <div suppressHydrationWarning className="w-full">
-      <div className="grid gap-5 2xl:grid-cols-[350px_minmax(0,1fr)]">
-        <aside className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.88),rgba(7,12,23,0.82))] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-2xl 2xl:sticky 2xl:top-6 2xl:h-[calc(100vh-3rem)] 2xl:overflow-y-auto">
+    <div suppressHydrationWarning className="w-full min-w-0">
+      <div className="mb-4 space-y-3 sm:hidden">
+        <div className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.94),rgba(7,12,23,0.9))] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.28em] text-[#8fdcff]">Control Center</p>
+              <h1 className="mt-2 text-xl font-semibold text-white">Portfolio Admin</h1>
+              <p className="mt-2 text-sm leading-6 text-[#9fb1c7]">
+                {activeTab === "dashboard"
+                  ? "A cleaner mobile dashboard for analytics, messages, and content checks."
+                  : `Editing ${activeTabMeta?.label || activeTab} from a phone-friendly workspace.`}
+              </p>
+            </div>
+            <button
+              className="inline-flex shrink-0 items-center justify-center rounded-xl border border-[#324966] bg-[#132339] p-3 text-white transition hover:border-[#4dc4ff]"
+              onClick={logout}
+              type="button"
+              aria-label="Logout"
+            >
+              <FiLogOut size={16} />
+            </button>
+          </div>
+
+          <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-white/[0.03] p-3">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-[#8b98a5]">Signed In</p>
+            <p className="mt-2 truncate font-medium text-white">{admin?.name || "Admin"}</p>
+            <p className="mt-1 truncate text-sm text-[#a7b7ca]">{admin?.email || "support@smshagor.com"}</p>
+          </div>
+        </div>
+
+        <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex w-max gap-2 pb-1">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+
+              return (
+                <Link
+                  key={`mobile-${tab.id}`}
+                  href={tab.href}
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm transition ${
+                    isActive
+                      ? "border-[#4dc4ff]/60 bg-[linear-gradient(135deg,rgba(32,77,121,0.45),rgba(17,34,59,0.82))] text-white"
+                      : "border-white/10 bg-white/[0.03] text-[#bfd0e2]"
+                  }`}
+                >
+                  <Icon size={15} />
+                  <span>{tab.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid items-start gap-5 2xl:grid-cols-[350px_minmax(0,1fr)]">
+        <aside className="hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.88),rgba(7,12,23,0.82))] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:block 2xl:sticky 2xl:top-6 2xl:h-[calc(100vh-3rem)] 2xl:overflow-y-auto">
           <div className="rounded-[1.6rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.18),transparent_52%),rgba(255,255,255,0.03)] p-5">
             <p className="text-xs uppercase tracking-[0.32em] text-[#8fdcff]">Control Center</p>
             <h1 className="mt-3 text-2xl font-semibold text-white">Portfolio Admin</h1>
@@ -3104,7 +3159,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
           </div>
         </aside>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {false ? (
           <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.18),transparent_28%),radial-gradient(circle_at_top_left,rgba(110,231,183,0.12),transparent_24%),linear-gradient(180deg,rgba(15,26,42,0.94),rgba(11,20,34,0.92))] p-6 shadow-[0_28px_70px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -3165,19 +3220,19 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
           {activeTab === "dashboard" && (
             <div className="space-y-6">
-              <section className="grid gap-4 md:grid-cols-3">
+              <section className="grid gap-4">
                 {dashboardTopCards.map((item) => {
                   const Icon = item.icon;
                   const content = (
                     <div
-                      className={`rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.24)] backdrop-blur-xl transition ${
+                      className={`rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.24)] backdrop-blur-xl transition sm:p-5 ${
                         item.href ? "hover:-translate-y-0.5 hover:border-[#4dc4ff]/35 hover:bg-white/[0.05]" : ""
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-xs uppercase tracking-[0.24em] text-[#8ea7c2]">{item.label}</p>
-                          <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
+                          <p className="mt-3 text-2xl font-semibold text-white sm:text-3xl">{item.value}</p>
                         </div>
                         <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#132339] text-[#7fdcff]">
                           <Icon size={18} />
@@ -3197,16 +3252,16 @@ export function AdminSectionPage({ section = "dashboard" }) {
               </section>
 
               <section className="grid gap-5">
-                <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                <div className="min-w-0 overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-6">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Analytics Overview</p>
-                      <h3 className="mt-2 text-2xl font-semibold text-white">Traffic trends and current activity</h3>
-                      <p className="mt-2 max-w-2xl text-sm leading-7 text-[#9fb1c7]">
+                      <h3 className="mt-2 text-xl font-semibold text-white sm:text-2xl">Traffic trends and current activity</h3>
+                      <p className="mt-2 max-w-3xl text-sm leading-7 text-[#9fb1c7]">
                         {analytics.note}
                       </p>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-[#d4e2f0]">
+                    <div className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-[#d4e2f0] sm:w-auto sm:min-w-[240px]">
                       <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">Source</p>
                       <p className="mt-2 font-medium text-white">
                         {analytics.connected ? "Google Analytics 4" : "Simulated Demo Data"}
@@ -3219,7 +3274,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
                     <div className="mt-6">
                       {isAnalyticsLoading ? (
-                        <div className="grid gap-5 lg:grid-cols-2">
+                        <div className="grid gap-5">
                           {[0, 1].map((item) => (
                             <div
                               key={item}
@@ -3243,8 +3298,8 @@ export function AdminSectionPage({ section = "dashboard" }) {
                       </span>
                     </div>
 
-                    <div className="mt-5 overflow-x-auto">
-                      <table className="min-w-full border-separate border-spacing-y-3">
+                    <div className="mt-5 w-full max-w-full overflow-x-auto">
+                      <table className="w-max min-w-[860px] border-separate border-spacing-y-3">
                         <thead>
                           <tr>
                             {["User ID", "Status", "Current Page", "IP", "Country", "Location", "Viewed Pages"].map((label) => (
@@ -3325,7 +3380,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                         <p className="text-sm text-[#8ea7c2]">
                           Showing {analyticsVisitorsStartIndex + 1}-{Math.min(analyticsVisitorsStartIndex + paginatedAnalyticsVisitors.length, analyticsVisitors.length)} of {analyticsVisitors.length} visitors
                         </p>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setAnalyticsVisitorsPage((current) => Math.max(1, current - 1))}
@@ -3351,19 +3406,19 @@ export function AdminSectionPage({ section = "dashboard" }) {
                   </div>
                 </div>
 
-                  <div className="grid gap-5 lg:grid-cols-2">
-                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                  <div className="grid gap-5">
+                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-6">
                       <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Workspace Status</p>
                       <div className="mt-5 space-y-3">
                         {dashboardStatusCards.map((item) => (
                         <div
                           key={item.label}
-                          className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
+                          className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4"
                         >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                            <div className="min-w-0 flex-1">
                               <p className="text-sm text-[#8ea7c2]">{item.label}</p>
-                              <p className="mt-1 truncate text-sm text-[#bfd0e2]">{item.detail}</p>
+                              <p className="mt-1 break-words text-sm leading-6 text-[#bfd0e2] sm:truncate">{item.detail}</p>
                             </div>
                             <span className="shrink-0 text-sm font-medium text-white">{item.value}</span>
                           </div>
@@ -3372,7 +3427,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     </div>
                   </section>
 
-                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-6">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Quick Actions</p>
@@ -3390,7 +3445,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                           <Link
                             key={item.href}
                             href={item.href}
-                            className="flex flex-col gap-4 rounded-[1.35rem] border border-white/10 bg-white/[0.03] px-4 py-4 transition hover:border-[#36557e] hover:bg-white/[0.05] sm:flex-row sm:items-center sm:justify-between"
+                            className="flex flex-col gap-4 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 transition hover:border-[#36557e] hover:bg-white/[0.05] sm:flex-row sm:items-center sm:justify-between"
                           >
                             <div className="flex min-w-0 items-start gap-3">
                               <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#132339] text-[#7fdcff]">
@@ -3401,7 +3456,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                                 <p className="mt-1 break-words text-sm leading-6 text-[#8ea7c2]">{item.description}</p>
                               </div>
                             </div>
-                            <span className="shrink-0 self-start text-xs uppercase tracking-[0.2em] text-[#9fdcff] sm:self-center">Open</span>
+                            <span className="inline-flex w-fit shrink-0 self-start rounded-full border border-[#2f4866] px-3 py-1 text-xs uppercase tracking-[0.2em] text-[#9fdcff] sm:self-center">Open</span>
                           </Link>
                         );
                       })}
@@ -3411,14 +3466,14 @@ export function AdminSectionPage({ section = "dashboard" }) {
               </section>
 
                 <section className="space-y-5">
-                  <div className="grid gap-5 xl:grid-cols-2">
-                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                  <div className="grid gap-5">
+                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-6">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                           <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Content Health</p>
-                          <h3 className="mt-2 text-2xl font-semibold text-white">Publishing mix across sections</h3>
+                          <h3 className="mt-2 text-xl font-semibold text-white sm:text-2xl">Publishing mix across sections</h3>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-right">
+                        <div className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left sm:w-auto sm:text-right">
                           <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">Configured</p>
                           <p className="mt-2 text-2xl font-semibold text-white">
                             {dashboardSummary.configuredPercentage || 0}%
@@ -3450,25 +3505,25 @@ export function AdminSectionPage({ section = "dashboard" }) {
                       </div>
                     </section>
 
-                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-6">
                       <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Portfolio Snapshot</p>
-                      <h3 className="mt-2 text-2xl font-semibold text-white">Operational summary</h3>
-                      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                      <h3 className="mt-2 text-xl font-semibold text-white sm:text-2xl">Operational summary</h3>
+                      <div className="mt-6 grid gap-3">
                         {dashboardSummary.snapshot.map((item) => (
                           <div key={item.label} className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
                             <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">{item.label}</p>
-                            <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
+                            <p className="mt-3 text-2xl font-semibold text-white sm:text-3xl">{item.value}</p>
                           </div>
                         ))}
                       </div>
                     </section>
                   </div>
 
-                  <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl">
-                    <div className="flex items-center justify-between gap-4">
+                  <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.9),rgba(9,15,26,0.85))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-6">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Recent Messages</p>
-                      <h3 className="mt-2 text-2xl font-semibold text-white">Latest inbox activity</h3>
+                      <h3 className="mt-2 text-xl font-semibold text-white sm:text-2xl">Latest inbox activity</h3>
                     </div>
                     <Link
                       href="/admin/messages"
@@ -3485,7 +3540,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     ) : (
                       dashboardSummary.recentMessages.map((message) => (
                         <div key={message.id} className="rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4">
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                             <div className="min-w-0">
                               <p className="truncate font-medium text-white">{message.name}</p>
                               <p className="truncate text-sm text-[#7fdcff]">{message.email}</p>
@@ -6798,8 +6853,8 @@ export function AdminSectionPage({ section = "dashboard" }) {
               </div>
 
               {isFaqModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
-                  <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+                  <div className="relative z-[121] max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
                     <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 lg:flex-row lg:items-center lg:justify-between">
                       <div>
                         <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">FAQ Form</p>
@@ -6981,8 +7036,8 @@ export function AdminSectionPage({ section = "dashboard" }) {
               </div>
 
               {isTestimonialModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
-                  <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+                  <div className="relative z-[121] max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
                     <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 lg:flex-row lg:items-center lg:justify-between">
                       <div>
                         <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Testimonial Form</p>

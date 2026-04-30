@@ -100,19 +100,20 @@ function StarRow({ stars = 5 }) {
 function TestimonialCard({ item, failedImages, setFailedImages, onOpen }) {
   const imageFailed = Boolean(failedImages[item.id]);
   const avatarLabel = getInitials(item.name || "Client");
+  const previewText = stripHtml(item.content);
 
   return (
     <button
       type="button"
       onClick={() => onOpen(item)}
-      className="group relative flex h-[22rem] w-full flex-col overflow-hidden rounded-[1.9rem] border border-[#2a3c54] bg-[linear-gradient(180deg,rgba(18,29,47,0.98),rgba(10,16,28,0.98))] p-5 text-left shadow-none transition duration-700 hover:-translate-y-1 hover:border-[#7cf0b7]/60 sm:min-h-[22rem] sm:h-auto sm:p-6 sm:shadow-[0_24px_55px_rgba(0,0,0,0.24)] sm:hover:shadow-[0_34px_90px_rgba(4,10,20,0.42)]"
+      className="group relative flex h-[24rem] w-full flex-col overflow-hidden rounded-[1.9rem] border border-[#2a3c54] bg-[linear-gradient(180deg,rgba(18,29,47,0.98),rgba(10,16,28,0.98))] p-5 text-left shadow-none transition duration-700 hover:-translate-y-1 hover:border-[#7cf0b7]/60 sm:h-[24rem] sm:p-6 sm:shadow-[0_24px_55px_rgba(0,0,0,0.24)] sm:hover:shadow-[0_34px_90px_rgba(4,10,20,0.42)]"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,240,183,0.12),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(112,213,255,0.14),transparent_28%)] opacity-80 transition duration-700 group-hover:opacity-100" />
       <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(124,240,183,0.92),rgba(112,213,255,0.82),transparent)]" />
       <div className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.82),rgba(124,240,183,0.92),transparent)]" />
 
-      <div className="relative flex min-h-[5.75rem] items-start justify-between gap-4">
-        <div className="min-w-0 flex flex-1 items-center gap-4">
+      <div className="relative min-h-[8.75rem]">
+        <div className="flex items-center gap-4">
           <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden rounded-[1.3rem] border border-[#36506b] bg-[#102038] text-sm font-semibold uppercase tracking-[0.18em] text-[#8fe6c1] shadow-[0_10px_26px_rgba(0,0,0,0.22)]">
             {!imageFailed && item.image ? (
               <Image
@@ -129,29 +130,25 @@ function TestimonialCard({ item, failedImages, setFailedImages, onOpen }) {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="line-clamp-2 min-h-[3rem] text-base font-semibold text-white">{item.name}</p>
-            <p className="mt-1 line-clamp-1 min-h-[1.25rem] text-xs uppercase tracking-[0.28em] text-[#7cf0b7]">
-              {item.company || "Client"}
-            </p>
-            <p className="mt-1 line-clamp-1 min-h-[1rem] text-[11px] uppercase tracking-[0.24em] text-[#8ba0b7]">
-              {item.position || "Reviewer"}
-            </p>
+            <p className="text-base font-semibold leading-6 text-white break-words">{item.name}</p>
+            <div className="pt-1 space-y-1">
+              <p className="text-xs uppercase leading-5 tracking-[0.22em] text-[#7cf0b7] break-words">
+                {item.company || "Client"}
+              </p>
+              <p className="text-[11px] uppercase leading-5 tracking-[0.2em] text-[#8ba0b7] break-words">
+                {item.position || "Reviewer"}
+              </p>
+              <StarRow stars={item.stars} />
+            </div>
           </div>
         </div>
-
-        <StarRow stars={item.stars} />
       </div>
 
-      <div className="relative mt-6 sm:hidden">
-        <p className="h-[8.75rem] overflow-hidden text-sm leading-7 text-[#c5d3e2] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:5]">
-          {stripHtml(item.content)}
+      <div className="relative mt-[2px] flex-1 overflow-hidden">
+        <p className="h-full overflow-hidden text-sm leading-7 text-[#c5d3e2] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:7] sm:[-webkit-line-clamp:8]">
+          {previewText}
         </p>
       </div>
-
-      <div
-        className="relative mt-6 hidden text-sm leading-7 text-[#c5d3e2] sm:block"
-        dangerouslySetInnerHTML={{ __html: item.content }}
-      />
 
       <div className="relative mt-auto flex items-center justify-between gap-3 border-t border-[#22334a] pt-4">
         <span className="text-[11px] uppercase tracking-[0.24em] text-[#88a0ba]">
@@ -579,8 +576,8 @@ export default function TestimonialsSection({
       </div>
 
       {isModalOpen ? (
-        <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm md:py-8">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+        <div className="fixed inset-0 z-[140] flex items-start justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm md:py-8">
+          <div className="relative z-[141] max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
             <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Live Review</p>
@@ -696,8 +693,8 @@ export default function TestimonialsSection({
       ) : null}
 
       {activeTestimonial ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+          <div className="relative z-[141] max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
             <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-[1.2rem] border border-[#36506b] bg-[#102038] text-base font-semibold uppercase tracking-[0.18em] text-[#8fe6c1]">
