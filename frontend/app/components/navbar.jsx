@@ -87,35 +87,35 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
       <div className="navbar-line absolute inset-x-0 bottom-0 h-[2px] rotate-180" />
 
       <div className="flex min-h-[86px] flex-col lg:flex-row lg:items-center">
-        <div className="flex items-center border-b border-[#2b3042] bg-[linear-gradient(180deg,#262b3c,#222636)] lg:w-[72px] lg:justify-center lg:self-stretch lg:border-b-0 lg:border-r xl:w-[86px]">
+        <div className="flex items-center border-b border-[#2b3042] bg-[linear-gradient(180deg,#262b3c,#222636)] lg:w-[72px] lg:justify-center lg:self-stretch lg:border-b-0 lg:border-r 2xl:w-[86px]">
           <button
             type="button"
             aria-label="Open menu"
             aria-expanded={isDrawerOpen}
             onClick={() => setIsDrawerOpen(true)}
-            className="flex h-[86px] w-[72px] items-center justify-center text-[#f4efe6] transition hover:bg-white/5 xl:w-[86px]"
+            className="flex h-[86px] w-[72px] items-center justify-center text-[#f4efe6] transition hover:bg-white/5 2xl:w-[86px]"
           >
             <HiOutlineBars3BottomLeft size={28} />
           </button>
         </div>
 
-        <div className="flex flex-1 flex-col gap-5 px-4 py-4 lg:grid lg:grid-cols-[minmax(170px,220px)_minmax(0,1fr)_auto] lg:items-center lg:gap-3 xl:grid-cols-[minmax(220px,auto)_minmax(0,1fr)_auto] xl:px-6 xl:gap-6">
-          <Link href="/" className="flex items-center gap-2 text-white xl:gap-3">
+        <div className="flex flex-1 flex-col gap-5 px-4 py-4 lg:grid lg:grid-cols-[minmax(170px,220px)_minmax(0,1fr)_auto] lg:items-center lg:gap-3 2xl:grid-cols-[minmax(220px,auto)_minmax(0,1fr)_auto] 2xl:px-6 2xl:gap-6">
+          <Link href="/" className="flex items-center gap-2 text-white 2xl:gap-3">
             <span
-              className="text-[1.95rem] leading-none tracking-tight text-[#f3ede2] xl:text-[2.55rem]"
+              className="text-[1.95rem] leading-none tracking-tight text-[#f3ede2] 2xl:text-[2.55rem]"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
             >
               {brandTitle}
             </span>
             <span
-              className="-translate-y-2 self-start whitespace-nowrap text-[0.72rem] leading-none text-[#b8b0a4] xl:text-[0.8rem] xl:leading-[1.05]"
+              className="-translate-y-2 self-start whitespace-nowrap text-[0.72rem] leading-none text-[#b8b0a4] 2xl:text-[0.8rem] 2xl:leading-[1.05]"
               style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
             >
               {brandSubtitle}
             </span>
           </Link>
 
-          <ul className="flex flex-nowrap items-center justify-center gap-0.5 overflow-hidden xl:gap-x-3">
+          <ul className="flex flex-nowrap items-center justify-center gap-0.5 overflow-hidden 2xl:gap-x-3">
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
 
@@ -123,7 +123,7 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className={`whitespace-nowrap rounded-full px-2 py-2 text-[0.88rem] transition xl:px-3 xl:text-[1rem] ${
+                      className={`whitespace-nowrap rounded-full px-2 py-2 text-[0.88rem] transition 2xl:px-3 2xl:text-[1rem] ${
                         isActive
                           ? "bg-[linear-gradient(180deg,#31374d,#2a3042)] text-[#fff8ef] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(255,255,255,0.03)]"
                           : "text-[#c1b9ad] hover:bg-white/5 hover:text-[#f3ede2]"
@@ -137,7 +137,7 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
               })}
           </ul>
 
-          <ul className="flex flex-nowrap items-center gap-2 text-[#f3ede2] xl:gap-4">
+          <ul className="flex flex-nowrap items-center gap-2 text-[#f3ede2] 2xl:gap-4">
               {socialLinks.map((item) => {
                 const Icon = item.icon;
 

@@ -218,6 +218,14 @@ function getRequestIp(request) {
   return socketAddress.replace(/^::ffff:/, "");
 }
 
+function mergeGeoDetails(primary = {}, fallback = {}) {
+  return {
+    country: normalizeString(primary.country) || normalizeString(fallback.country),
+    region: normalizeString(primary.region) || normalizeString(fallback.region),
+    city: normalizeString(primary.city) || normalizeString(fallback.city),
+  };
+}
+
 function isPublicIp(ip) {
   if (!ip) {
     return false;
@@ -251,24 +259,27 @@ async function lookupGeoDetails(request, ipAddress) {
   }
 
   try {
-    const geoResponse = await fetch(`https://ipwho.is/${encodeURIComponent(ipAddress)}`, {
-      headers: {
-        Accept: "application/json",
+    const geoResponse = await fetch(
+      `http://ip-api.com/json/${encodeURIComponent(ipAddress)}?fields=status,country,regionName,city`,
+      {
+        headers: {
+          Accept: "application/json",
+        },
       },
-    });
+    );
 
     if (!geoResponse.ok) {
       return { country: "", region: "", city: "" };
     }
 
     const geoData = await geoResponse.json();
-    if (!geoData?.success) {
+    if (geoData?.status !== "success") {
       return { country: "", region: "", city: "" };
     }
 
     return {
       country: normalizeString(geoData.country),
-      region: normalizeString(geoData.region),
+      region: normalizeString(geoData.regionName),
       city: normalizeString(geoData.city),
     };
   } catch (_error) {
@@ -1829,8 +1840,17 @@ router.post("/analytics/heartbeat", async (request, response) => {
     const now = new Date();
     const today = getUtcDateOnly(now);
     const userAgent = String(request.headers["user-agent"] || "").slice(0, 2000);
-    const ipAddress = getRequestIp(request).slice(0, 191);
-    const geoDetails = await lookupGeoDetails(request, ipAddress);
+    const requestIpAddress = getRequestIp(request);
+    const bodyIpAddress = normalizeString(request.body?.ipAddress);
+    const resolvedIpAddress = isPublicIp(bodyIpAddress) ? bodyIpAddress : requestIpAddress;
+    const ipAddress = resolvedIpAddress.slice(0, 191);
+    const requestGeoDetails = await lookupGeoDetails(request, ipAddress);
+    const bodyGeoDetails = {
+      country: normalizeString(request.body?.country),
+      region: normalizeString(request.body?.region),
+      city: normalizeString(request.body?.city),
+    };
+    const geoDetails = mergeGeoDetails(bodyGeoDetails, requestGeoDetails);
     const geoUpdateData = buildGeoUpdateData(geoDetails);
 
     const session = await prisma.analyticsSession.upsert({

@@ -1,9 +1,18 @@
+"use client";
+
 import Image from "next/image";
+import { useState } from "react";
 import lottieFile from "../../../assets/lottie/study.json";
 import AnimationLottie from "../../helper/animation-lottie";
 import SectionHeading from "../section-heading";
 
+function hasMeaningfulContent(html = "") {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().length > 0;
+}
+
 function Education({ educations = [] }) {
+  const [expandedItems, setExpandedItems] = useState({});
+
   if (!educations.length) {
     return null;
   }
@@ -27,7 +36,88 @@ function Education({ educations = [] }) {
             className="mb-8"
           />
 
-          <div className="flex flex-col gap-8 lg:gap-10">
+          <div className="sm:hidden">
+            <div className="relative mb-6 rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.92),rgba(11,19,37,0.98))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.18)]">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(22,242,179,0.16),transparent_40%),radial-gradient(circle_at_bottom,rgba(112,213,255,0.14),transparent_42%)]" />
+              <div className="relative mx-auto w-full max-w-[520px]">
+                <AnimationLottie animationPath={lottieFile} />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-5">
+              {educations.map((item, index) => {
+                const itemKey = item.id ?? `${item.title}-${index}`;
+                const isExpanded = Boolean(expandedItems[itemKey]);
+                const hasAchievement = hasMeaningfulContent(item.achievement || "");
+                const institution = item.institution || "Not specified";
+                const rightMeta = item.department || "Not specified";
+
+                return (
+                  <article
+                    key={itemKey}
+                    className="relative overflow-hidden rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(14,24,48,0.88),rgba(11,19,37,0.96))] p-5 shadow-[0_20px_55px_rgba(0,0,0,0.2)]"
+                  >
+                    <Image
+                      src="/blur-23.svg"
+                      alt="Education"
+                      width={1080}
+                      height={200}
+                      className="absolute bottom-0 right-0 opacity-70"
+                    />
+
+                    <div className="relative">
+                      <div className="border-b border-[#263953] pb-5">
+                        <h3 className="text-xl font-semibold text-white">{item.title}</h3>
+
+                        <div className="mt-4 flex items-start justify-between gap-4">
+                          <p className="min-w-0 text-sm text-[#d2dceb]">{institution}</p>
+                          <p className="max-w-[48%] shrink-0 text-right text-sm text-[#d2dceb]">
+                            {rightMeta}
+                          </p>
+                        </div>
+
+                        <p className="mt-4 text-sm text-[#16f2b3]">{item.duration}</p>
+                      </div>
+
+                      {hasAchievement ? (
+                        <div className="mt-5">
+                          <div className="relative">
+                            <div
+                              className={`education-content text-sm leading-7 text-[#d6dfec] transition-all duration-300 ${
+                                isExpanded ? "" : "max-h-[11.5rem] overflow-hidden"
+                              }`}
+                              dangerouslySetInnerHTML={{ __html: item.achievement }}
+                            />
+
+                            {!isExpanded ? (
+                              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-[linear-gradient(180deg,rgba(11,19,37,0),rgba(11,19,37,0.94)_70%,rgba(11,19,37,1))]" />
+                            ) : null}
+                          </div>
+
+                          <div className="mt-4 flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedItems((current) => ({
+                                  ...current,
+                                  [itemKey]: !current[itemKey],
+                                }))
+                              }
+                              className="inline-flex min-w-[138px] items-center justify-center rounded-full border border-[#35506f] bg-[#102038] px-5 py-2.5 text-sm font-semibold text-[#dff4ff] transition hover:border-[#70d5ff] hover:text-white"
+                            >
+                              {isExpanded ? "See Less" : "View Full"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="hidden flex-col gap-8 lg:gap-10 sm:flex">
             {educations.map((item, index) => {
               const isReversed = index % 2 === 1;
 

@@ -3,7 +3,9 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { buildPublicApiUrl } from "@/lib/public-backend-url";
+
 const sessionStorageKey = "portfolio_analytics_session_id";
+const geoStorageKey = "portfolio_analytics_geo";
 const heartbeatIntervalMs = 30000;
 
 function createSessionId() {
@@ -25,15 +27,55 @@ function getSessionId() {
   return nextId;
 }
 
-function sendAnalyticsEvent(pathname, eventType = "heartbeat") {
+async function getVisitorGeo() {
+  const cachedValue = window.sessionStorage.getItem(geoStorageKey);
+  if (cachedValue) {
+    try {
+      return JSON.parse(cachedValue);
+    } catch (_error) {
+      window.sessionStorage.removeItem(geoStorageKey);
+    }
+  }
+
+  try {
+    const response = await fetch("/api/visitor-geo", {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const payload = {
+      ipAddress: String(data?.ipAddress || "").trim(),
+      country: String(data?.country || "").trim(),
+      region: String(data?.region || "").trim(),
+      city: String(data?.city || "").trim(),
+    };
+
+    window.sessionStorage.setItem(geoStorageKey, JSON.stringify(payload));
+    return payload;
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function sendAnalyticsEvent(pathname, eventType = "heartbeat") {
   if (!pathname || pathname.startsWith("/admin") || pathname.startsWith("/login/admin")) {
     return;
   }
 
+  const geo = await getVisitorGeo();
   const payload = JSON.stringify({
     sessionId: getSessionId(),
     path: pathname,
     eventType,
+    ipAddress: geo?.ipAddress || "",
+    country: geo?.country || "",
+    region: geo?.region || "",
+    city: geo?.city || "",
   });
   const url = buildPublicApiUrl("/api/site/analytics/heartbeat");
 

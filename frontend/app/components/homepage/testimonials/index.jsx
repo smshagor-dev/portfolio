@@ -74,6 +74,10 @@ function getVisibleCount(width = 0) {
   return 1;
 }
 
+function stripHtml(html = "") {
+  return String(html).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function getSortedTestimonials(testimonials = []) {
   return [...(testimonials || [])]
     .filter((item) => item?.content)
@@ -101,14 +105,14 @@ function TestimonialCard({ item, failedImages, setFailedImages, onOpen }) {
     <button
       type="button"
       onClick={() => onOpen(item)}
-      className="group relative flex min-h-[22rem] w-full flex-col overflow-hidden rounded-[1.9rem] border border-[#2a3c54] bg-[linear-gradient(180deg,rgba(18,29,47,0.98),rgba(10,16,28,0.98))] p-6 text-left shadow-[0_24px_55px_rgba(0,0,0,0.24)] transition duration-700 hover:-translate-y-1 hover:border-[#7cf0b7]/60 hover:shadow-[0_34px_90px_rgba(4,10,20,0.42)]"
+      className="group relative flex h-[22rem] w-full flex-col overflow-hidden rounded-[1.9rem] border border-[#2a3c54] bg-[linear-gradient(180deg,rgba(18,29,47,0.98),rgba(10,16,28,0.98))] p-5 text-left shadow-none transition duration-700 hover:-translate-y-1 hover:border-[#7cf0b7]/60 sm:min-h-[22rem] sm:h-auto sm:p-6 sm:shadow-[0_24px_55px_rgba(0,0,0,0.24)] sm:hover:shadow-[0_34px_90px_rgba(4,10,20,0.42)]"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,240,183,0.12),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(112,213,255,0.14),transparent_28%)] opacity-80 transition duration-700 group-hover:opacity-100" />
       <div className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(124,240,183,0.92),rgba(112,213,255,0.82),transparent)]" />
       <div className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,rgba(112,213,255,0.82),rgba(124,240,183,0.92),transparent)]" />
 
-      <div className="relative flex items-start justify-between gap-4">
-        <div className="min-w-0 flex items-center gap-4">
+      <div className="relative flex min-h-[5.75rem] items-start justify-between gap-4">
+        <div className="min-w-0 flex flex-1 items-center gap-4">
           <div className="flex h-[64px] w-[64px] shrink-0 items-center justify-center overflow-hidden rounded-[1.3rem] border border-[#36506b] bg-[#102038] text-sm font-semibold uppercase tracking-[0.18em] text-[#8fe6c1] shadow-[0_10px_26px_rgba(0,0,0,0.22)]">
             {!imageFailed && item.image ? (
               <Image
@@ -124,12 +128,12 @@ function TestimonialCard({ item, failedImages, setFailedImages, onOpen }) {
               <span>{avatarLabel}</span>
             )}
           </div>
-          <div className="min-w-0">
-            <p className="text-base font-semibold text-white">{item.name}</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.28em] text-[#7cf0b7]">
+          <div className="min-w-0 flex-1">
+            <p className="line-clamp-2 min-h-[3rem] text-base font-semibold text-white">{item.name}</p>
+            <p className="mt-1 line-clamp-1 min-h-[1.25rem] text-xs uppercase tracking-[0.28em] text-[#7cf0b7]">
               {item.company || "Client"}
             </p>
-            <p className="mt-1 text-[11px] uppercase tracking-[0.24em] text-[#8ba0b7]">
+            <p className="mt-1 line-clamp-1 min-h-[1rem] text-[11px] uppercase tracking-[0.24em] text-[#8ba0b7]">
               {item.position || "Reviewer"}
             </p>
           </div>
@@ -138,8 +142,14 @@ function TestimonialCard({ item, failedImages, setFailedImages, onOpen }) {
         <StarRow stars={item.stars} />
       </div>
 
+      <div className="relative mt-6 sm:hidden">
+        <p className="h-[8.75rem] overflow-hidden text-sm leading-7 text-[#c5d3e2] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:5]">
+          {stripHtml(item.content)}
+        </p>
+      </div>
+
       <div
-        className="relative mt-6 text-sm leading-7 text-[#c5d3e2]"
+        className="relative mt-6 hidden text-sm leading-7 text-[#c5d3e2] sm:block"
         dangerouslySetInnerHTML={{ __html: item.content }}
       />
 
@@ -303,6 +313,9 @@ export default function TestimonialsSection({
   const sliderItems = items.length ? items : fallbackTestimonials;
   const visibleCount = getVisibleCount(viewportWidth);
   const shouldAutoScroll = !showAllReviews && sliderItems.length > visibleCount;
+  const loopedSliderItems = shouldAutoScroll
+    ? [...sliderItems, ...sliderItems, ...sliderItems]
+    : sliderItems;
 
   function getSlideStep() {
     const slider = sliderRef.current;
@@ -323,6 +336,61 @@ export default function TestimonialsSection({
     return firstSlide.getBoundingClientRect().width + gap;
   }
 
+  function getLoopTrackWidth() {
+    const step = getSlideStep();
+
+    if (!step) {
+      return 0;
+    }
+
+    return step * sliderItems.length;
+  }
+
+  useEffect(() => {
+    if (!shouldAutoScroll) {
+      return undefined;
+    }
+
+    const slider = sliderRef.current;
+
+    if (!slider) {
+      return undefined;
+    }
+
+    const syncLoopPosition = () => {
+      const loopWidth = getLoopTrackWidth();
+
+      if (!loopWidth) {
+        return;
+      }
+
+      if (slider.scrollLeft < loopWidth * 0.5) {
+        slider.scrollLeft += loopWidth;
+      } else if (slider.scrollLeft >= loopWidth * 1.5) {
+        slider.scrollLeft -= loopWidth;
+      }
+    };
+
+    const initializePosition = () => {
+      const loopWidth = getLoopTrackWidth();
+
+      if (!loopWidth) {
+        return;
+      }
+
+      slider.scrollLeft = loopWidth;
+    };
+
+    initializePosition();
+    slider.addEventListener("scroll", syncLoopPosition, { passive: true });
+    window.addEventListener("resize", initializePosition);
+
+    return () => {
+      slider.removeEventListener("scroll", syncLoopPosition);
+      window.removeEventListener("resize", initializePosition);
+    };
+  }, [shouldAutoScroll, sliderItems.length, viewportWidth]);
+
   function scrollTestimonials(direction = 1) {
     const slider = sliderRef.current;
 
@@ -333,19 +401,6 @@ export default function TestimonialsSection({
     const step = getSlideStep();
 
     if (!step) {
-      return;
-    }
-
-    const maxScrollLeft = Math.max(slider.scrollWidth - slider.clientWidth, 0);
-    const nextLeft = slider.scrollLeft + step * direction;
-
-    if (direction > 0 && nextLeft >= maxScrollLeft - step / 3) {
-      slider.scrollTo({ left: 0, behavior: "smooth" });
-      return;
-    }
-
-    if (direction < 0 && slider.scrollLeft <= step / 3) {
-      slider.scrollTo({ left: maxScrollLeft, behavior: "smooth" });
       return;
     }
 
@@ -376,13 +431,6 @@ export default function TestimonialsSection({
       const styles = window.getComputedStyle(slider);
       const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
       const step = firstSlide.getBoundingClientRect().width + gap;
-      const maxScrollLeft = Math.max(slider.scrollWidth - slider.clientWidth, 0);
-      const nextLeft = slider.scrollLeft + step;
-
-      if (nextLeft >= maxScrollLeft - step / 3) {
-        slider.scrollTo({ left: 0, behavior: "smooth" });
-        return;
-      }
 
       slider.scrollBy({
         left: step,
@@ -442,10 +490,10 @@ export default function TestimonialsSection({
           />
         </div>
 
-        {ctaPosition === "top" ? <div className="mt-8">{renderShareCard()}</div> : null}
+        {ctaPosition === "top" ? <div className="mt-3 sm:mt-8">{renderShareCard()}</div> : null}
 
         {showAllReviews ? (
-          <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-4 grid gap-4 sm:mt-10 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
             {sliderItems.map((item, index) => (
               <TestimonialCard
                 key={`${item.id}-${index}`}
@@ -457,12 +505,12 @@ export default function TestimonialsSection({
             ))}
           </div>
         ) : (
-          <div className="relative mt-10">
+          <div className="relative mt-4 sm:mt-10">
             {shouldAutoScroll ? (
               <>
-                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-[#10192b] to-transparent sm:w-14" />
-                <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-[#09111d] to-transparent sm:w-14" />
-                <div className="mb-6 flex justify-center">
+                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden w-8 bg-gradient-to-r from-[#10192b] to-transparent sm:block sm:w-14" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-8 bg-gradient-to-l from-[#09111d] to-transparent sm:block sm:w-14" />
+                <div className="mb-3 flex justify-center sm:mb-6">
                   <div className="relative z-20 inline-flex items-center gap-3 rounded-full border border-[#2e4562] bg-[linear-gradient(180deg,rgba(11,20,35,0.96),rgba(8,15,27,0.96))] px-3 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
                     <button
                       type="button"
@@ -489,17 +537,17 @@ export default function TestimonialsSection({
                 </div>
                 <div
                   ref={sliderRef}
-                  className="hide-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 py-2 sm:gap-5"
+                  className="hide-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto pt-1 pb-0 sm:gap-5 sm:px-1 sm:py-2"
                   onMouseEnter={() => setIsSliderPaused(true)}
                   onMouseLeave={() => setIsSliderPaused(false)}
                   onTouchStart={() => setIsSliderPaused(true)}
                   onTouchEnd={() => setIsSliderPaused(false)}
                 >
-                  {sliderItems.map((item, index) => (
+                  {loopedSliderItems.map((item, index) => (
                     <div
-                      key={`${item.id}-${index}`}
+                      key={`${item.id}-${index}-${Math.floor(index / sliderItems.length)}`}
                       data-testimonial-slide
-                      className="w-[88vw] shrink-0 snap-start max-w-[28rem] sm:w-[30rem] lg:w-[24rem]"
+                      className="w-full shrink-0 snap-start sm:w-[30rem] sm:max-w-[28rem] lg:w-[24rem]"
                     >
                       <TestimonialCard
                         item={item}
@@ -512,7 +560,7 @@ export default function TestimonialsSection({
                 </div>
               </>
             ) : (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {sliderItems.map((item, index) => (
                   <TestimonialCard
                     key={`${item.id}-${index}`}
@@ -527,7 +575,7 @@ export default function TestimonialsSection({
           </div>
         )}
 
-        {ctaPosition !== "top" ? <div className="mt-8">{renderShareCard()}</div> : null}
+        {ctaPosition !== "top" ? <div className="mt-2 sm:mt-8">{renderShareCard()}</div> : null}
       </div>
 
       {isModalOpen ? (

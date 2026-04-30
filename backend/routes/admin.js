@@ -1244,24 +1244,27 @@ async function lookupGeoDetailsByIp(ipAddress) {
   }
 
   try {
-    const geoResponse = await fetch(`https://ipwho.is/${encodeURIComponent(normalizedIp)}`, {
-      headers: {
-        Accept: "application/json",
+    const geoResponse = await fetch(
+      `http://ip-api.com/json/${encodeURIComponent(normalizedIp)}?fields=status,country,regionName,city`,
+      {
+        headers: {
+          Accept: "application/json",
+        },
       },
-    });
+    );
 
     if (!geoResponse.ok) {
       return { country: "", region: "", city: "" };
     }
 
     const geoData = await geoResponse.json();
-    if (!geoData?.success) {
+    if (geoData?.status !== "success") {
       return { country: "", region: "", city: "" };
     }
 
     return {
       country: normalizeString(geoData.country),
-      region: normalizeString(geoData.region),
+      region: normalizeString(geoData.regionName),
       city: normalizeString(geoData.city),
     };
   } catch (_error) {

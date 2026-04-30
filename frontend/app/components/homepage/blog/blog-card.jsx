@@ -23,7 +23,7 @@ export default function BlogCard({ article }) {
   return (
     <Link
       href={`/artical/${article.slug}`}
-      className="group overflow-hidden rounded-[1.75rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(17,29,46,0.98),rgba(9,17,29,0.98))] shadow-[0_24px_70px_rgba(0,0,0,0.24)] transition duration-300 hover:-translate-y-1 hover:border-[#4d7298]"
+      className="group flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(17,29,46,0.98),rgba(9,17,29,0.98))] shadow-[0_24px_70px_rgba(0,0,0,0.24)] transition duration-300 hover:-translate-y-1 hover:border-[#4d7298]"
     >
       <div className="relative h-56 overflow-hidden border-b border-[#213148] bg-[radial-gradient(circle_at_top,rgba(111,212,255,0.18),transparent_45%),#0c1523]">
         {article?.featuredImage ? (
@@ -52,34 +52,36 @@ export default function BlogCard({ article }) {
         </div>
       </div>
 
-      <div className="p-6">
-        <div className="flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.22em] text-[#88a0b9]">
+      <div className="flex flex-1 flex-col p-6">
+        <div className="min-h-[1.5rem] flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.22em] text-[#88a0b9]">
           <span>{formatArticleDate(article.publishDate)}</span>
           <span className="h-1 w-1 rounded-full bg-[#47627e]" />
           <span>{article.author || "Editorial Desk"}</span>
         </div>
 
-        <h3 className="mt-4 text-2xl font-semibold leading-tight text-white transition group-hover:text-[#9de2ff]">
+        <h3 className="mt-4 min-h-[6rem] text-2xl font-semibold leading-tight text-white transition group-hover:text-[#9de2ff]">
           {article.title}
         </h3>
-        <p className="mt-4 text-sm leading-7 text-[#becddd]">
+        <p className="mt-4 h-[8.75rem] overflow-hidden text-sm leading-7 text-[#becddd] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:5] lg:h-[11rem] lg:[-webkit-line-clamp:6]">
           {article.shortDescription}
         </p>
 
-        {tags.length ? (
-          <div className="mt-5 flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <span
-                key={`${article.id}-${tag}`}
-                className="rounded-full border border-[#263a55] bg-[#0d1728] px-3 py-1 text-xs text-[#d5dfeb]"
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
-        ) : null}
+        <div className="mt-5 min-h-[2.5rem]">
+          {tags.length ? (
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <span
+                  key={`${article.id}-${tag}`}
+                  className="rounded-full border border-[#263a55] bg-[#0d1728] px-3 py-1 text-xs text-[#d5dfeb]"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
 
-        <div className="mt-6 border-t border-[#1f2d41] pt-5">
+        <div className="mt-auto border-t border-[#1f2d41] pt-5">
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-[#93d8ff]">Read article</span>
             <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#35506f] bg-[#11253a] text-[#bfe9ff] transition group-hover:border-[#72d5ff] group-hover:text-white">
