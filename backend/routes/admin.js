@@ -1655,6 +1655,120 @@ router.get("/me", requireAdmin, async (request, response) => {
   }
 });
 
+router.put("/me", requireAdmin, async (request, response) => {
+  try {
+    const name = normalizeString(request.body?.name);
+    const email = normalizeString(request.body?.email).toLowerCase();
+
+    if (!name || !email) {
+      return response.status(400).json({ message: "Name and email are required." });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return response.status(400).json({ message: "Enter a valid email address." });
+    }
+
+    const currentAdmin = await prisma.adminUser.findUnique({
+      where: { email: request.admin.email },
+      select: {
+        id: true,
+        email: true,
+      },
+    });
+
+    if (!currentAdmin) {
+      return response.status(404).json({ message: "Admin not found." });
+    }
+
+    const existingAdmin = await prisma.adminUser.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+    if (existingAdmin && existingAdmin.id !== currentAdmin.id) {
+      return response.status(409).json({ message: "Another admin already uses this email address." });
+    }
+
+    const updatedAdmin = await prisma.adminUser.update({
+      where: { id: currentAdmin.id },
+      data: {
+        name,
+        email,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        twoFactorEnabled: true,
+      },
+    });
+
+    return response.json({
+      success: true,
+      message: "Admin profile updated successfully.",
+      admin: updatedAdmin,
+      token: signAdminToken(updatedAdmin),
+    });
+  } catch (error) {
+    console.error("Failed to update admin profile:", error.message);
+    return response.status(500).json({ message: "Failed to update admin profile." });
+  }
+});
+
+router.put("/me/password", requireAdmin, async (request, response) => {
+  try {
+    const currentPassword = String(request.body?.currentPassword || "");
+    const newPassword = String(request.body?.newPassword || "");
+
+    if (!currentPassword || !newPassword) {
+      return response.status(400).json({ message: "Current password and new password are required." });
+    }
+
+    if (newPassword.length < 8) {
+      return response.status(400).json({ message: "New password must be at least 8 characters long." });
+    }
+
+    if (currentPassword === newPassword) {
+      return response.status(400).json({ message: "New password must be different from the current password." });
+    }
+
+    const admin = await prisma.adminUser.findUnique({
+      where: { email: request.admin.email },
+      select: {
+        id: true,
+        passwordHash: true,
+      },
+    });
+
+    if (!admin) {
+      return response.status(404).json({ message: "Admin not found." });
+    }
+
+    const isValidPassword = await bcrypt.compare(currentPassword, admin.passwordHash);
+
+    if (!isValidPassword) {
+      return response.status(401).json({ message: "Current password is incorrect." });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await prisma.adminUser.update({
+      where: { id: admin.id },
+      data: {
+        passwordHash,
+      },
+    });
+
+    return response.json({
+      success: true,
+      message: "Admin password changed successfully.",
+    });
+  } catch (error) {
+    console.error("Failed to change admin password:", error.message);
+    return response.status(500).json({ message: "Failed to change admin password." });
+  }
+});
+
 router.get("/2fa/setup", requireAdmin, async (request, response) => {
   try {
     const admin = await prisma.adminUser.findUnique({

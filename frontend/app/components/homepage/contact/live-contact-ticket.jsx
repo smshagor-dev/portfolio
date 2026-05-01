@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { FiClock, FiHome, FiImage, FiMessageSquare, FiPaperclip, FiSend, FiUpload, FiX } from "react-icons/fi";
+import { FiClock, FiHome, FiImage, FiMessageSquare, FiPaperclip, FiPlus, FiSend, FiUpload, FiX } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { showChatMessageNotification } from "@/lib/browser-notifications";
 import { buildPublicApiUrl, getSocketServerUrl } from "@/lib/public-backend-url";
@@ -74,6 +74,8 @@ export default function LiveContactTicket({
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isMobileAttachmentMenuOpen, setIsMobileAttachmentMenuOpen] = useState(false);
+  const [activeImagePreview, setActiveImagePreview] = useState("");
   const [attachments, setAttachments] = useState({ photo: null, file: null });
   const [newTicketInput, setNewTicketInput] = useState({
     name: "",
@@ -88,6 +90,14 @@ export default function LiveContactTicket({
   const fileInputRef = useRef(null);
   const newTicketPhotoInputRef = useRef(null);
   const newTicketFileInputRef = useRef(null);
+  const composerPhotoPreviewUrl = useMemo(
+    () => (attachments.photo ? URL.createObjectURL(attachments.photo) : ""),
+    [attachments.photo],
+  );
+  const newTicketPhotoPreviewUrl = useMemo(
+    () => (newTicketInput.photo ? URL.createObjectURL(newTicketInput.photo) : ""),
+    [newTicketInput.photo],
+  );
 
   function loadTicketHistory() {
     if (typeof window === "undefined") {
@@ -159,6 +169,26 @@ export default function LiveContactTicket({
       setActiveTicketSession(null);
     }
   }, [ticketSession]);
+
+  useEffect(() => {
+    setIsMobileAttachmentMenuOpen(false);
+  }, [isHomeView, isCreatingNewTicket, activeTicketSession?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (composerPhotoPreviewUrl) {
+        URL.revokeObjectURL(composerPhotoPreviewUrl);
+      }
+    };
+  }, [composerPhotoPreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (newTicketPhotoPreviewUrl) {
+        URL.revokeObjectURL(newTicketPhotoPreviewUrl);
+      }
+    };
+  }, [newTicketPhotoPreviewUrl]);
 
   useEffect(() => {
     if (!activeTicketSession?.id || !activeTicketSession?.token) {
@@ -564,23 +594,23 @@ export default function LiveContactTicket({
       <div
         className={
           isPageView
-            ? "flex h-full min-h-0 w-full flex-col"
+            ? "flex h-full min-h-0 w-full flex-1 flex-col self-stretch"
             : `fixed inset-0 z-[10000] transition duration-300 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[calc(100vw-3rem)] sm:max-w-[440px] ${
                 isOpen ? "pointer-events-auto translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"
               }`
         }
       >
         <div
-          className={
-            isPageView
-              ? "h-full min-h-0 overflow-hidden border border-[#6fd8ff]/28 bg-[linear-gradient(180deg,rgba(126,224,255,0.08),rgba(124,240,183,0.03))] p-[1px] shadow-[0_34px_110px_rgba(0,0,0,0.52)] ring-1 ring-white/10 backdrop-blur-2xl rounded-none sm:rounded-[1.9rem]"
-              : "h-full overflow-hidden border border-[#6fd8ff]/28 bg-[linear-gradient(180deg,rgba(126,224,255,0.08),rgba(124,240,183,0.03))] p-[1px] shadow-[0_34px_110px_rgba(0,0,0,0.52)] ring-1 ring-white/10 backdrop-blur-2xl sm:h-auto sm:rounded-[1.9rem]"
-          }
-        >
+            className={
+              isPageView
+                ? "flex min-h-0 flex-1 border border-[#6fd8ff]/28 bg-[linear-gradient(180deg,rgba(126,224,255,0.08),rgba(124,240,183,0.03))] p-[1px] shadow-[0_34px_110px_rgba(0,0,0,0.52)] ring-1 ring-white/10 backdrop-blur-2xl rounded-[1.9rem]"
+                : "h-full overflow-hidden border border-[#6fd8ff]/28 bg-[linear-gradient(180deg,rgba(126,224,255,0.08),rgba(124,240,183,0.03))] p-[1px] shadow-[0_34px_110px_rgba(0,0,0,0.52)] ring-1 ring-white/10 backdrop-blur-2xl sm:h-auto sm:rounded-[1.9rem]"
+            }
+          >
           <div
             className={
               isPageView
-                ? "flex h-full min-h-0 w-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(111,216,255,0.12),transparent_28%),linear-gradient(180deg,#0d1829,#09111d)] sm:rounded-[calc(1.9rem-1px)]"
+                ? "flex min-h-0 flex-1 w-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(111,216,255,0.12),transparent_28%),linear-gradient(180deg,#0d1829,#09111d)] rounded-[calc(1.9rem-1px)]"
                 : "flex h-full min-h-0 w-full flex-col overflow-hidden bg-[radial-gradient(circle_at_top,rgba(111,216,255,0.12),transparent_28%),linear-gradient(180deg,#0d1829,#09111d)] sm:h-[min(88vh,820px)] sm:max-h-[calc(100dvh-3rem)] sm:rounded-[calc(1.9rem-1px)]"
             }
           >
@@ -653,7 +683,7 @@ export default function LiveContactTicket({
                 <p className="text-xs uppercase tracking-[0.2em] text-[#78d7ff]">Chat Home</p>
                 <p className="mt-2 text-sm text-[#93a9c3]">View saved chats and reopen any conversation from this device.</p>
               </div>
-              <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              <div className="flex-1 min-h-0 space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
                 {visibleEmergencyContacts.length > 0 ? (
                   <div className="rounded-[1.2rem] border border-white/10 bg-white/[0.03] p-3">
                     <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9fdcff]">
@@ -794,7 +824,7 @@ export default function LiveContactTicket({
               </div>
 
               <div className="shrink-0 border-t border-white/10 bg-[linear-gradient(180deg,rgba(9,17,29,0.72),rgba(9,17,29,0.98))] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                <div className="mb-3 flex flex-wrap gap-2">
+                <div className="mb-3 hidden flex-wrap gap-2 md:flex">
                   <button
                     type="button"
                     onClick={() => newTicketPhotoInputRef.current?.click()}
@@ -839,10 +869,17 @@ export default function LiveContactTicket({
                 {newTicketInput.photo || newTicketInput.file ? (
                   <div className="mb-3 flex flex-wrap gap-2">
                     {newTicketInput.photo ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-[#081322] px-3 py-1.5 text-xs text-[#cfe0f3]">
-                        <FiUpload size={12} />
-                        {newTicketInput.photo.name}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveImagePreview(newTicketPhotoPreviewUrl)}
+                        className="overflow-hidden rounded-[1.2rem] bg-transparent p-0 shadow-none"
+                      >
+                        <img
+                          src={newTicketPhotoPreviewUrl}
+                          alt={newTicketInput.photo.name || "Selected photo preview"}
+                          className="h-40 w-40 rounded-[0.95rem] object-cover sm:h-48 sm:w-48"
+                        />
+                      </button>
                     ) : null}
                     {newTicketInput.file ? (
                       <span className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-[#081322] px-3 py-1.5 text-xs text-[#cfe0f3]">
@@ -853,7 +890,40 @@ export default function LiveContactTicket({
                   </div>
                 ) : null}
 
-                <div className="flex items-end gap-3">
+                <div className="relative flex items-end gap-3">
+                  {isMobileAttachmentMenuOpen ? (
+                    <div className="absolute bottom-[calc(100%+0.75rem)] left-0 flex items-center gap-2 rounded-[1rem] border border-[#2d4764] bg-[#081322] p-2 shadow-[0_16px_34px_rgba(0,0,0,0.32)] md:hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          newTicketPhotoInputRef.current?.click();
+                          setIsMobileAttachmentMenuOpen(false);
+                        }}
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#2d4764] bg-white/[0.03] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white"
+                      >
+                        <FiImage size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          newTicketFileInputRef.current?.click();
+                          setIsMobileAttachmentMenuOpen(false);
+                        }}
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#2d4764] bg-white/[0.03] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white"
+                      >
+                        <FiPaperclip size={16} />
+                      </button>
+                    </div>
+                  ) : null}
+                  <div className="flex shrink-0 items-center gap-2 md:hidden">
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileAttachmentMenuOpen((current) => !current)}
+                      className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#2d4764] bg-white/[0.03] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white"
+                    >
+                      <FiPlus size={18} />
+                    </button>
+                  </div>
                   <button
                     type="submit"
                     disabled={isCreatingTicket}
@@ -866,8 +936,8 @@ export default function LiveContactTicket({
               </div>
             </form>
           ) : hasActiveTicket ? (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div ref={listRef} className="flex-1 min-h-0 space-y-3 overflow-y-auto px-4 py-4">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div ref={listRef} className="flex-1 min-h-0 space-y-3 overflow-y-auto overscroll-contain touch-pan-y px-4 py-4">
                 {chatMessages.length === 0 ? (
                   <div className="rounded-[1.2rem] border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-[#93a9c3]">
                     Your full chat history will appear here.
@@ -875,6 +945,7 @@ export default function LiveContactTicket({
                 ) : (
                   chatMessages.map((message) => {
                     const isVisitor = message.senderType === "visitor";
+                    const hasOnlyPhoto = Boolean(message.photo && !message.message && !message.file);
                     const bubbleAttachmentClass = isVisitor
                       ? "border-[#153043]/15 bg-[#07111d]/10 text-[#153043] hover:border-[#153043]/35 hover:bg-[#07111d]/15"
                       : "border-white/10 bg-white/[0.03] text-[#9fdcff] hover:border-[#70d5ff] hover:text-white";
@@ -883,21 +954,30 @@ export default function LiveContactTicket({
                       <div key={message.id} className={`flex ${isVisitor ? "justify-end" : "justify-start"}`}>
                         <div
                           className={`max-w-[85%] rounded-[1.25rem] px-4 py-3 text-sm shadow-[0_12px_30px_rgba(0,0,0,0.18)] ${
-                            isVisitor
-                              ? "bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] text-[#07111d]"
-                              : "border border-white/10 bg-white/[0.05] text-white"
+                            hasOnlyPhoto
+                              ? "bg-transparent p-0 text-white shadow-none"
+                              : isVisitor
+                                ? "bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] text-[#07111d]"
+                                : "border border-white/10 bg-white/[0.05] text-white"
                           }`}
                         >
                           {message.message ? <p className="whitespace-pre-wrap leading-6">{message.message}</p> : null}
 
                           {message.photo || message.file ? (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <AttachmentChip
-                                href={message.photo}
-                                label="View Photo"
-                                icon={FiImage}
-                                accentClass={bubbleAttachmentClass}
-                              />
+                            <div className={`${message.message ? "mt-3" : "mt-0"} flex flex-wrap gap-2`}>
+                              {message.photo ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveImagePreview(message.photo)}
+                                  className="overflow-hidden rounded-[1rem] bg-transparent p-0"
+                                >
+                                  <img
+                                    src={message.photo}
+                                    alt="Chat photo attachment"
+                                    className="h-40 w-40 rounded-[0.8rem] object-cover sm:h-52 sm:w-52"
+                                  />
+                                </button>
+                              ) : null}
                               <AttachmentChip
                                 href={message.file}
                                 label="Open File"
@@ -936,57 +1016,44 @@ export default function LiveContactTicket({
                     This chat is closed. You can view the conversation, but sending new messages is disabled.
                   </div>
                 ) : null}
-                <div className="mb-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => photoInputRef.current?.click()}
-                    disabled={isClosedTicket}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-white/[0.03] px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
-                  >
-                    <FiImage size={14} />
-                    {attachments.photo ? "Change Photo" : "Add Photo"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isClosedTicket}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-white/[0.03] px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
-                  >
-                    <FiPaperclip size={14} />
-                    {attachments.file ? "Change File" : "Add File"}
-                  </button>
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(event) =>
-                      setAttachments((current) => ({
-                        ...current,
-                        photo: event.target.files?.[0] || null,
-                      }))
-                    }
-                  />
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={(event) =>
-                      setAttachments((current) => ({
-                        ...current,
-                        file: event.target.files?.[0] || null,
-                      }))
-                    }
-                  />
-                </div>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) =>
+                    setAttachments((current) => ({
+                      ...current,
+                      photo: event.target.files?.[0] || null,
+                    }))
+                  }
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(event) =>
+                    setAttachments((current) => ({
+                      ...current,
+                      file: event.target.files?.[0] || null,
+                    }))
+                  }
+                />
 
                 {attachments.photo || attachments.file ? (
                   <div className="mb-3 flex flex-wrap gap-2">
                     {attachments.photo ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-[#081322] px-3 py-1.5 text-xs text-[#cfe0f3]">
-                        <FiUpload size={12} />
-                        {attachments.photo.name}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveImagePreview(composerPhotoPreviewUrl)}
+                        className="overflow-hidden rounded-[1.2rem] bg-transparent p-0 shadow-none"
+                      >
+                        <img
+                          src={composerPhotoPreviewUrl}
+                          alt={attachments.photo.name || "Selected photo preview"}
+                          className="h-40 w-40 rounded-[0.95rem] object-cover sm:h-48 sm:w-48"
+                        />
+                      </button>
                     ) : null}
                     {attachments.file ? (
                       <span className="inline-flex items-center gap-2 rounded-full border border-[#2d4764] bg-[#081322] px-3 py-1.5 text-xs text-[#cfe0f3]">
@@ -997,15 +1064,71 @@ export default function LiveContactTicket({
                   </div>
                 ) : null}
 
-                <div className="flex items-end gap-3">
+                <div className="relative flex items-end gap-3">
+                  {isMobileAttachmentMenuOpen ? (
+                    <div className="absolute bottom-[calc(100%+0.75rem)] left-0 flex items-center gap-2 rounded-[1rem] border border-[#2d4764] bg-[#081322] p-2 shadow-[0_16px_34px_rgba(0,0,0,0.32)] md:hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          photoInputRef.current?.click();
+                          setIsMobileAttachmentMenuOpen(false);
+                        }}
+                        disabled={isClosedTicket}
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#2d4764] bg-white/[0.03] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <FiImage size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fileInputRef.current?.click();
+                          setIsMobileAttachmentMenuOpen(false);
+                        }}
+                        disabled={isClosedTicket}
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#2d4764] bg-white/[0.03] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <FiPaperclip size={16} />
+                      </button>
+                    </div>
+                  ) : null}
+                  <div className="flex shrink-0 items-center gap-2 md:hidden">
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileAttachmentMenuOpen((current) => !current)}
+                      disabled={isClosedTicket}
+                      className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#2d4764] bg-white/[0.03] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <FiPlus size={18} />
+                    </button>
+                  </div>
+                  <div className="hidden shrink-0 items-center gap-2 md:flex">
+                    <button
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={isClosedTicket}
+                      className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#2d4764] bg-white/[0.03] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      aria-label={attachments.photo ? "Change photo" : "Add photo"}
+                    >
+                      <FiImage size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isClosedTicket}
+                      className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#2d4764] bg-white/[0.03] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      aria-label={attachments.file ? "Change file" : "Add file"}
+                    >
+                      <FiPaperclip size={16} />
+                    </button>
+                  </div>
                   <textarea
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                     onKeyDown={(event) => handleComposerKeyDown(event, () => handleSendMessage(event))}
-                    rows={2}
+                    rows={1}
                     placeholder={isClosedTicket ? "This chat is closed" : "Write your message..."}
                     disabled={isClosedTicket}
-                    className="min-h-[56px] flex-1 resize-none rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#6f879f] focus:border-[#70d5ff] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="min-h-[48px] flex-1 resize-none rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#6f879f] focus:border-[#70d5ff] disabled:cursor-not-allowed disabled:opacity-60 md:min-h-[56px]"
                   />
                   <button
                     type="submit"
@@ -1021,6 +1144,29 @@ export default function LiveContactTicket({
           </div>
         </div>
       </div>
+
+      {activeImagePreview ? (
+        <div
+          className="fixed inset-0 z-[10020] flex items-center justify-center bg-[#020817]/88 p-4 backdrop-blur-sm"
+          onClick={() => setActiveImagePreview("")}
+        >
+          <button
+            type="button"
+            onClick={() => setActiveImagePreview("")}
+            className="absolute right-4 top-4 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-[#07111d]/90 text-white shadow-[0_14px_30px_rgba(0,0,0,0.35)] transition hover:bg-[#0b1a2c] sm:right-6 sm:top-6"
+          >
+            <FiX size={18} />
+          </button>
+          <div className="relative max-h-[92vh] max-w-[92vw]">
+            <img
+              src={activeImagePreview}
+              alt="Preview"
+              className="max-h-[92vh] max-w-[92vw] object-contain"
+              onClick={(event) => event.stopPropagation()}
+            />
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

@@ -89,3 +89,26 @@ export async function getServicesPageData() {
 export async function getServiceDetailData(slug) {
   return fetchFromBackend(`/api/site/services/${encodeURIComponent(slug)}`);
 }
+
+export async function getResearchPublications(query = {}) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(query || {}).forEach(([key, value]) => {
+    if (value == null || value === "") {
+      return;
+    }
+
+    searchParams.set(key, String(value));
+  });
+
+  const pathname = `/api/research-publications${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+  return fetchFromBackend(pathname);
+}
+
+export async function getFeaturedResearchPublications() {
+  return fetchFromBackend("/api/research-publications/featured");
+}
+
+export async function getResearchPublicationDetail(slug) {
+  return fetchFromBackend(`/api/research-publications/${encodeURIComponent(slug)}`);
+}

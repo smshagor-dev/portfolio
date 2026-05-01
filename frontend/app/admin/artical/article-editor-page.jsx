@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import AdminFixedSidebarShell from "@/app/components/admin/admin-fixed-sidebar-shell";
 import { buildPublicApiUrl, buildPublicAssetUrl } from "@/lib/public-backend-url";
 
 const RichTextEditor = dynamic(() => import("@/app/components/admin/rich-text-editor"), {
@@ -281,6 +282,10 @@ export default function ArticleEditorPage({ articleId = null }) {
   }
 
   return (
+    <AdminFixedSidebarShell
+      title="Portfolio Admin"
+      description="Article editor pages now keep the left admin navigation fixed while you work through long forms."
+    >
     <div className="space-y-6 text-white">
       <div className="flex flex-col gap-4 rounded-[2rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)] md:flex-row md:items-center md:justify-between">
         <div>
@@ -520,5 +525,6 @@ export default function ArticleEditorPage({ articleId = null }) {
         </section>
       </form>
     </div>
+    </AdminFixedSidebarShell>
   );
 }

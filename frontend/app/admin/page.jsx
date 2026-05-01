@@ -10,7 +10,7 @@ import { toast } from "react-toastify";
 import { showChatMessageNotification } from "@/lib/browser-notifications";
 import { buildPublicApiUrl, buildPublicAssetUrl, getPublicBackendUrl, getSocketServerUrl } from "@/lib/public-backend-url";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
-import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiHelpCircle, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiPhone, FiSend, FiSettings, FiUpload } from "react-icons/fi";
+import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiHelpCircle, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiPhone, FiSend, FiSettings, FiUpload, FiX } from "react-icons/fi";
 import { getSocialIconOption, searchSocialIcons, socialIconOptions } from "@/utils/social-icons";
 import { getServiceIconOption, serviceIconOptions } from "@/utils/service-icons";
 import { getStatsIconOption, statsIconOptions } from "@/utils/stats-icons";
@@ -624,6 +624,9 @@ function buildAchievementsPayload(sourceForm) {
 
 function buildSiteSettingsPayload(sourceForm) {
   return {
+    profile: {
+      address: sourceForm.address.trim(),
+    },
     siteSettings: {
       websiteTitle: sourceForm.siteSettings.websiteTitle.trim(),
       websiteDescription: sourceForm.siteSettings.websiteDescription.trim(),
@@ -665,6 +668,7 @@ const tabs = [
   { id: "dashboard", label: "Dashboard", icon: FiBarChart2, href: "/admin/dashboard" },
   { id: "hero", label: "Hero", icon: HiOutlineSparkles, href: "/admin/hero" },
   { id: "services", label: "Services", icon: HiOutlineViewGrid, href: "/admin/services" },
+  { id: "research", label: "Research", icon: FiBookOpen, href: "/admin/research" },
   { id: "artical", label: "Artical", icon: FiBookOpen, href: "/admin/artical" },
   { id: "artical-categories", label: "Artical Categories", icon: FiBookOpen, href: "/admin/artical-categories" },
   { id: "projects", label: "Projects", icon: FiFolder, href: "/admin/projects" },
@@ -692,6 +696,14 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [admin, setAdmin] = useState(null);
+  const [adminProfileForm, setAdminProfileForm] = useState({ name: "", email: "" });
+  const [adminPasswordForm, setAdminPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [isSavingAdminProfile, setIsSavingAdminProfile] = useState(false);
+  const [isSavingAdminPassword, setIsSavingAdminPassword] = useState(false);
   const [isTwoFactorLoading, setIsTwoFactorLoading] = useState(false);
   const [isTwoFactorSubmitting, setIsTwoFactorSubmitting] = useState(false);
   const [twoFactorSetup, setTwoFactorSetup] = useState(emptyTwoFactorSetup());
@@ -720,9 +732,12 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
   const [selectedAnalyticsVisitor, setSelectedAnalyticsVisitor] = useState(null);
   const [analyticsVisitorsPage, setAnalyticsVisitorsPage] = useState(1);
+  const [messagesPage, setMessagesPage] = useState(1);
   const [selectedMessageThread, setSelectedMessageThread] = useState(null);
   const [messageReplyDraft, setMessageReplyDraft] = useState("");
   const [messageReplyAttachments, setMessageReplyAttachments] = useState({ photo: null, file: null });
+  const [messageReplyPhotoPreviewUrl, setMessageReplyPhotoPreviewUrl] = useState("");
+  const [activeMessageImagePreview, setActiveMessageImagePreview] = useState("");
   const [isMessageThreadLoading, setIsMessageThreadLoading] = useState(false);
   const [isSendingMessageReply, setIsSendingMessageReply] = useState(false);
   const messageReplyPhotoInputRef = useRef(null);
@@ -745,6 +760,20 @@ export function AdminSectionPage({ section = "dashboard" }) {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    if (!messageReplyAttachments.photo) {
+      setMessageReplyPhotoPreviewUrl("");
+      return undefined;
+    }
+
+    const previewUrl = URL.createObjectURL(messageReplyAttachments.photo);
+    setMessageReplyPhotoPreviewUrl(previewUrl);
+
+    return () => {
+      URL.revokeObjectURL(previewUrl);
+    };
+  }, [messageReplyAttachments.photo]);
   const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
   const [editingTestimonialIndex, setEditingTestimonialIndex] = useState(-1);
   const [testimonialDraft, setTestimonialDraft] = useState(emptyTestimonialItem());
@@ -756,6 +785,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
     profile: "",
     designation: "",
     description: "",
+    address: "",
     resume: "",
     statsCounters: [emptyCounterItem()],
     achievements: [emptyAchievementItem()],
@@ -780,6 +810,12 @@ export function AdminSectionPage({ section = "dashboard" }) {
     .filter(Boolean);
   const serviceSocketKey = serviceSocketSlugs.join("|");
   const analyticsVisitors = analytics.visitors || [];
+  const messagesPerPage = 5;
+  const messagesTotalPages = Math.max(1, Math.ceil(messages.length / messagesPerPage));
+  const paginatedMessages = messages.slice(
+    (messagesPage - 1) * messagesPerPage,
+    (messagesPage - 1) * messagesPerPage + messagesPerPage,
+  );
   const analyticsVisitorsTotalPages = Math.max(1, Math.ceil(analyticsVisitors.length / analyticsVisitorsPerPage));
   const analyticsVisitorsStartIndex = (analyticsVisitorsPage - 1) * analyticsVisitorsPerPage;
   const paginatedAnalyticsVisitors = analyticsVisitors.slice(
@@ -787,14 +823,34 @@ export function AdminSectionPage({ section = "dashboard" }) {
     analyticsVisitorsStartIndex + analyticsVisitorsPerPage,
   );
 
+  const updateAdminToken = useCallback((nextToken) => {
+    if (!nextToken) {
+      return;
+    }
+
+    setToken(nextToken);
+    localStorage.setItem("portfolio_admin_token", nextToken);
+  }, []);
+
   const updateAdminSession = useCallback((nextAdmin) => {
     setAdmin(nextAdmin);
     localStorage.setItem("portfolio_admin_user", JSON.stringify(nextAdmin));
   }, []);
 
   useEffect(() => {
+    setAdminProfileForm({
+      name: admin?.name || "",
+      email: admin?.email || "",
+    });
+  }, [admin]);
+
+  useEffect(() => {
     setAnalyticsVisitorsPage((current) => Math.min(current, analyticsVisitorsTotalPages));
   }, [analyticsVisitorsTotalPages]);
+
+  useEffect(() => {
+    setMessagesPage((current) => Math.min(current, messagesTotalPages));
+  }, [messagesTotalPages]);
 
   const loadAdminProfile = useCallback(async (authToken) => {
     const response = await adminFetch(`${backendUrl}/api/admin/me`, {
@@ -811,6 +867,103 @@ export function AdminSectionPage({ section = "dashboard" }) {
     updateAdminSession(data);
     return data;
   }, [updateAdminSession]);
+
+  const saveAdminProfile = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    const payload = {
+      name: String(adminProfileForm.name || "").trim(),
+      email: String(adminProfileForm.email || "").trim(),
+    };
+
+    if (!payload.name || !payload.email) {
+      toast.error("Name and email are required.");
+      return;
+    }
+
+    try {
+      setIsSavingAdminProfile(true);
+      const response = await adminFetch(`${backendUrl}/api/admin/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update admin profile.");
+      }
+
+      updateAdminSession(data.admin);
+      updateAdminToken(data.token);
+      toast.success(data.message || "Admin profile updated successfully.");
+    } catch (error) {
+      toast.error(error.message || "Failed to update admin profile.");
+    } finally {
+      setIsSavingAdminProfile(false);
+    }
+  }, [adminProfileForm.email, adminProfileForm.name, token, updateAdminSession, updateAdminToken]);
+
+  const changeAdminPassword = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    const currentPassword = String(adminPasswordForm.currentPassword || "");
+    const newPassword = String(adminPasswordForm.newPassword || "");
+    const confirmPassword = String(adminPasswordForm.confirmPassword || "");
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("Fill in all password fields.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters long.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("New password and confirm password do not match.");
+      return;
+    }
+
+    try {
+      setIsSavingAdminPassword(true);
+      const response = await adminFetch(`${backendUrl}/api/admin/me/password`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to change admin password.");
+      }
+
+      setAdminPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      toast.success(data.message || "Admin password changed successfully.");
+    } catch (error) {
+      toast.error(error.message || "Failed to change admin password.");
+    } finally {
+      setIsSavingAdminPassword(false);
+    }
+  }, [adminPasswordForm.confirmPassword, adminPasswordForm.currentPassword, adminPasswordForm.newPassword, token]);
 
   const startTwoFactorSetup = useCallback(async () => {
     if (!token) {
@@ -943,6 +1096,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
           profile: data.profile?.profile || "",
           designation: data.profile?.designation || "",
           description: data.profile?.description || "",
+          address: data.profile?.address || "",
           resume: data.profile?.resume || "",
           siteSettings: {
             ...emptySiteSettings(),
@@ -3050,7 +3204,13 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const dashboardTopCards = [
     { label: "Live Users", value: formatMetricValue(analytics.activeUsers), icon: HiOutlineUsers },
     { label: "Total Users", value: formatMetricValue(analytics.todayUsers), icon: FiBarChart2 },
-    { label: "Messages", value: formatMetricValue(messages.length), icon: FiMail, href: "/admin/messages" },
+    { label: "Total Messages", value: formatMetricValue(messages.length), icon: FiMail, href: "/admin/messages" },
+    {
+      label: "New Messages",
+      value: formatMetricValue(messages.filter((item) => item?.isNew).length),
+      icon: FiSend,
+      href: "/admin/messages",
+    },
   ];
   const activeTabMeta = tabs.find((tab) => tab.id === activeTab);
 
@@ -3110,8 +3270,8 @@ export function AdminSectionPage({ section = "dashboard" }) {
         </div>
       </div>
 
-      <div className="grid items-start gap-5 2xl:grid-cols-[350px_minmax(0,1fr)]">
-        <aside className="hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.88),rgba(7,12,23,0.82))] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:block 2xl:sticky 2xl:top-6 2xl:h-[calc(100vh-3rem)] 2xl:overflow-y-auto">
+      <div className="grid items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)] 2xl:grid-cols-[350px_minmax(0,1fr)]">
+        <aside className="hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,18,31,0.88),rgba(7,12,23,0.82))] p-5 shadow-[0_30px_90px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:block lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto 2xl:top-6 2xl:h-[calc(100vh-3rem)]">
           <div className="rounded-[1.6rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(96,165,250,0.18),transparent_52%),rgba(255,255,255,0.03)] p-5">
             <p className="text-xs uppercase tracking-[0.32em] text-[#8fdcff]">Control Center</p>
             <h1 className="mt-3 text-2xl font-semibold text-white">Portfolio Admin</h1>
@@ -3220,7 +3380,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
 
           {activeTab === "dashboard" && (
             <div className="space-y-6">
-              <section className="grid gap-4">
+              <section className="grid gap-4 xl:grid-cols-4">
                 {dashboardTopCards.map((item) => {
                   const Icon = item.icon;
                   const content = (
@@ -4192,6 +4352,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                       setSelectedMessageThread(null);
                       setMessageReplyDraft("");
                       setMessageReplyAttachments({ photo: null, file: null });
+                      setActiveMessageImagePreview("");
                       if (messageReplyPhotoInputRef.current) {
                         messageReplyPhotoInputRef.current.value = "";
                       }
@@ -4219,6 +4380,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                         const isStaffMessage = !isVisitorMessage;
                         const senderLabel = item.senderType === "admin" ? "Admin" : isVisitorMessage ? "User" : "Agent";
                         const senderName = item.senderName || senderLabel;
+                        const hasOnlyPhoto = Boolean(item.photo && !item.message && !item.file);
 
                         return (
                           <div
@@ -4237,31 +4399,32 @@ export function AdminSectionPage({ section = "dashboard" }) {
                               </span>
                               <div
                                 className={`max-w-full rounded-[1.4rem] px-4 py-3 text-left shadow-[0_18px_40px_rgba(0,0,0,0.2)] ${
-                                isStaffMessage
-                                  ? "bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] text-[#07111d]"
-                                  : "border border-white/10 bg-white/[0.05] text-white"
+                                hasOnlyPhoto
+                                  ? "bg-transparent p-0 text-white shadow-none"
+                                  : isStaffMessage
+                                    ? "bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] text-[#07111d]"
+                                    : "border border-white/10 bg-white/[0.05] text-white"
                                 }`}
                               >
                                 {item.message ? <p className="whitespace-pre-wrap text-sm leading-7">{item.message}</p> : null}
                                 {item.photo || item.file ? (
-                                  <div className="mt-3 flex flex-wrap gap-2">
+                                  <div className={`${item.message ? "mt-3" : "mt-0"} flex flex-wrap gap-2`}>
                                     {item.photo ? (
-                                      <Link
-                                        href={item.photo}
-                                        target="_blank"
-                                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
-                                          isStaffMessage
-                                            ? "border-[#153043]/15 bg-[#07111d]/10 text-[#153043] hover:border-[#153043]/35 hover:bg-[#07111d]/15"
-                                            : "border-white/10 bg-white/[0.03] text-[#9fdcff] hover:border-[#70d5ff] hover:text-white"
-                                        }`}
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveMessageImagePreview(buildPublicAssetUrl(item.photo))}
+                                        className="block overflow-hidden rounded-[1.15rem] bg-transparent p-0"
                                       >
-                                        <FiImage size={13} />
-                                        View Photo
-                                      </Link>
+                                        <img
+                                          src={buildPublicAssetUrl(item.photo)}
+                                          alt="Ticket attachment"
+                                          className="block max-h-64 w-auto max-w-full rounded-[1.15rem] object-cover"
+                                        />
+                                      </button>
                                     ) : null}
                                     {item.file ? (
                                       <Link
-                                        href={item.file}
+                                        href={buildPublicAssetUrl(item.file)}
                                         target="_blank"
                                         className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
                                           isStaffMessage
@@ -4330,10 +4493,17 @@ export function AdminSectionPage({ section = "dashboard" }) {
                       {messageReplyAttachments.photo || messageReplyAttachments.file ? (
                         <div className="mb-3 flex flex-wrap gap-2">
                           {messageReplyAttachments.photo ? (
-                            <span className="inline-flex items-center gap-2 rounded-full border border-[#2f4866] bg-[#081322] px-3 py-1.5 text-xs text-[#d6e4f3]">
-                              <FiUpload size={12} />
-                              {messageReplyAttachments.photo.name}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setActiveMessageImagePreview(messageReplyPhotoPreviewUrl)}
+                              className="block overflow-hidden rounded-[1.15rem] bg-transparent p-0"
+                            >
+                              <img
+                                src={messageReplyPhotoPreviewUrl}
+                                alt={messageReplyAttachments.photo.name}
+                                className="block h-28 w-auto max-w-full rounded-[1.15rem] object-cover"
+                              />
+                            </button>
                           ) : null}
                           {messageReplyAttachments.file ? (
                             <span className="inline-flex items-center gap-2 rounded-full border border-[#2f4866] bg-[#081322] px-3 py-1.5 text-xs text-[#d6e4f3]">
@@ -4370,6 +4540,31 @@ export function AdminSectionPage({ section = "dashboard" }) {
               </div>
             </div>
           )}
+
+          {activeMessageImagePreview ? (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#020817]/88 px-4 py-6 backdrop-blur-md">
+              <button
+                type="button"
+                aria-label="Close image preview"
+                onClick={() => setActiveMessageImagePreview("")}
+                className="absolute inset-0"
+              />
+              <div className="relative z-10 max-h-[90vh] max-w-[92vw]">
+                <button
+                  type="button"
+                  onClick={() => setActiveMessageImagePreview("")}
+                  className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#07111d]/70 text-white transition hover:bg-[#07111d]"
+                >
+                  <FiX size={18} />
+                </button>
+                <img
+                  src={activeMessageImagePreview}
+                  alt="Attachment preview"
+                  className="block max-h-[90vh] max-w-[92vw] rounded-[1.5rem] object-contain"
+                />
+              </div>
+            </div>
+          ) : null}
 
           {activeTab === "settings" && (
             <form className="space-y-6" onSubmit={handleSettingsSave}>
@@ -4430,6 +4625,14 @@ export function AdminSectionPage({ section = "dashboard" }) {
                           onChange={(event) => updateSiteSettingsField("mobileNumber", event.target.value)}
                         />
                       </div>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Address</label>
+                      <textarea
+                        className="min-h-[100px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={form.address}
+                        onChange={(event) => updateFormField("address", event.target.value)}
+                      />
                     </div>
                     <div>
                       <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Footer Text</label>
@@ -4728,6 +4931,117 @@ export function AdminSectionPage({ section = "dashboard" }) {
                   />
                   Use secure SMTP connection
                 </label>
+              </section>
+
+              <section className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Admin Profile</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">Edit admin profile</h3>
+                  <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                    Update the admin name and login email in a separate profile section.
+                  </p>
+                  <div className="mt-6 grid gap-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Admin Name</label>
+                      <input
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={adminProfileForm.name}
+                        onChange={(event) =>
+                          setAdminProfileForm((current) => ({
+                            ...current,
+                            name: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Admin Email</label>
+                      <input
+                        type="email"
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={adminProfileForm.email}
+                        onChange={(event) =>
+                          setAdminProfileForm((current) => ({
+                            ...current,
+                            email: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={saveAdminProfile}
+                      disabled={isSavingAdminProfile}
+                      className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-5 py-3 text-sm font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSavingAdminProfile ? "Updating..." : "Save Admin Profile"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+                  <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Admin Password</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">Change password</h3>
+                  <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                    Use the current password plus a new password here without mixing it into other settings.
+                  </p>
+                  <div className="mt-6 grid gap-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Current Password</label>
+                      <input
+                        type="password"
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={adminPasswordForm.currentPassword}
+                        onChange={(event) =>
+                          setAdminPasswordForm((current) => ({
+                            ...current,
+                            currentPassword: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">New Password</label>
+                      <input
+                        type="password"
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={adminPasswordForm.newPassword}
+                        onChange={(event) =>
+                          setAdminPasswordForm((current) => ({
+                            ...current,
+                            newPassword: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Confirm New Password</label>
+                      <input
+                        type="password"
+                        className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                        value={adminPasswordForm.confirmPassword}
+                        onChange={(event) =>
+                          setAdminPasswordForm((current) => ({
+                            ...current,
+                            confirmPassword: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={changeAdminPassword}
+                      disabled={isSavingAdminPassword}
+                      className="rounded-xl border border-[#4dc4ff] px-5 py-3 text-sm font-semibold text-[#9ae2ff] transition hover:bg-[#12304b] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSavingAdminPassword ? "Changing..." : "Change Password"}
+                    </button>
+                  </div>
+                </div>
               </section>
 
               <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
@@ -7202,48 +7516,40 @@ export function AdminSectionPage({ section = "dashboard" }) {
             <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
               <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">Inbox</p>
               <h3 className="mt-2 text-2xl font-semibold text-white">Recent contact messages</h3>
-              <div className="mt-6 overflow-x-auto">
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-[#8ea7c2]">
+                  Latest 5 messages per page. Total {messages.length} ticket{messages.length === 1 ? "" : "s"}.
+                </p>
+                <p className="text-xs uppercase tracking-[0.22em] text-[#79d4ff]">
+                  Page {messagesPage} of {messagesTotalPages}
+                </p>
+              </div>
+              <div className="mt-6">
                 {messages.length === 0 ? (
                   <p className="text-sm text-[#8b98a5]">No messages found yet.</p>
                 ) : (
-                  <table className="min-w-full border-separate border-spacing-y-3">
-                    <thead>
-                      <tr>
-                        {["Name", "Email", "Subject", "Message", "Status", "Actions"].map((label) => (
-                          <th
-                            key={label}
-                            className="px-3 text-left text-xs uppercase tracking-[0.22em] text-[#8ea7c2]"
-                          >
-                            {label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {messages.map((message) => (
-                        <tr key={message.id}>
-                          <td className="rounded-l-[1.2rem] border border-[#24344d] border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-white">
-                            <div className="min-w-[140px]">
-                              <p className="font-semibold">{message.name}</p>
-                              <p className="mt-2 text-xs text-[#8ea7c2]">
-                                {message.isNew ? "New" : "Updated"} • {formatThreadTimestamp(message.lastMessageAt || message.createdAt)}
+                  <>
+                    <div className="space-y-3 md:hidden">
+                      {paginatedMessages.map((message) => (
+                        <button
+                          key={message.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedMessageThread(null);
+                            setMessageReplyDraft("");
+                            loadMessageThread(token, message.id);
+                          }}
+                          className="w-full rounded-[1.3rem] border border-[#24344d] bg-[#0b1524] p-4 text-left transition hover:border-[#70d5ff] hover:bg-[#102038]"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-white">
+                                {message.subject || "No subject"}
                               </p>
+                              <p className="mt-2 truncate text-sm text-[#8fdcff]">{message.name}</p>
                             </div>
-                          </td>
-                          <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-[#6bd4ff]">
-                            <span className="block max-w-[220px] truncate">{message.email}</span>
-                          </td>
-                          <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-white">
-                            <span className="block max-w-[220px] truncate">{message.subject || "No subject"}</span>
-                          </td>
-                          <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-[#d3d8e8]">
-                            <span className="block max-w-[320px] truncate">
-                              {String(message.latestReply?.message || message.message || "").slice(0, 50)}
-                            </span>
-                          </td>
-                          <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm">
                             <span
-                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                              className={`inline-flex shrink-0 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
                                 message.status === "solved"
                                   ? "bg-emerald-400/12 text-emerald-200"
                                   : message.isNew
@@ -7251,55 +7557,140 @@ export function AdminSectionPage({ section = "dashboard" }) {
                                     : "bg-sky-400/12 text-sky-200"
                               }`}
                             >
-                              {message.status === "solved"
-                                ? "Solved"
-                                : message.isNew
-                                  ? "New"
-                                  : "Not Solved"}
+                              {message.status === "solved" ? "Solved" : message.isNew ? "New" : "Open"}
                             </span>
-                          </td>
-                          <td className="rounded-r-[1.2rem] border border-[#24344d] border-l-0 bg-[#0b1524] px-3 py-4 text-sm">
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedMessageThread(null);
-                                  setMessageReplyDraft("");
-                                  loadMessageThread(token, message.id);
-                                }}
-                                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#2f4866] px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white"
-                              >
-                                <FiEye size={14} />
-                                View
-                              </button>
-                              <button
-                                type="button"
-                                disabled={messageActionId === message.id}
-                                onClick={() =>
-                                  updateMessageStatus(
-                                    token,
-                                    message.id,
-                                    message.status === "solved" ? "not_solved" : "solved",
-                                  )
-                                }
-                                className="inline-flex items-center justify-center rounded-full border border-[#2f4866] px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-[#d4e2f0] transition hover:border-[#70d5ff] hover:text-white disabled:opacity-60"
-                              >
-                                {message.status === "solved" ? "Not Solved" : "Solved"}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={messageActionId === message.id}
-                                onClick={() => deleteMessageTicket(token, message.id)}
-                                className="inline-flex items-center justify-center rounded-full border border-red-400/20 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-red-200 transition hover:border-red-400/40 hover:text-white disabled:opacity-60"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                          </div>
+                          <p className="mt-3 text-xs text-[#8ea7c2]">
+                            {formatThreadTimestamp(message.lastMessageAt || message.createdAt)}
+                          </p>
+                        </button>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+
+                    <div className="hidden overflow-x-auto md:block">
+                      <table className="min-w-full border-separate border-spacing-y-3">
+                        <thead>
+                          <tr>
+                            {["Name", "Email", "Subject", "Message", "Status", "Actions"].map((label) => (
+                              <th
+                                key={label}
+                                className="px-3 text-left text-xs uppercase tracking-[0.22em] text-[#8ea7c2]"
+                              >
+                                {label}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedMessages.map((message) => (
+                            <tr key={message.id}>
+                              <td className="rounded-l-[1.2rem] border border-[#24344d] border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-white">
+                                <div className="min-w-[140px]">
+                                  <p className="font-semibold">{message.name}</p>
+                                  <p className="mt-2 text-xs text-[#8ea7c2]">
+                                    {message.isNew ? "New" : "Updated"} • {formatThreadTimestamp(message.lastMessageAt || message.createdAt)}
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-[#6bd4ff]">
+                                <span className="block max-w-[220px] truncate">{message.email}</span>
+                              </td>
+                              <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-white">
+                                <span className="block max-w-[220px] truncate">{message.subject || "No subject"}</span>
+                              </td>
+                              <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm text-[#d3d8e8]">
+                                <span className="block max-w-[320px] truncate">
+                                  {String(message.latestReply?.message || message.message || "").slice(0, 50)}
+                                </span>
+                              </td>
+                              <td className="border border-[#24344d] border-l-0 border-r-0 bg-[#0b1524] px-3 py-4 text-sm">
+                                <span
+                                  className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                                    message.status === "solved"
+                                      ? "bg-emerald-400/12 text-emerald-200"
+                                      : message.isNew
+                                        ? "bg-amber-300/12 text-amber-100"
+                                        : "bg-sky-400/12 text-sky-200"
+                                  }`}
+                                >
+                                  {message.status === "solved"
+                                    ? "Solved"
+                                    : message.isNew
+                                      ? "New"
+                                      : "Not Solved"}
+                                </span>
+                              </td>
+                              <td className="rounded-r-[1.2rem] border border-[#24344d] border-l-0 bg-[#0b1524] px-3 py-4 text-sm">
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedMessageThread(null);
+                                      setMessageReplyDraft("");
+                                      loadMessageThread(token, message.id);
+                                    }}
+                                    className="inline-flex items-center justify-center gap-2 rounded-full border border-[#2f4866] px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-[#9fdcff] transition hover:border-[#70d5ff] hover:text-white"
+                                  >
+                                    <FiEye size={14} />
+                                    View
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={messageActionId === message.id}
+                                    onClick={() =>
+                                      updateMessageStatus(
+                                        token,
+                                        message.id,
+                                        message.status === "solved" ? "not_solved" : "solved",
+                                      )
+                                    }
+                                    className="inline-flex items-center justify-center rounded-full border border-[#2f4866] px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-[#d4e2f0] transition hover:border-[#70d5ff] hover:text-white disabled:opacity-60"
+                                  >
+                                    {message.status === "solved" ? "Not Solved" : "Solved"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={messageActionId === message.id}
+                                    onClick={() => deleteMessageTicket(token, message.id)}
+                                    className="inline-flex items-center justify-center rounded-full border border-red-400/20 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-red-200 transition hover:border-red-400/40 hover:text-white disabled:opacity-60"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {messagesTotalPages > 1 ? (
+                      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-sm text-[#8ea7c2]">
+                          Showing {(messagesPage - 1) * messagesPerPage + 1}-
+                          {Math.min(messagesPage * messagesPerPage, messages.length)} of {messages.length}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={messagesPage === 1}
+                            onClick={() => setMessagesPage((current) => Math.max(1, current - 1))}
+                            className="rounded-full border border-[#2f4866] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#d4e2f0] transition hover:border-[#70d5ff] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Prev
+                          </button>
+                          <button
+                            type="button"
+                            disabled={messagesPage === messagesTotalPages}
+                            onClick={() => setMessagesPage((current) => Math.min(messagesTotalPages, current + 1))}
+                            className="rounded-full border border-[#2f4866] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#d4e2f0] transition hover:border-[#70d5ff] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
                 )}
               </div>
             </section>

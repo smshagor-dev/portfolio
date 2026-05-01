@@ -10,6 +10,7 @@ import { getSocialIconOption } from "@/utils/social-icons";
 const navItems = [
   { label: "Home", href: "/" },
   { label: "Service", href: "/service" },
+  { label: "Research", href: "/research" },
   { label: "Project", href: "/portfolio" },
   { label: "Pricing", href: "/pricing" },
   { label: "Artical", href: "/artical" },
@@ -22,6 +23,10 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
   const [isStickyVisible, setIsStickyVisible] = useState(false);
   const brandTitle = settings?.navTitle || settings?.websiteTitle || "SHAGOR";
   const brandSubtitle = settings?.navSubtitle || "Software Developer";
+  const address = String(profile?.address || "").trim();
+  const addressMapLink = address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+    : "";
   const visibleEmergencyContacts = (emergencyContacts || []).filter(
     (item) => item?.label && item?.name && item?.icon && item?.link,
   );
@@ -39,7 +44,7 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
       };
     })
     .filter((item) => item && item.icon);
-  const desktopContactItems = [
+  const contactItems = [
     settings?.contactEmail?.trim()
       ? {
           key: `email-${settings.contactEmail}`,
@@ -56,6 +61,15 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
           name: settings.mobileNumber.trim(),
           link: `tel:${settings.mobileNumber.trim()}`,
           icon: Phone,
+        }
+      : null,
+    address
+      ? {
+          key: `address-${address}`,
+          label: "Address",
+          name: address,
+          link: addressMapLink,
+          icon: ArrowUpRight,
         }
       : null,
     ...visibleEmergencyContacts.map((item) => {
@@ -282,17 +296,16 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
               })}
             </div>
 
-            {visibleEmergencyContacts.length > 0 ? (
+            {contactItems.length > 0 ? (
               <div className="mt-8">
                 <p className="text-[11px] uppercase tracking-[0.28em] text-[#84deff]">Quick Links</p>
                 <div className="mt-4 space-y-3">
-                  {visibleEmergencyContacts.map((item) => {
-                    const config = getSocialIconOption(item.icon);
-                    const Icon = config?.icon || HiOutlineBars3BottomLeft;
+                  {contactItems.map((item) => {
+                    const Icon = item.icon || HiOutlineBars3BottomLeft;
 
                     return (
                       <Link
-                        key={`${item.label}-${item.name}-${item.link}`}
+                        key={item.key}
                         href={item.link}
                         target="_blank"
                         rel="noreferrer"
@@ -390,8 +403,8 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
               </div>
 
               <div className="mt-6 grid gap-3">
-                {desktopContactItems.length > 0 ? (
-                  desktopContactItems.map((item) => {
+                {contactItems.length > 0 ? (
+                  contactItems.map((item) => {
                     const Icon = item.icon;
                     return (
                       <Link

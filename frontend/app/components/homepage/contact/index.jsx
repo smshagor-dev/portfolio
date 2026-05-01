@@ -16,6 +16,10 @@ function ContactSection({ profile, settings, emergencyContacts = [] }) {
   const visibleEmergencyContacts = (emergencyContacts || []).filter(
     (item) => item?.label && item?.name && item?.icon && item?.link,
   );
+  const address = String(profile?.address || "").trim();
+  const mapLink = address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+    : "";
   const contactItems = [
     settings?.contactEmail?.trim()
       ? {
@@ -33,6 +37,15 @@ function ContactSection({ profile, settings, emergencyContacts = [] }) {
           name: settings.mobileNumber.trim(),
           link: `tel:${settings.mobileNumber.trim()}`,
           icon: Phone,
+        }
+      : null,
+    address
+      ? {
+          key: `address-${address}`,
+          label: "Address",
+          name: address,
+          link: mapLink,
+          icon: ArrowUpRight,
         }
       : null,
     ...visibleEmergencyContacts.map((item) => {

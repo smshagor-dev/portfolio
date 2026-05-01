@@ -251,6 +251,68 @@ model Article {
   @@index([category])
 }
 
+model ResearchPublication {
+  id              Int      @id @default(autoincrement())
+  title           String
+  slug            String   @unique
+  shortSummary    String   @db.Text @map("short_summary")
+  content         String?  @db.LongText
+  publicationType String   @map("publication_type")
+  researchArea    String   @map("research_area")
+  publisherName   String   @map("publisher_name")
+  publishedDate   DateTime @map("published_date")
+  doi             String?  @db.Text
+  publicationUrl  String   @db.Text @map("publication_url")
+  citationUrl     String?  @db.Text @map("citation_url")
+  authors         Json?
+  myAuthorRole    String?  @map("my_author_role")
+  thumbnailImage  String?  @db.Text @map("thumbnail_image")
+  views           Int      @default(0)
+  impressionCount Int      @default(0) @map("impression_count")
+  shareCount      Int      @default(0) @map("share_count")
+  comments        ResearchComment[]
+  isFeatured      Boolean  @default(false) @map("is_featured")
+  status          String   @default("published")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([publicationType], map: "research_publications_publication_type_idx")
+  @@index([researchArea], map: "research_publications_research_area_idx")
+  @@index([status], map: "research_publications_status_idx")
+  @@index([isFeatured], map: "research_publications_is_featured_idx")
+  @@index([publishedDate], map: "research_publications_published_date_idx")
+  @@map("research_publications")
+}
+
+model ResearchComment {
+  id            Int           @id @default(autoincrement())
+  publicationId Int           @map("publication_id")
+  name          String
+  comment       String        @db.Text
+  sortOrder     Int           @map("sort_order")
+  publication   ResearchPublication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  replies       ResearchReply[]
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@index([publicationId], map: "researchcomment_publication_id_idx")
+  @@map("researchcomment")
+}
+
+model ResearchReply {
+  id        Int             @id @default(autoincrement())
+  commentId Int             @map("comment_id")
+  name      String
+  reply     String          @db.Text
+  sortOrder Int             @map("sort_order")
+  comment   ResearchComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+
+  @@index([commentId], map: "researchreply_comment_id_idx")
+  @@map("researchreply")
+}
+
 model ArticleComment {
   id        Int            @id @default(autoincrement())
   articleId Int

@@ -1,4 +1,11 @@
-import { getArticles, getHomePageData, getPricingPageData, getServicesPageData, getSiteSettings } from "@/lib/api";
+import {
+  getArticles,
+  getHomePageData,
+  getPricingPageData,
+  getResearchPublications,
+  getServicesPageData,
+  getSiteSettings,
+} from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -7,12 +14,13 @@ function normalizeUrl(baseUrl, path = "") {
 }
 
 export default async function sitemap() {
-  const [settings, homeData, pricingData, servicesData, articles] = await Promise.all([
+  const [settings, homeData, pricingData, servicesData, articles, researchPublications] = await Promise.all([
     getSiteSettings().catch(() => null),
     getHomePageData().catch(() => null),
     getPricingPageData().catch(() => null),
     getServicesPageData().catch(() => null),
     getArticles().catch(() => []),
+    getResearchPublications({ limit: 50 }).catch(() => ({ data: [] })),
   ]);
 
   const baseUrl = settings?.canonicalUrl || "http://localhost:3000";
@@ -25,6 +33,7 @@ export default async function sitemap() {
     "/contact",
     "/blog",
     "/artical",
+    "/research",
   ].map((path) => ({
     url: normalizeUrl(baseUrl, path),
     lastModified: now,
@@ -50,5 +59,14 @@ export default async function sitemap() {
     lastModified: article.updatedAt ? new Date(article.updatedAt) : article.publishDate ? new Date(article.publishDate) : now,
   }));
 
-  return [...items, ...projectItems, ...serviceItems, ...pricingItems, ...articleItems];
+  const researchItems = (researchPublications?.data || []).map((publication) => ({
+    url: normalizeUrl(baseUrl, `/research/${publication.slug}`),
+    lastModified: publication.updatedAt
+      ? new Date(publication.updatedAt)
+      : publication.publishedDate
+      ? new Date(publication.publishedDate)
+      : now,
+  }));
+
+  return [...items, ...projectItems, ...serviceItems, ...pricingItems, ...articleItems, ...researchItems];
 }

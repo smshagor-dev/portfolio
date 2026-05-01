@@ -37,9 +37,10 @@ export default function LayoutShell({
         <div className="relative z-10 mx-auto w-full shrink-0 px-4 sm:px-6 lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem]">
           {navbar}
         </div>
-        <main className="relative mx-auto flex-1 min-h-0 w-full overflow-hidden px-0 text-white lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem]">
-          {children}
-          {scrollToTop}
+        <main className="relative mx-auto flex min-h-0 flex-1 w-full flex-col overflow-hidden px-0 text-white lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem]">
+          <div className="flex min-h-0 flex-1 flex-col [&>*]:flex [&>*]:min-h-0 [&>*]:flex-1 [&>*]:flex-col">
+            {children}
+          </div>
         </main>
         <div className="shrink-0 overflow-hidden [&_>div]:border-t-[#2c3145] [&_>div>div]:px-4 [&_>div>div]:py-3 sm:[&_>div>div]:px-6 sm:[&_>div>div]:py-3">
           {footer}

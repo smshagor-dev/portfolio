@@ -9,6 +9,7 @@ const prisma = require("./lib/prisma");
 const { validateAuthConfig, verifyAdminToken } = require("./lib/auth");
 const adminRoutes = require("./routes/admin");
 const assistantRoutes = require("./routes/assistant");
+const researchRoutes = require("./routes/research");
 const siteRoutes = require("./routes/site");
 
 const app = express();
@@ -285,6 +286,24 @@ io.on("connection", (socket) => {
     socket.leave(`article:${normalizedSlug}`);
   });
 
+  socket.on("research:join", (slug) => {
+    const normalizedSlug = String(slug || "").trim().toLowerCase();
+    if (!normalizedSlug) {
+      return;
+    }
+
+    socket.join(`research:${normalizedSlug}`);
+  });
+
+  socket.on("research:leave", (slug) => {
+    const normalizedSlug = String(slug || "").trim().toLowerCase();
+    if (!normalizedSlug) {
+      return;
+    }
+
+    socket.leave(`research:${normalizedSlug}`);
+  });
+
   socket.on("testimonials:join", () => {
     socket.join("testimonials");
   });
@@ -373,6 +392,7 @@ app.get("/health", (_request, response) => {
 
 app.use("/api/site", siteRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api", researchRoutes);
 app.use("/api", assistantRoutes);
 
 validateAuthConfig();
