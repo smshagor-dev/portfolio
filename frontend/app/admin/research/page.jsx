@@ -412,87 +412,87 @@ export default function AdminResearchPage() {
 
             <form
               id="research-publication-form"
-              className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_320px]"
+              className="mt-5 space-y-5"
               onSubmit={handleSubmit}
             >
-              <div className="space-y-5">
-                <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
-                  <div className="mb-5">
-                    <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Core Details</p>
-                    <h3 className="mt-2 text-lg font-semibold text-white">Publication information</h3>
-                  </div>
+              <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                <div className="mb-5">
+                  <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Core Details</p>
+                  <h3 className="mt-2 text-lg font-semibold text-white">Publication information</h3>
+                </div>
 
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    {[
-                      ["title", "Title"],
-                      ["slug", "Slug"],
-                      ["publicationType", "Publication Type"],
-                      ["researchArea", "Research Area"],
-                      ["publisherName", "Publisher Name"],
-                      ["publishedDate", "Published Date"],
-                      ["publicationUrl", "Publication URL"],
-                      ["citationUrl", "Citation URL"],
-                      ["doi", "DOI"],
-                      ["myAuthorRole", "My Author Role"],
-                    ].map(([key, label]) => (
-                      <div key={key} className={key === "publicationUrl" || key === "citationUrl" ? "lg:col-span-2" : ""}>
-                        <label className="mb-2 block text-sm text-[#d3d8e8]">{label}</label>
-                        <input
-                          type={key === "publishedDate" ? "date" : "text"}
-                          value={form[key]}
-                          onChange={(event) => {
-                            const nextValue = event.target.value;
-                            setForm((current) => {
-                              if (key === "title") {
-                                return {
-                                  ...current,
-                                  title: nextValue,
-                                  slug: slugify(nextValue),
-                                };
-                              }
-
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {[
+                    ["title", "Title"],
+                    ["slug", "Slug"],
+                    ["publicationType", "Publication Type"],
+                    ["researchArea", "Research Area"],
+                    ["publisherName", "Publisher Name"],
+                    ["publishedDate", "Published Date"],
+                    ["publicationUrl", "Publication URL"],
+                    ["citationUrl", "Citation URL"],
+                    ["doi", "DOI"],
+                    ["myAuthorRole", "My Author Role"],
+                  ].map(([key, label]) => (
+                    <div key={key}>
+                      <label className="mb-2 block text-sm text-[#d3d8e8]">{label}</label>
+                      <input
+                        type={key === "publishedDate" ? "date" : "text"}
+                        value={form[key]}
+                        onChange={(event) => {
+                          const nextValue = event.target.value;
+                          setForm((current) => {
+                            if (key === "title") {
                               return {
                                 ...current,
-                                [key]: key === "slug" ? slugify(nextValue) : nextValue,
+                                title: nextValue,
+                                slug: slugify(nextValue),
                               };
-                            });
-                          }}
-                          readOnly={key === "slug"}
-                          className="w-full rounded-2xl border border-[#304561] bg-[#0b1422] px-4 py-3 text-sm text-white outline-none transition focus:border-[#79d4ff]"
-                        />
-                      </div>
-                    ))}
+                            }
 
-                    <div className="lg:col-span-2">
-                      <label className="mb-2 block text-sm text-[#d3d8e8]">Short Summary</label>
-                      <textarea
-                        rows={4}
-                        value={form.shortSummary}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            shortSummary: event.target.value,
-                          }))
-                        }
+                            return {
+                              ...current,
+                              [key]: key === "slug" ? slugify(nextValue) : nextValue,
+                            };
+                          });
+                        }}
+                        readOnly={key === "slug"}
                         className="w-full rounded-2xl border border-[#304561] bg-[#0b1422] px-4 py-3 text-sm text-white outline-none transition focus:border-[#79d4ff]"
                       />
                     </div>
+                  ))}
 
-                    <div className="lg:col-span-2">
-                      <RichTextEditor
-                        id="research-content"
-                        label="Content"
-                        value={form.content}
-                        onChange={(value) =>
-                          setForm((current) => ({
-                            ...current,
-                            content: value,
-                          }))
-                        }
-                      />
-                    </div>
+                  <div className="lg:col-span-2">
+                    <label className="mb-2 block text-sm text-[#d3d8e8]">Short Summary</label>
+                    <textarea
+                      rows={4}
+                      value={form.shortSummary}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          shortSummary: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-2xl border border-[#304561] bg-[#0b1422] px-4 py-3 text-sm text-white outline-none transition focus:border-[#79d4ff]"
+                    />
+                  </div>
 
-                    <div className="lg:col-span-2">
+                  <div className="lg:col-span-2">
+                    <RichTextEditor
+                      id="research-content"
+                      label="Content"
+                      value={form.content}
+                      onChange={(value) =>
+                        setForm((current) => ({
+                          ...current,
+                          content: value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="lg:col-span-2 grid gap-4 lg:grid-cols-2 lg:items-stretch">
+                    <div className="flex h-full flex-col">
                       <label className="mb-2 block text-sm text-[#d3d8e8]">Authors</label>
                       <textarea
                         rows={3}
@@ -504,93 +504,91 @@ export default function AdminResearchPage() {
                           }))
                         }
                         placeholder="Comma separated author names"
-                        className="w-full rounded-2xl border border-[#304561] bg-[#0b1422] px-4 py-3 text-sm text-white outline-none transition focus:border-[#79d4ff]"
+                        className="min-h-[178px] flex-1 rounded-2xl border border-[#304561] bg-[#0b1422] px-4 py-3 text-sm text-white outline-none transition focus:border-[#79d4ff]"
                       />
+                    </div>
+
+                    <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                      <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Visibility</p>
+                      <div className="mt-4 grid gap-4">
+                        <div>
+                          <label className="mb-2 block text-sm text-[#d3d8e8]">Status</label>
+                          <select
+                            value={form.status}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                status: event.target.value,
+                              }))
+                            }
+                            className="w-full rounded-2xl border border-[#304561] bg-[#0b1422] px-4 py-3 text-sm text-white outline-none transition focus:border-[#79d4ff]"
+                          >
+                            <option value="published">Published</option>
+                            <option value="draft">Draft</option>
+                            <option value="under_review">Under Review</option>
+                            <option value="archived">Archived</option>
+                          </select>
+                        </div>
+                        <label className="flex items-center gap-3 rounded-2xl border border-[#304561] bg-[#0b1422] px-4 py-3 text-sm text-white">
+                          <input
+                            type="checkbox"
+                            checked={form.isFeatured}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                isFeatured: event.target.checked,
+                              }))
+                            }
+                          />
+                          Featured Publication
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
-                  <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Visibility</p>
-                  <div className="mt-4 grid gap-4">
-                    <div>
-                      <label className="mb-2 block text-sm text-[#d3d8e8]">Status</label>
-                      <select
-                        value={form.status}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            status: event.target.value,
-                          }))
-                        }
-                        className="w-full rounded-2xl border border-[#304561] bg-[#0b1422] px-4 py-3 text-sm text-white outline-none transition focus:border-[#79d4ff]"
-                      >
-                        <option value="published">Published</option>
-                        <option value="draft">Draft</option>
-                        <option value="under_review">Under Review</option>
-                        <option value="archived">Archived</option>
-                      </select>
+              <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
+                <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Thumbnail</p>
+                <input
+                  ref={thumbnailInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={uploadThumbnail}
+                  className="hidden"
+                />
+                <div className="mt-4 rounded-[1.5rem] border border-[#24344d] bg-[#101b2d] p-4">
+                  <div className="flex flex-col gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.24em] text-[#8fdcff]">Research Cover</p>
+                      <p className="mt-2 truncate text-sm text-[#b8c7d8]">
+                        {selectedThumbnailName || form.thumbnailImage || "No image selected yet"}
+                      </p>
                     </div>
-                    <label className="flex items-center gap-3 rounded-2xl border border-[#304561] bg-[#0b1422] px-4 py-3 text-sm text-white">
-                      <input
-                        type="checkbox"
-                        checked={form.isFeatured}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            isFeatured: event.target.checked,
-                          }))
-                        }
+                    <button
+                      type="button"
+                      onClick={() => thumbnailInputRef.current?.click()}
+                      className="inline-flex items-center justify-center rounded-full border border-[#36557e] px-4 py-3 text-sm font-medium text-[#9fdcff] transition hover:border-[#4dc4ff] hover:text-white"
+                    >
+                      Choose Image
+                    </button>
+                  </div>
+                </div>
+
+                {form.thumbnailImage ? (
+                  <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-[#24344d] bg-[#101b2d] p-3">
+                    <p className="mb-3 text-xs uppercase tracking-[0.24em] text-[#8fdcff]">Thumbnail Preview</p>
+                    <div className="relative h-52 overflow-hidden rounded-xl border border-[#24344d] bg-[#0b1422]">
+                      <Image
+                        src={buildPublicAssetUrl(form.thumbnailImage)}
+                        alt={form.title || "Research thumbnail preview"}
+                        fill
+                        className="object-cover"
+                        unoptimized
                       />
-                      Featured Publication
-                    </label>
-                  </div>
-                </div>
-
-                <div className="rounded-[1.6rem] border border-[#24344d] bg-[linear-gradient(180deg,#0d1728,#0a1321)] p-5">
-                  <p className="text-xs uppercase tracking-[0.24em] text-[#78d7ff]">Thumbnail</p>
-                  <input
-                    ref={thumbnailInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={uploadThumbnail}
-                    className="hidden"
-                  />
-                  <div className="mt-4 rounded-[1.5rem] border border-[#24344d] bg-[#101b2d] p-4">
-                    <div className="flex flex-col gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs uppercase tracking-[0.24em] text-[#8fdcff]">Research Cover</p>
-                        <p className="mt-2 truncate text-sm text-[#b8c7d8]">
-                          {selectedThumbnailName || form.thumbnailImage || "No image selected yet"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => thumbnailInputRef.current?.click()}
-                        className="inline-flex items-center justify-center rounded-full border border-[#36557e] px-4 py-3 text-sm font-medium text-[#9fdcff] transition hover:border-[#4dc4ff] hover:text-white"
-                      >
-                        Choose Image
-                      </button>
                     </div>
                   </div>
-
-                  {form.thumbnailImage ? (
-                    <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-[#24344d] bg-[#101b2d] p-3">
-                      <p className="mb-3 text-xs uppercase tracking-[0.24em] text-[#8fdcff]">Thumbnail Preview</p>
-                      <div className="relative h-52 overflow-hidden rounded-xl border border-[#24344d] bg-[#0b1422]">
-                        <Image
-                          src={buildPublicAssetUrl(form.thumbnailImage)}
-                          alt={form.title || "Research thumbnail preview"}
-                          fill
-                          className="object-cover"
-                          unoptimized
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+                ) : null}
               </div>
             </form>
           </div>

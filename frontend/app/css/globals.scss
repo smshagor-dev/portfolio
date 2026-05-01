@@ -135,6 +135,10 @@ body {
   --ck-color-button-default-color: #d7dfec;
   --ck-color-focus-border: #49c1ff;
   --ck-border-radius: 0;
+  min-height: 360px;
+  height: 360px;
+  resize: vertical;
+  overflow: hidden;
 
   .ck.ck-editor,
   .ck.ck-editor__main,
@@ -150,11 +154,20 @@ body {
   .ck.ck-editor {
     border: 0 !important;
     box-shadow: none !important;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
   .ck.ck-editor__top,
   .ck.ck-editor__main {
     border: 0 !important;
+  }
+
+  .ck.ck-editor__main {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .ck.ck-toolbar {
@@ -163,6 +176,21 @@ body {
     background: #111b2d !important;
     padding: 0.75rem !important;
     gap: 0.15rem;
+    flex-wrap: wrap !important;
+    align-items: flex-start !important;
+  }
+
+  .ck.ck-toolbar__items {
+    width: 100%;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    row-gap: 0.45rem;
+    column-gap: 0.2rem;
+  }
+
+  .ck.ck-toolbar .ck-toolbar__separator {
+    margin-block: 0.15rem !important;
   }
 
   .ck.ck-toolbar .ck-button,
@@ -189,12 +217,17 @@ body {
   }
 
   .ck.ck-editor__main > .ck-editor__editable {
-    min-height: 260px !important;
+    min-height: 0 !important;
+    height: 100% !important;
     border: 0 !important;
     background: #0e1728 !important;
     color: #eef3fb !important;
     padding: 1.25rem 1.4rem !important;
     box-shadow: none !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+    overflow-y: auto !important;
   }
 
   .ck.ck-editor__main > .ck-editor__editable.ck-focused {
@@ -209,6 +242,49 @@ body {
 
   .ck.ck-editor__main > .ck-editor__editable a {
     color: #8ad7ff !important;
+  }
+
+  .ck.ck-editor__main > .ck-editor__editable img,
+  .ck.ck-editor__main > .ck-editor__editable .image {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  .ck.ck-editor__main > .ck-editor__editable .article-lead {
+    font-size: 1.08rem;
+    line-height: 1.95;
+    color: #f4f8ff !important;
+  }
+
+  .ck.ck-editor__main > .ck-editor__editable .article-muted {
+    color: #9fb1c7 !important;
+  }
+
+  .ck.ck-editor__main > .ck-editor__editable .article-info-box {
+    padding: 1rem 1.1rem;
+    border-left: 4px solid #49c1ff;
+    border-radius: 0.85rem;
+    background: rgba(73, 193, 255, 0.1);
+  }
+
+  .ck.ck-editor__main > .ck-editor__editable .article-section-title {
+    letter-spacing: 0.02em;
+    color: #ffffff !important;
+  }
+
+  .ck.ck-editor__main > .ck-editor__editable .article-small-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #6bd4ff !important;
+  }
+
+  .ck.ck-editor__main > .ck-editor__editable .article-highlight-text {
+    padding-inline: 0.25rem;
+    border-radius: 0.35rem;
+    background: rgba(124, 240, 183, 0.18);
+    color: #dfffee !important;
   }
 
   .ck.ck-list__item .ck-button.ck-on,
@@ -243,6 +319,43 @@ body {
 
   a {
     color: #8ad7ff;
+  }
+
+  .article-lead {
+    font-size: 1.08rem;
+    line-height: 1.95;
+    color: #f4f8ff;
+  }
+
+  .article-muted {
+    color: #9fb1c7;
+  }
+
+  .article-info-box {
+    margin: 1.25rem 0;
+    padding: 1rem 1.1rem;
+    border-left: 4px solid #49c1ff;
+    border-radius: 0.85rem;
+    background: rgba(73, 193, 255, 0.1);
+  }
+
+  .article-section-title {
+    letter-spacing: 0.02em;
+  }
+
+  .article-small-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #6bd4ff;
+  }
+
+  .article-highlight-text {
+    padding-inline: 0.25rem;
+    border-radius: 0.35rem;
+    background: rgba(124, 240, 183, 0.18);
+    color: #dfffee;
   }
 }
 

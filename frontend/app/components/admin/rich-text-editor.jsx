@@ -2,59 +2,295 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  Alignment,
   Autoformat,
   BlockQuote,
+  Bookmark,
   Bold,
+  Code,
+  CodeBlock,
   ClassicEditor,
   Essentials,
+  FileRepository,
+  FindAndReplace,
+  FontBackgroundColor,
+  FontColor,
+  FontFamily,
+  FontSize,
+  GeneralHtmlSupport,
   Heading,
+  Highlight,
+  HorizontalLine,
+  HtmlEmbed,
+  Image,
+  ImageCaption,
+  ImageInsert,
+  ImageResize,
+  ImageStyle,
+  ImageTextAlternative,
+  ImageToolbar,
+  ImageUpload,
+  Indent,
+  IndentBlock,
   Italic,
   Link,
   List,
+  ListProperties,
+  MediaEmbed,
   Paragraph,
+  PasteFromOffice,
+  RemoveFormat,
+  SelectAll,
+  ShowBlocks,
+  SourceEditing,
+  Strikethrough,
+  Style,
+  Subscript,
   Table,
+  TableCaption,
+  TableCellProperties,
+  TableColumnResize,
+  TableProperties,
   TableToolbar,
+  TextPartLanguage,
+  TodoList,
   Undo,
+  Underline,
+  WordCount,
 } from "ckeditor5";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
-const editorConfig = {
-  licenseKey: "GPL",
-  plugins: [
-    Autoformat,
-    BlockQuote,
-    Bold,
-    Essentials,
-    Heading,
-    Italic,
-    Link,
-    List,
-    Paragraph,
-    Table,
-    TableToolbar,
-    Undo,
-  ],
-  toolbar: [
-    "undo",
-    "redo",
-    "|",
-    "heading",
-    "|",
-    "bold",
-    "italic",
-    "link",
-    "blockQuote",
-    "|",
-    "bulletedList",
-    "numberedList",
-    "|",
-    "insertTable",
-  ],
-  table: {
-    contentToolbar: ["tableColumn", "tableRow", "mergeTableCells"],
-  },
-};
+class AdminUploadAdapter {
+  constructor(loader, uploadToken) {
+    this.loader = loader;
+    this.uploadToken = uploadToken;
+    this.controller = new AbortController();
+  }
 
-export default function RichTextEditor({ id, label, value, onChange }) {
+  async upload() {
+    const file = await this.loader.file;
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const response = await fetch(buildPublicApiUrl("/api/admin/upload-image"), {
+      method: "POST",
+      headers: this.uploadToken
+        ? {
+            Authorization: `Bearer ${this.uploadToken}`,
+          }
+        : {},
+      body: formData,
+      signal: this.controller.signal,
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.path) {
+      throw new Error(data.message || `Couldn't upload file: ${file.name}.`);
+    }
+
+    return {
+      default: data.path,
+    };
+  }
+
+  abort() {
+    this.controller.abort();
+  }
+}
+
+function createAdminUploadAdapterPlugin(uploadToken) {
+  return function AdminUploadAdapterPlugin(editor) {
+    editor.plugins.get(FileRepository).createUploadAdapter = (loader) =>
+      new AdminUploadAdapter(loader, uploadToken);
+  };
+}
+
+function buildEditorConfig(uploadToken) {
+  const resolvedUploadToken =
+    uploadToken ||
+    (typeof window !== "undefined" ? localStorage.getItem("portfolio_admin_token") || "" : "");
+
+  return {
+    licenseKey: "GPL",
+    plugins: [
+      Alignment,
+      Autoformat,
+      BlockQuote,
+      Bold,
+      Bookmark,
+      Code,
+      CodeBlock,
+      Essentials,
+      FindAndReplace,
+      FontBackgroundColor,
+      FontColor,
+      FontFamily,
+      FontSize,
+      GeneralHtmlSupport,
+      Heading,
+      Highlight,
+      HorizontalLine,
+      HtmlEmbed,
+      Image,
+      ImageCaption,
+      ImageInsert,
+      ImageResize,
+      ImageStyle,
+      ImageTextAlternative,
+      ImageToolbar,
+      ImageUpload,
+      Indent,
+      IndentBlock,
+      Italic,
+      Link,
+      List,
+      ListProperties,
+      MediaEmbed,
+      Paragraph,
+      PasteFromOffice,
+      RemoveFormat,
+      SelectAll,
+      ShowBlocks,
+      SourceEditing,
+      Strikethrough,
+      Style,
+      Subscript,
+      Table,
+      TableCaption,
+      TableCellProperties,
+      TableColumnResize,
+      TableProperties,
+      TableToolbar,
+      TextPartLanguage,
+      TodoList,
+      Underline,
+      Undo,
+      WordCount,
+    ],
+    extraPlugins: [createAdminUploadAdapterPlugin(resolvedUploadToken)],
+    toolbar: [
+      "undo",
+      "redo",
+      "|",
+      "findAndReplace",
+      "selectAll",
+      "showBlocks",
+      "sourceEditing",
+      "|",
+      "heading",
+      "style",
+      "|",
+      "fontSize",
+      "fontFamily",
+      "fontColor",
+      "fontBackgroundColor",
+      "highlight",
+      "|",
+      "bold",
+      "italic",
+      "underline",
+      "strikethrough",
+      "subscript",
+      "code",
+      "removeFormat",
+      "|",
+      "link",
+      "bookmark",
+      "insertImage",
+      "mediaEmbed",
+      "insertTable",
+      "blockQuote",
+      "codeBlock",
+      "horizontalLine",
+      "htmlEmbed",
+      "|",
+      "bulletedList",
+      "numberedList",
+      "todoList",
+      "outdent",
+      "indent",
+      "alignment",
+    ],
+    image: {
+      toolbar: [
+        "toggleImageCaption",
+        "imageTextAlternative",
+        "|",
+        "imageStyle:inline",
+        "imageStyle:block",
+        "imageStyle:side",
+        "|",
+        "resizeImage",
+      ],
+      insert: {
+        integrations: ["upload", "url"],
+      },
+    },
+    table: {
+      contentToolbar: [
+        "tableColumn",
+        "tableRow",
+        "mergeTableCells",
+        "tableProperties",
+        "tableCellProperties",
+      ],
+    },
+    list: {
+      properties: {
+        styles: true,
+        startIndex: true,
+        reversed: true,
+      },
+    },
+    style: {
+      definitions: [
+        {
+          name: "Lead Paragraph",
+          element: "p",
+          classes: ["article-lead"],
+        },
+        {
+          name: "Muted Paragraph",
+          element: "p",
+          classes: ["article-muted"],
+        },
+        {
+          name: "Info Box",
+          element: "p",
+          classes: ["article-info-box"],
+        },
+        {
+          name: "Section Heading",
+          element: "h2",
+          classes: ["article-section-title"],
+        },
+        {
+          name: "Small Label",
+          element: "span",
+          classes: ["article-small-label"],
+        },
+        {
+          name: "Highlighted Text",
+          element: "span",
+          classes: ["article-highlight-text"],
+        },
+      ],
+    },
+    htmlSupport: {
+      allow: [
+        {
+          name: /.*/,
+          attributes: true,
+          classes: true,
+          styles: true,
+        },
+      ],
+    },
+  };
+}
+
+export default function RichTextEditor({ id, label, value, onChange, uploadToken }) {
   const hostRef = useRef(null);
   const editorRef = useRef(null);
   const onChangeRef = useRef(onChange);
@@ -73,7 +309,7 @@ export default function RichTextEditor({ id, label, value, onChange }) {
         return;
       }
 
-      const editor = await ClassicEditor.create(hostRef.current, editorConfig);
+      const editor = await ClassicEditor.create(hostRef.current, buildEditorConfig(uploadToken));
 
       if (!mounted) {
         await editor.destroy();
@@ -102,7 +338,7 @@ export default function RichTextEditor({ id, label, value, onChange }) {
         editor.destroy().catch(() => {});
       }
     };
-  }, []);
+  }, [uploadToken]);
 
   useEffect(() => {
     if (!editorRef.current) {
