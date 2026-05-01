@@ -135,7 +135,7 @@ app.use("/api", (_request, response, next) => {
   response.setHeader("Surrogate-Control", "no-store");
   next();
 });
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(
   "/uploads",
   express.static(path.resolve(process.cwd(), "public", "uploads"), {

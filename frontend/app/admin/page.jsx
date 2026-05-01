@@ -2388,11 +2388,38 @@ export function AdminSectionPage({ section = "dashboard" }) {
     setIsProjectModalOpen(true);
   }
 
-  function removeProjectItem(index) {
-    setForm((current) => ({
-      ...current,
-      projects: current.projects.filter((_, itemIndex) => itemIndex !== index),
-    }));
+  async function removeProjectItem(index) {
+    const targetProject = form.projects[index];
+
+    if (!targetProject?.id) {
+      setForm((current) => ({
+        ...current,
+        projects: current.projects.filter((_, itemIndex) => itemIndex !== index),
+      }));
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const response = await adminFetch(`${backendUrl}/api/admin/projects/${targetProject.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to delete project.");
+      }
+
+      toast.success(data.message || "Project deleted successfully.");
+      await loadDashboard(token);
+    } catch (error) {
+      toast.error(error.message || "Failed to delete project.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function openEditProjectModal(index) {
@@ -2734,7 +2761,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
     closeTestimonialModal();
   }
 
-  function saveProjectDraft() {
+  async function saveProjectDraft() {
     const normalizedDraft = {
       ...projectDraft,
       id: projectDraft.id,
@@ -2762,22 +2789,36 @@ export function AdminSectionPage({ section = "dashboard" }) {
       return;
     }
 
-    setForm((current) => {
-      const nextProjects = [...current.projects];
+    try {
+      setIsSaving(true);
+      const isEditing = editingProjectIndex >= 0 && normalizedDraft.id;
+      const response = await adminFetch(
+        isEditing
+          ? `${backendUrl}/api/admin/projects/${normalizedDraft.id}`
+          : `${backendUrl}/api/admin/projects`,
+        {
+          method: isEditing ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(normalizedDraft),
+        },
+      );
+      const data = await response.json();
 
-      if (editingProjectIndex >= 0) {
-        nextProjects[editingProjectIndex] = normalizedDraft;
-      } else {
-        nextProjects.push(normalizedDraft);
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save project.");
       }
 
-      return {
-        ...current,
-        projects: nextProjects,
-      };
-    });
-
-    closeProjectModal();
+      toast.success(data.message || (isEditing ? "Project updated." : "Project added."));
+      closeProjectModal();
+      await loadDashboard(token);
+    } catch (error) {
+      toast.error(error.message || "Failed to save project.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   async function persistContent(payload, successMessage) {
@@ -2791,10 +2832,29 @@ export function AdminSectionPage({ section = "dashboard" }) {
         },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      let data = null;
+
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const errorText = await response.text();
+        const shortError = errorText
+          .replace(/<[^>]*>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        if (!response.ok) {
+          if (response.status === 413) {
+            throw new Error("Request body is too large. Shorten the content or upload assets separately.");
+          }
+
+          throw new Error(shortError || "Server returned a non-JSON response.");
+        }
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to save changes.");
+        throw new Error(data?.message || "Failed to save changes.");
       }
 
       setMessages(data.data?.messages || []);
@@ -2878,13 +2938,6 @@ export function AdminSectionPage({ section = "dashboard" }) {
     event.preventDefault();
     try {
       await persistContent(buildTestimonialsPayload(form), "Testimonials section updated.");
-    } catch {}
-  }
-
-  async function handleProjectsSave(event) {
-    event.preventDefault();
-    try {
-      await persistContent(buildProjectsPayload(form), "Projects updated.");
     } catch {}
   }
 
@@ -6139,7 +6192,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
           )}
 
           {activeTab === "projects" && (
-            <form className="space-y-6" onSubmit={handleProjectsSave}>
+            <div className="space-y-6">
               <section className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
@@ -6218,16 +6271,6 @@ export function AdminSectionPage({ section = "dashboard" }) {
                 </div>
               </section>
 
-              <div className="flex justify-end">
-                <button
-                  className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-6 py-3 font-semibold text-[#08111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
-                  disabled={isSaving}
-                  type="submit"
-                >
-                  {isSaving ? "Saving..." : "Save Projects"}
-                </button>
-              </div>
-
               {isProjectModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
                   <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
@@ -6252,9 +6295,10 @@ export function AdminSectionPage({ section = "dashboard" }) {
                         <button
                           type="button"
                           onClick={saveProjectDraft}
+                          disabled={isSaving}
                           className="rounded-xl bg-[linear-gradient(135deg,#2a8fd8,#57d0a0)] px-5 py-2 text-sm font-semibold text-[#08111d] transition hover:opacity-90"
                         >
-                          {editingProjectIndex >= 0 ? "Update Project" : "Add Project"}
+                          {isSaving ? "Saving..." : editingProjectIndex >= 0 ? "Update Project" : "Add Project"}
                         </button>
                       </div>
                     </div>
@@ -6502,7 +6546,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                   </div>
                 </div>
               )}
-            </form>
+            </div>
           )}
 
           {activeTab === "skills" && (

@@ -484,6 +484,26 @@ function slugify(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+function normalizeProjectPayload(payload, fallbackProject = null) {
+  return {
+    slug: slugify(payload?.slug || payload?.name || fallbackProject?.slug || fallbackProject?.name),
+    name: normalizeString(payload?.name ?? fallbackProject?.name),
+    description: normalizeString(payload?.description ?? fallbackProject?.description),
+    content: String(payload?.content ?? fallbackProject?.content ?? "").trim(),
+    role: normalizeString(payload?.role ?? fallbackProject?.role),
+    code: normalizeString(payload?.code ?? fallbackProject?.code),
+    demo: normalizeString(payload?.demo ?? fallbackProject?.demo),
+    image: normalizeString(payload?.image ?? fallbackProject?.image),
+    views: Math.max(0, Number.parseInt(payload?.views ?? fallbackProject?.views, 10) || 0),
+    impressionCount: Math.max(
+      0,
+      Number.parseInt(payload?.impressionCount ?? fallbackProject?.impressionCount, 10) || 0,
+    ),
+    tools: normalizeStringList(payload?.tools ?? fallbackProject?.tools ?? []),
+    buttons: normalizeProjectButtons(payload?.buttons, payload || fallbackProject),
+  };
+}
+
 function normalizeArticlePayload(payload, fallbackArticle = null) {
   const title = normalizeString(payload?.title ?? fallbackArticle?.title);
   const slug = slugify(payload?.slug || payload?.title || fallbackArticle?.slug || fallbackArticle?.title);
@@ -2996,6 +3016,130 @@ router.post(
     });
   },
 );
+
+router.post("/projects", requireAdmin, async (request, response) => {
+  try {
+    const normalizedProject = normalizeProjectPayload(request.body);
+
+    if (!normalizedProject.slug || !normalizedProject.name || !normalizedProject.description || !normalizedProject.content) {
+      return response.status(400).json({
+        message: "Project name, description, content, and slug are required.",
+      });
+    }
+
+    const [maxIdProject, maxSortOrderProject] = await Promise.all([
+      prisma.project.findFirst({
+        orderBy: { id: "desc" },
+        select: { id: true },
+      }),
+      prisma.project.findFirst({
+        orderBy: { sortOrder: "desc" },
+        select: { sortOrder: true },
+      }),
+    ]);
+
+    const createdProject = await prisma.project.create({
+      data: {
+        id: (maxIdProject?.id || 0) + 1,
+        sortOrder: (maxSortOrderProject?.sortOrder || 0) + 1,
+        ...normalizedProject,
+      },
+    });
+
+    emitContentUpdated(request, "projects", {
+      action: "created",
+      projectId: createdProject.id,
+      slug: createdProject.slug,
+    });
+
+    return response.status(201).json({
+      message: "Project created successfully.",
+      data: createdProject,
+    });
+  } catch (error) {
+    console.error("Failed to create project:", error.message);
+    return response.status(500).json({ message: "Failed to create project." });
+  }
+});
+
+router.put("/projects/:projectId", requireAdmin, async (request, response) => {
+  try {
+    const projectId = Number.parseInt(request.params.projectId, 10);
+    if (!projectId) {
+      return response.status(400).json({ message: "Project id is required." });
+    }
+
+    const existingProject = await prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!existingProject) {
+      return response.status(404).json({ message: "Project not found." });
+    }
+
+    const normalizedProject = normalizeProjectPayload(request.body, existingProject);
+
+    if (!normalizedProject.slug || !normalizedProject.name || !normalizedProject.description || !normalizedProject.content) {
+      return response.status(400).json({
+        message: "Project name, description, content, and slug are required.",
+      });
+    }
+
+    const updatedProject = await prisma.project.update({
+      where: { id: projectId },
+      data: normalizedProject,
+    });
+
+    emitContentUpdated(request, "projects", {
+      action: "updated",
+      projectId: updatedProject.id,
+      slug: updatedProject.slug,
+    });
+
+    return response.json({
+      message: "Project updated successfully.",
+      data: updatedProject,
+    });
+  } catch (error) {
+    console.error("Failed to update project:", error.message);
+    return response.status(500).json({ message: "Failed to update project." });
+  }
+});
+
+router.delete("/projects/:projectId", requireAdmin, async (request, response) => {
+  try {
+    const projectId = Number.parseInt(request.params.projectId, 10);
+    if (!projectId) {
+      return response.status(400).json({ message: "Project id is required." });
+    }
+
+    const existingProject = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, slug: true },
+    });
+
+    if (!existingProject) {
+      return response.status(404).json({ message: "Project not found." });
+    }
+
+    await prisma.project.delete({
+      where: { id: projectId },
+    });
+
+    emitContentUpdated(request, "projects", {
+      action: "deleted",
+      projectId: existingProject.id,
+      slug: existingProject.slug,
+    });
+
+    return response.json({
+      message: "Project deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Failed to delete project:", error.message);
+    return response.status(500).json({ message: "Failed to delete project." });
+  }
+});
 
 router.put("/content", requireAdmin, async (request, response) => {
   try {
