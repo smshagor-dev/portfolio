@@ -277,6 +277,22 @@ function sortMessagesByLatest(items) {
   });
 }
 
+function getMessageStatusLabel(message) {
+  if (message?.status === "solved") {
+    return "Solved";
+  }
+
+  return message?.isNew ? "New" : "Open";
+}
+
+function getMessageTypeLabel(message) {
+  if (message?.status === "solved") {
+    return "None";
+  }
+
+  return message?.isNew ? "New" : "Open";
+}
+
 function emptyDashboardSummary() {
   return {
     configuredPercentage: 0,
@@ -816,6 +832,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
     (messagesPage - 1) * messagesPerPage,
     (messagesPage - 1) * messagesPerPage + messagesPerPage,
   );
+  const isSelectedMessageSolved = selectedMessageThread?.status === "solved";
   const analyticsVisitorsTotalPages = Math.max(1, Math.ceil(analyticsVisitors.length / analyticsVisitorsPerPage));
   const analyticsVisitorsStartIndex = (analyticsVisitorsPage - 1) * analyticsVisitorsPerPage;
   const paginatedAnalyticsVisitors = analyticsVisitors.slice(
@@ -4345,25 +4362,61 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     <p className="mt-2 truncate text-sm text-[#97a9be]">
                       {selectedMessageThread?.name || "Loading"} | {selectedMessageThread?.email || "Loading"}
                     </p>
+                    {selectedMessageThread ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                            selectedMessageThread.status === "solved"
+                              ? "bg-emerald-400/12 text-emerald-200"
+                              : selectedMessageThread.isNew
+                                ? "bg-amber-300/12 text-amber-100"
+                                : "bg-sky-400/12 text-sky-200"
+                          }`}
+                        >
+                          {getMessageStatusLabel(selectedMessageThread)}
+                        </span>
+                        <span className="inline-flex rounded-full border border-[#2f4866] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9fdcff]">
+                          Type {getMessageTypeLabel(selectedMessageThread)}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMessageThread(null);
-                      setMessageReplyDraft("");
-                      setMessageReplyAttachments({ photo: null, file: null });
-                      setActiveMessageImagePreview("");
-                      if (messageReplyPhotoInputRef.current) {
-                        messageReplyPhotoInputRef.current.value = "";
-                      }
-                      if (messageReplyFileInputRef.current) {
-                        messageReplyFileInputRef.current.value = "";
-                      }
-                    }}
-                    className="rounded-xl border border-[#334862] px-4 py-2 text-sm text-[#c1cfde] transition hover:border-[#4a678b]"
-                  >
-                    Close
-                  </button>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {selectedMessageThread?.id ? (
+                      <button
+                        type="button"
+                        disabled={messageActionId === selectedMessageThread.id}
+                        onClick={() =>
+                          updateMessageStatus(
+                            token,
+                            selectedMessageThread.id,
+                            selectedMessageThread.status === "solved" ? "not_solved" : "solved",
+                          )
+                        }
+                        className="rounded-xl border border-[#2f4866] px-4 py-2 text-sm text-[#d4e2f0] transition hover:border-[#70d5ff] hover:text-white disabled:opacity-60"
+                      >
+                        {selectedMessageThread.status === "solved" ? "Reopen" : "Mark Solved"}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMessageThread(null);
+                        setMessageReplyDraft("");
+                        setMessageReplyAttachments({ photo: null, file: null });
+                        setActiveMessageImagePreview("");
+                        if (messageReplyPhotoInputRef.current) {
+                          messageReplyPhotoInputRef.current.value = "";
+                        }
+                        if (messageReplyFileInputRef.current) {
+                          messageReplyFileInputRef.current.value = "";
+                        }
+                      }}
+                      className="rounded-xl border border-[#334862] px-4 py-2 text-sm text-[#c1cfde] transition hover:border-[#4a678b]"
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
 
                 {isMessageThreadLoading ? (
@@ -4449,9 +4502,15 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     </div>
 
                     <div className="border-t border-[#203049] px-5 py-4 md:px-6">
-                      <div className="mb-3 flex flex-wrap gap-2">
+                      {isSelectedMessageSolved ? (
+                        <div className="rounded-[1.25rem] border border-emerald-400/15 bg-emerald-400/8 px-4 py-3 text-sm text-emerald-100">
+                          This ticket is solved. Only admins can reopen it before sending a new reply.
+                        </div>
+                      ) : null}
+                      <div className={`mb-3 flex flex-wrap gap-2 ${isSelectedMessageSolved ? "opacity-50" : ""}`}>
                         <button
                           type="button"
+                          disabled={isSelectedMessageSolved}
                           onClick={() => messageReplyPhotoInputRef.current?.click()}
                           className="inline-flex items-center gap-2 rounded-full border border-[#2f4866] bg-white/[0.03] px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
                         >
@@ -4460,6 +4519,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                         </button>
                         <button
                           type="button"
+                          disabled={isSelectedMessageSolved}
                           onClick={() => messageReplyFileInputRef.current?.click()}
                           className="inline-flex items-center gap-2 rounded-full border border-[#2f4866] bg-white/[0.03] px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#9fdcff] transition hover:-translate-y-0.5 hover:border-[#70d5ff] hover:text-white"
                         >
@@ -4519,12 +4579,14 @@ export function AdminSectionPage({ section = "dashboard" }) {
                           onChange={(event) => setMessageReplyDraft(event.target.value)}
                           rows={3}
                           placeholder="Reply to this ticket..."
+                          disabled={isSelectedMessageSolved}
                           className="min-h-[110px] flex-1 resize-none rounded-[1.2rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none transition placeholder:text-[#70859d] focus:border-[#70d5ff]"
                         />
                         <button
                           type="button"
                           onClick={() => sendAdminMessageReply(token)}
                           disabled={
+                            isSelectedMessageSolved ||
                             isSendingMessageReply ||
                             (!messageReplyDraft.trim() && !messageReplyAttachments.photo && !messageReplyAttachments.file)
                           }
@@ -7557,7 +7619,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                                     : "bg-sky-400/12 text-sky-200"
                               }`}
                             >
-                              {message.status === "solved" ? "Solved" : message.isNew ? "New" : "Open"}
+                              {getMessageStatusLabel(message)}
                             </span>
                           </div>
                           <p className="mt-3 text-xs text-[#8ea7c2]">
@@ -7613,11 +7675,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                                         : "bg-sky-400/12 text-sky-200"
                                   }`}
                                 >
-                                  {message.status === "solved"
-                                    ? "Solved"
-                                    : message.isNew
-                                      ? "New"
-                                      : "Not Solved"}
+                                  {getMessageStatusLabel(message)}
                                 </span>
                               </td>
                               <td className="rounded-r-[1.2rem] border border-[#24344d] border-l-0 bg-[#0b1524] px-3 py-4 text-sm">
@@ -7646,7 +7704,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                                     }
                                     className="inline-flex items-center justify-center rounded-full border border-[#2f4866] px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-[#d4e2f0] transition hover:border-[#70d5ff] hover:text-white disabled:opacity-60"
                                   >
-                                    {message.status === "solved" ? "Not Solved" : "Solved"}
+                                    {message.status === "solved" ? "Reopen" : "Solved"}
                                   </button>
                                   <button
                                     type="button"

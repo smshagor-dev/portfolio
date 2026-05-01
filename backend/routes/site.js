@@ -889,7 +889,7 @@ router.get("/home", async (_request, response) => {
                   },
                 },
               },
-              orderBy: [{ isFeatured: "desc" }, { publishDate: "desc" }, { createdAt: "desc" }],
+              orderBy: [{ publishDate: "desc" }, { createdAt: "desc" }],
               take: 6,
             })
         : Promise.resolve([]),
@@ -1521,7 +1521,7 @@ router.get("/articles", async (_request, response) => {
             },
           },
         },
-        orderBy: [{ isFeatured: "desc" }, { publishDate: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ publishDate: "desc" }, { createdAt: "desc" }],
       });
 
     return response.json((await attachArticleMetrics(articles)).map(serializeArticle));

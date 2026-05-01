@@ -703,6 +703,9 @@ function serializeContactChatMessage(message) {
 function serializeContactMessageSummary(message) {
   const latestReply = message.chatMessages?.[0] ? serializeContactChatMessage(message.chatMessages[0]) : null;
   const hasAdminReply = (message.chatMessages || []).some((item) => item.senderType === "admin");
+  const status = message.status || "not_solved";
+  const isNew = status === "solved" ? false : !hasAdminReply;
+  const messageType = status === "solved" ? "none" : isNew ? "new" : "open";
 
   return {
     id: message.id,
@@ -712,8 +715,9 @@ function serializeContactMessageSummary(message) {
     message: message.message,
     photo: message.photo || "",
     file: message.file || "",
-    status: message.status || "not_solved",
-    isNew: !hasAdminReply,
+    status,
+    isNew,
+    messageType,
     createdAt: message.createdAt,
     lastMessageAt: latestReply?.createdAt || message.createdAt,
     messageCount: message._count?.chatMessages || 0,
@@ -977,7 +981,7 @@ function buildDashboardSummary(data) {
       { label: "Published FAQs", value: activeFaqs },
       { label: "Stats counters", value: statsCounters.length },
     ],
-    recentMessages: messages.slice(0, 4),
+    recentMessages: messages.filter((item) => item.status !== "solved").slice(0, 4),
   };
 }
 
@@ -2812,11 +2816,16 @@ router.post(
         email: true,
         subject: true,
         ticketToken: true,
+        status: true,
       },
     });
 
     if (!ticket) {
       return response.status(404).json({ message: "Message not found." });
+    }
+
+    if (ticket.status === "solved") {
+      return response.status(409).json({ message: "Reopen this ticket before sending a reply." });
     }
 
     const photoFile = request.files?.photo?.[0];

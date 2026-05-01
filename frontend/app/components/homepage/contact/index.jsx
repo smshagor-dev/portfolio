@@ -108,7 +108,7 @@ function ContactSection({ profile, settings, emergencyContacts = [] }) {
           <motion.aside
             variants={fadeUp}
             transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
-            className="grid gap-5 lg:col-span-5"
+            className="grid w-full max-w-[calc(100vw-2.5rem)] gap-5 justify-self-start sm:max-w-none sm:px-0 lg:col-span-5"
           >
             <motion.div
               whileHover={{ y: -4 }}
@@ -159,7 +159,7 @@ function ContactSection({ profile, settings, emergencyContacts = [] }) {
                             <span className="block text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
                               {item.label}
                             </span>
-                            <span className="mt-1 block truncate text-sm font-medium text-slate-100 sm:text-base">
+                            <span className="mt-1 block overflow-hidden text-sm font-medium leading-6 text-slate-100 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] sm:text-base">
                               {item.name}
                             </span>
                           </span>

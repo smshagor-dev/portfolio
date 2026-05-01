@@ -1,8 +1,8 @@
-import Projects from "../components/homepage/projects";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { getHomePageData } from "@/lib/api";
 import SectionHeading from "../components/homepage/section-heading";
+import ProjectCatalog from "./project-catalog";
 import { sortProjectsByRecency } from "@/lib/projects";
 import { buildPageMetadata } from "@/lib/site-metadata";
 
@@ -49,8 +49,7 @@ export default async function PortfolioPage() {
           </Link>
         </div>
       </section>
-
-      <Projects projects={sortedProjects} limit={null} showBottomActions={false} showIntro={false} />
+      <ProjectCatalog projects={sortedProjects} />
     </div>
   );
 }

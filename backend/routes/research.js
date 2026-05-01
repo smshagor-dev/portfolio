@@ -29,6 +29,18 @@ function buildResearchErrorResponse(message, data = null) {
   };
 }
 
+function emitResearchContentUpdated(request, action, publication) {
+  request.app.get("io")?.emit("content:updated", {
+    scope: "research",
+    action,
+    updatedAt: new Date().toISOString(),
+    publicationId: publication?.id || null,
+    slug: publication?.slug || "",
+    status: publication?.status || "",
+    isFeatured: Boolean(publication?.isFeatured),
+  });
+}
+
 function getPaginationParams(query = {}) {
   const page = Math.max(1, Number.parseInt(query.page, 10) || 1);
   const limit = Math.min(50, Math.max(1, Number.parseInt(query.limit, 10) || 9));
@@ -556,6 +568,8 @@ router.post("/admin/research-publications", requireAdmin, async (request, respon
       data: payload,
     });
 
+    emitResearchContentUpdated(request, "created", createdPublication);
+
     return response.status(201).json(
       buildResearchSuccessResponse(
         "Research publication created successfully.",
@@ -611,6 +625,8 @@ router.put("/admin/research-publications/:id", requireAdmin, async (request, res
       data: payload,
     });
 
+    emitResearchContentUpdated(request, "updated", updatedPublication);
+
     return response.json(
       buildResearchSuccessResponse(
         "Research publication updated successfully.",
@@ -648,7 +664,12 @@ router.delete("/admin/research-publications/:id", requireAdmin, async (request, 
 
     const existingPublication = await prisma.researchPublication.findUnique({
       where: { id: publicationId },
-      select: { id: true },
+      select: {
+        id: true,
+        slug: true,
+        status: true,
+        isFeatured: true,
+      },
     });
 
     if (!existingPublication) {
@@ -658,6 +679,8 @@ router.delete("/admin/research-publications/:id", requireAdmin, async (request, 
     await prisma.researchPublication.delete({
       where: { id: publicationId },
     });
+
+    emitResearchContentUpdated(request, "deleted", existingPublication);
 
     return response.json(
       buildResearchSuccessResponse("Research publication deleted successfully.", { id: publicationId }),

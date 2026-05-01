@@ -319,7 +319,9 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
                           <span className="block truncate text-[11px] uppercase tracking-[0.22em] text-[#8fa4bd]">
                             {item.label}
                           </span>
-                          <span className="mt-1 block truncate text-[1rem] text-white">{item.name}</span>
+                          <span className="mt-1 block overflow-hidden text-[1rem] leading-6 text-white [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+                            {item.name}
+                          </span>
                         </span>
                         <span className="text-[#b8c3d1] transition group-hover:text-white">-&gt;</span>
                       </Link>
@@ -422,7 +424,7 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
                           <span className="block text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
                             {item.label}
                           </span>
-                          <span className="mt-1 block truncate text-sm font-medium text-slate-100">
+                          <span className="mt-1 block overflow-hidden text-sm font-medium leading-6 text-slate-100 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
                             {item.name}
                           </span>
                         </span>

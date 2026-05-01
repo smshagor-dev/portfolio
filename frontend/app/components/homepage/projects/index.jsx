@@ -6,7 +6,7 @@ import { sortProjectsByRecency } from "@/lib/projects";
 
 export default function Projects({
   projects = [],
-  limit = 4,
+  limit = 6,
   showBottomActions = true,
   showIntro = true,
 }) {
@@ -27,7 +27,7 @@ export default function Projects({
           />
         ) : null}
 
-        <div className={`relative grid gap-5 sm:gap-6 xl:grid-cols-2 ${showIntro ? "mt-8 sm:mt-10" : ""}`}>
+        <div className={`relative grid gap-5 sm:gap-6 xl:grid-cols-3 ${showIntro ? "mt-8 sm:mt-10" : ""}`}>
           {visibleProjects.map((project) => (
             <ProjectCard key={project.id || project.slug || project.name} project={project} />
           ))}
