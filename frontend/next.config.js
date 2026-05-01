@@ -20,6 +20,9 @@ module.exports = {
     includePaths: [path.join(__dirname, "styles")],
   },
   images: {
+    dangerouslyAllowSVG: true,
+    contentDispositionType: "inline",
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
       ...(backendImagePattern ? [backendImagePattern] : []),
       {

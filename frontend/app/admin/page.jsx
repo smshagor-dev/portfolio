@@ -4631,7 +4631,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
                       <textarea
                         className="min-h-[100px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
                         value={form.address}
-                        onChange={(event) => updateFormField("address", event.target.value)}
+                        onChange={(event) => updateField("address", event.target.value)}
                       />
                     </div>
                     <div>
