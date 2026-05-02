@@ -259,128 +259,128 @@ export default function AdminResearchPage() {
       title="Portfolio Admin"
       description="Research publications can be created, edited, featured, and archived from this fixed-sidebar workspace."
     >
-      <div className="min-w-0 lg:h-[calc(100vh-2rem)] lg:overflow-hidden">
-      <div className="rounded-[2rem] border border-[#24344d] bg-[linear-gradient(180deg,#10192c,#09111d)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:p-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-[#79d4ff]">Admin Research</p>
-            <h1 className="mt-3 text-3xl font-semibold text-white md:text-4xl">
-              Manage Research Publications
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-[#b8c7d8]">
-              Create, edit, delete, feature, and update publication statuses without touching the rest of the admin dashboard.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={startCreate}
-              className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90"
-            >
-              Add New Publication
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/admin/dashboard")}
-              className="inline-flex items-center justify-center rounded-full border border-[#35516f] px-5 py-3 text-sm font-semibold text-white transition hover:border-[#70d5ff] hover:text-[#70d5ff]"
-            >
-              Back to Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <section className="mt-8 rounded-[1.75rem] border border-[#24344d] bg-[#0d1728] p-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-white">Publications</h2>
-            <p className="mt-2 text-sm text-[#9fb1c7]">
-              All Publications ({publications.length})
-            </p>
-          </div>
-          <p className="text-sm text-[#8ea7c2]">
-            Review every saved research item from one full-width list.
-          </p>
-        </div>
-
-        {isLoading ? (
-          <div className="mt-6 space-y-4">
-            {[0, 1, 2].map((item) => (
-              <div key={item} className="h-28 animate-pulse rounded-[1.5rem] border border-[#24344d] bg-[#111d31]" />
-            ))}
-          </div>
-        ) : publications.length === 0 ? (
-          <div className="mt-6 rounded-[1.5rem] border border-dashed border-[#2a3b55] bg-[#0e1829] p-6 text-sm text-[#9fb1c7]">
-            No research publications saved yet.
-          </div>
-        ) : (
-          <div className="mt-6 space-y-4">
-            {publications.map((publication) => (
-              <article
-                key={publication.id}
-                className="rounded-[1.5rem] border border-[#24344d] bg-[#111d31] p-5"
+      <div className="min-w-0 lg:h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
+        <div className="rounded-[2rem] border border-[#24344d] bg-[linear-gradient(180deg,#10192c,#09111d)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:p-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-[#79d4ff]">Admin Research</p>
+              <h1 className="mt-3 text-3xl font-semibold text-white md:text-4xl">
+                Manage Research Publications
+              </h1>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-[#b8c7d8]">
+                Create, edit, delete, feature, and update publication statuses without touching the rest of the admin dashboard.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={startCreate}
+                className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90"
               >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="flex min-w-0 flex-1 gap-4">
-                    {publication.thumbnailImage ? (
-                      <div className="relative hidden h-24 w-28 shrink-0 overflow-hidden rounded-2xl border border-[#24344d] bg-[#0b1422] sm:block">
-                        <Image
-                          src={buildPublicAssetUrl(publication.thumbnailImage)}
-                          alt={publication.title || "Research publication thumbnail"}
-                          fill
-                          className="object-cover"
-                          unoptimized
-                        />
-                      </div>
-                    ) : null}
+                Add New Publication
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/admin/dashboard")}
+                className="inline-flex items-center justify-center rounded-full border border-[#35516f] px-5 py-3 text-sm font-semibold text-white transition hover:border-[#70d5ff] hover:text-[#70d5ff]"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
 
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full border border-[#35516f] bg-[#102236] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-[#a5e3ff]">
-                          {publication.publicationType}
-                        </span>
-                        <span className="rounded-full border border-[#35516f] bg-[#0e1829] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-[#d3d8e8]">
-                          {publication.status}
-                        </span>
-                        {publication.isFeatured ? (
-                          <span className="rounded-full border border-[#2d6b55] bg-[#10281f] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-[#89f0c0]">
-                            Featured
+        <section className="mt-8 rounded-[1.75rem] border border-[#24344d] bg-[#0d1728] p-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Publications</h2>
+              <p className="mt-2 text-sm text-[#9fb1c7]">
+                All Publications ({publications.length})
+              </p>
+            </div>
+            <p className="text-sm text-[#8ea7c2]">
+              Review every saved research item from one full-width list.
+            </p>
+          </div>
+
+          {isLoading ? (
+            <div className="mt-6 space-y-4">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="h-28 animate-pulse rounded-[1.5rem] border border-[#24344d] bg-[#111d31]" />
+              ))}
+            </div>
+          ) : publications.length === 0 ? (
+            <div className="mt-6 rounded-[1.5rem] border border-dashed border-[#2a3b55] bg-[#0e1829] p-6 text-sm text-[#9fb1c7]">
+              No research publications saved yet.
+            </div>
+          ) : (
+            <div className="mt-6 space-y-4">
+              {publications.map((publication) => (
+                <article
+                  key={publication.id}
+                  className="rounded-[1.5rem] border border-[#24344d] bg-[#111d31] p-5"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex min-w-0 flex-1 gap-4">
+                      {publication.thumbnailImage ? (
+                        <div className="relative hidden h-24 w-28 shrink-0 overflow-hidden rounded-2xl border border-[#24344d] bg-[#0b1422] sm:block">
+                          <Image
+                            src={buildPublicAssetUrl(publication.thumbnailImage)}
+                            alt={publication.title || "Research publication thumbnail"}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      ) : null}
+
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-[#35516f] bg-[#102236] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-[#a5e3ff]">
+                            {publication.publicationType}
                           </span>
-                        ) : null}
+                          <span className="rounded-full border border-[#35516f] bg-[#0e1829] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-[#d3d8e8]">
+                            {publication.status}
+                          </span>
+                          {publication.isFeatured ? (
+                            <span className="rounded-full border border-[#2d6b55] bg-[#10281f] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-[#89f0c0]">
+                              Featured
+                            </span>
+                          ) : null}
+                        </div>
+                        <h3 className="mt-3 text-xl font-semibold text-white">{publication.title}</h3>
+                        <p className="mt-2 text-sm leading-7 text-[#b8c7d8]">{publication.shortSummary}</p>
+                        <p className="mt-3 text-sm text-[#8fa4bb]">
+                          {publication.researchArea} | {publication.publisherName}
+                        </p>
                       </div>
-                      <h3 className="mt-3 text-xl font-semibold text-white">{publication.title}</h3>
-                      <p className="mt-2 text-sm leading-7 text-[#b8c7d8]">{publication.shortSummary}</p>
-                      <p className="mt-3 text-sm text-[#8fa4bb]">
-                        {publication.researchArea} | {publication.publisherName}
-                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(publication)}
+                        className="inline-flex items-center justify-center rounded-full border border-[#35516f] px-4 py-2 text-sm font-medium text-white transition hover:border-[#70d5ff] hover:text-[#70d5ff]"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(publication.id)}
+                        className="inline-flex items-center justify-center rounded-full border border-[#6d3645] px-4 py-2 text-sm font-medium text-[#ffb9c5] transition hover:border-[#ff7b97] hover:text-white"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(publication)}
-                      className="inline-flex items-center justify-center rounded-full border border-[#35516f] px-4 py-2 text-sm font-medium text-white transition hover:border-[#70d5ff] hover:text-[#70d5ff]"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(publication.id)}
-                      className="inline-flex items-center justify-center rounded-full border border-[#6d3645] px-4 py-2 text-sm font-medium text-[#ffb9c5] transition hover:border-[#ff7b97] hover:text-white"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
-      {isEditorOpen ? (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
-          <div className="relative z-[121] max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
+        {isEditorOpen ? (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#020817]/80 px-4 py-6 backdrop-blur-sm">
+            <div className="relative z-[121] max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-[1.9rem] border border-[#28405f] bg-[linear-gradient(180deg,#101b2f,#09111e)] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-6">
             <div className="flex flex-col gap-4 border-b border-[#203049] pb-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.28em] text-[#79d4ff]">Research Form</p>
@@ -598,9 +598,9 @@ export default function AdminResearchPage() {
                 ) : null}
               </div>
             </form>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
       </div>
     </AdminFixedSidebarShell>
   );
