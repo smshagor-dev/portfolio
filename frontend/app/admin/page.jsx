@@ -3229,21 +3229,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
     {
       label: "Analytics Source",
       value: getAnalyticsSourceLabel(analytics),
-      detail: getAnalyticsSourceDetail(analytics),
-    },
-    {
-      label: "Vercel Analytics",
-      value: analytics.vercel?.enabled ? "Installed" : "Not installed",
-      detail: analytics.vercel?.collecting
-        ? `Collecting${analytics.vercel?.environment ? ` in ${analytics.vercel.environment}` : ""}`
-        : analytics.vercel?.note || "Dashboard collection is not confirmed",
-    },
-    {
-      label: "Speed Insights",
-      value: analytics.speedInsights?.enabled ? "Installed" : "Not installed",
-      detail: analytics.speedInsights?.collecting
-        ? `Collecting${analytics.speedInsights?.environment ? ` in ${analytics.speedInsights.environment}` : ""}`
-        : analytics.speedInsights?.note || "Dashboard collection is not confirmed",
+      detail: "",
     },
     ...(dashboardSummary.statusCards || []),
   ];
@@ -3545,21 +3531,6 @@ export function AdminSectionPage({ section = "dashboard" }) {
                       <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">Source</p>
                       <p className="mt-2 font-medium text-white">
                         {getAnalyticsSourceLabel(analytics)}
-                      </p>
-                      <p className="mt-1 text-xs text-[#8ea7c2]">
-                        {getAnalyticsSourceDetail(analytics)}
-                      </p>
-                      <p className="mt-3 text-[11px] uppercase tracking-[0.2em] text-[#8ea7c2]">
-                        Vercel Analytics: {analytics.vercel?.enabled ? "Installed" : "Not installed"}
-                      </p>
-                      <p className="mt-1 text-xs text-[#8ea7c2]">
-                        {analytics.vercel?.note || "No Vercel analytics status available."}
-                      </p>
-                      <p className="mt-3 text-[11px] uppercase tracking-[0.2em] text-[#8ea7c2]">
-                        Speed Insights: {analytics.speedInsights?.enabled ? "Installed" : "Not installed"}
-                      </p>
-                      <p className="mt-1 text-xs text-[#8ea7c2]">
-                        {analytics.speedInsights?.note || "No Speed Insights status available."}
                       </p>
                     </div>
                   </div>
