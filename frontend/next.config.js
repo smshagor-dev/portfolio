@@ -53,6 +53,14 @@ module.exports = {
         destination: `${backendUrl}/api/admin/:path*`,
       },
       {
+        source: "/api/research-publications/:path*",
+        destination: `${backendUrl}/api/research-publications/:path*`,
+      },
+      {
+        source: "/api/assistant/:path*",
+        destination: `${backendUrl}/api/assistant/:path*`,
+      },
+      {
         source: "/health",
         destination: `${backendUrl}/health`,
       },

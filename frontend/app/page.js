@@ -14,11 +14,31 @@ import { getHomePageData, getResearchPublications } from "@/lib/api";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [{ profile, siteSettings, serviceSection, services, statsCounters, achievements, experiences, skills, projects, educations, articles, pricings, faqs, testimonials, emergencyContacts }, latestResearchResponse] =
-    await Promise.all([
-      getHomePageData(),
-      getResearchPublications({ status: "published", limit: 6 }).catch(() => ({ data: [] })),
-    ]);
+  const homeData = await getHomePageData().catch((error) => {
+    console.error("Failed to load homepage data in app/page.js:", error.message);
+    return null;
+  });
+  const latestResearchResponse = await getResearchPublications({
+    status: "published",
+    limit: 6,
+  }).catch(() => ({ data: [] }));
+  const {
+    profile = null,
+    siteSettings = null,
+    serviceSection = null,
+    services = [],
+    statsCounters = [],
+    achievements = [],
+    experiences = [],
+    skills = [],
+    projects = [],
+    educations = [],
+    articles = [],
+    pricings = [],
+    faqs = [],
+    testimonials = [],
+    emergencyContacts = [],
+  } = homeData || {};
   const betweenSectionsAdCode = siteSettings?.adsenseBetweenSectionsCode;
   const latestResearchPublications = Array.isArray(latestResearchResponse?.data) ? latestResearchResponse.data : [];
 

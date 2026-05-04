@@ -24,6 +24,7 @@ export default function ServiceCard({ service, compact = false }) {
   const cardRef = useRef(null);
   const selectedIcon = getServiceIconOption(service?.icon);
   const ServiceIcon = selectedIcon.icon;
+  const commentCount = Number(service?.commentCount ?? service?.comments?.length ?? 0);
 
   useEffect(() => {
     const node = cardRef.current;
@@ -102,7 +103,7 @@ export default function ServiceCard({ service, compact = false }) {
 
         <div className="mt-6 flex flex-col items-start gap-4 border-t border-[#213147] pt-4 transition duration-300 group-hover:border-[#305173] sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <Metric value={service.comments?.length || 0}>
+            <Metric value={commentCount}>
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-none stroke-current" strokeWidth="1.8">
                 <path d="M7 10h10M7 14h6" strokeLinecap="round" strokeLinejoin="round" />
                 <path
