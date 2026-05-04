@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import ArticleCardMetrics from "@/app/components/article/article-card-metrics";
+import { getSolidBlurDataUrl } from "@/lib/image-placeholder";
 import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 
 function formatArticleDate(value) {
@@ -31,6 +32,8 @@ export default function BlogCard({ article, priority = false }) {
             src={buildPublicAssetUrl(article.featuredImage)}
             alt={article.title || "Article cover"}
             fill
+            placeholder="blur"
+            blurDataURL={getSolidBlurDataUrl("#10233a")}
             className="object-cover transition duration-500 group-hover:scale-105 group-hover:opacity-90"
             sizes="(max-width: 1279px) 100vw, 33vw"
             priority={priority}

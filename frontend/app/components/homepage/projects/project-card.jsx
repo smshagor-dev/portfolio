@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 import { buildPublicApiUrl } from "@/lib/public-backend-url";
+import { getSolidBlurDataUrl } from "@/lib/image-placeholder";
 
 export default function ProjectCard({ project, priority = false }) {
   const cardRef = useRef(null);
@@ -58,6 +59,8 @@ export default function ProjectCard({ project, priority = false }) {
             src={buildPublicAssetUrl(project.image)}
             alt={project?.name || "Project image"}
             fill
+            placeholder="blur"
+            blurDataURL={getSolidBlurDataUrl("#10233a")}
             className="object-cover transition duration-500 group-hover:scale-105 group-hover:opacity-90"
             sizes="(max-width: 767px) 100vw, (max-width: 1279px) 50vw, 33vw"
             priority={priority}

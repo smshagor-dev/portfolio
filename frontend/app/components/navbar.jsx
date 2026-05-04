@@ -117,13 +117,13 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
           <Link href="/" className="flex items-center gap-2 text-white 2xl:gap-3">
             <span
               className="text-[1.95rem] leading-none tracking-tight text-[#f3ede2] 2xl:text-[2.55rem]"
-              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+              style={{ fontFamily: "var(--font-serif)" }}
             >
               {brandTitle}
             </span>
             <span
               className="-translate-y-2 self-start whitespace-nowrap text-[0.72rem] leading-none text-[#b8b0a4] 2xl:text-[0.8rem] 2xl:leading-[1.05]"
-              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+              style={{ fontFamily: "var(--font-serif)" }}
             >
               {brandSubtitle}
             </span>
@@ -142,7 +142,7 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
                           ? "bg-[linear-gradient(180deg,#31374d,#2a3042)] text-[#fff8ef] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(255,255,255,0.03)]"
                           : "text-[#c1b9ad] hover:bg-white/5 hover:text-[#f3ede2]"
                       }`}
-                      style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+                      style={{ fontFamily: "var(--font-serif)" }}
                     >
                       {item.label}
                     </Link>
@@ -184,13 +184,13 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
         <Link href="/" className="flex min-w-0 items-end gap-2 text-white">
           <span
             className="truncate text-[1.65rem] leading-none tracking-tight text-[#f3ede2]"
-            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            style={{ fontFamily: "var(--font-serif)" }}
           >
             {brandTitle}
           </span>
           <span
             className="truncate pb-0.5 text-[0.78rem] text-[#b8b0a4]"
-            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            style={{ fontFamily: "var(--font-serif)" }}
           >
             {brandSubtitle}
           </span>
@@ -217,7 +217,6 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
           {desktopNavShell}
         </div>
       </nav>
-      <div className={isStickyVisible ? "h-[118px]" : ""} />
       <div
         className={`fixed inset-x-0 top-0 z-[110] mx-auto w-full px-6 pt-3 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-12 lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem] ${
           isStickyVisible
@@ -253,7 +252,7 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
                 <p className="text-[11px] uppercase tracking-[0.28em] text-[#84deff]">Menu</p>
                 <h5
                   className="mt-2 truncate text-2xl text-[#f3ede2]"
-                  style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+                  style={{ fontFamily: "var(--font-serif)" }}
                 >
                   {brandTitle}
                 </h5>
@@ -286,7 +285,7 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
                   >
                     <span
                       className="text-[1.05rem]"
-                      style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+                      style={{ fontFamily: "var(--font-serif)" }}
                     >
                       {item.label}
                     </span>

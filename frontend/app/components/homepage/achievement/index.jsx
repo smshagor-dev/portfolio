@@ -153,8 +153,8 @@ export default function AchievementSection({ achievements = [] }) {
                     src={activeItem.image}
                     alt={activeItem.title || "Achievement image"}
                     fill
+                    sizes="(max-width: 1024px) 100vw, 70vw"
                     className="object-contain"
-                    unoptimized
                   />
                 ) : (
                   <div className="flex h-full min-h-[300px] items-center justify-center text-center text-sm uppercase tracking-[0.3em] text-[#8fdcff]">

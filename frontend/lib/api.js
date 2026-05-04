@@ -1,4 +1,6 @@
 const DEFAULT_BACKEND_URL = "http://127.0.0.1:5000";
+const DEFAULT_REVALIDATE_SECONDS = 300;
+const DEFAULT_TIMEOUT_MS = 5000;
 
 function normalizeBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/, "");
@@ -49,12 +51,13 @@ function getCandidateUrls(pathname) {
 }
 
 async function fetchWithTimeout(targetUrl, options = {}) {
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const timeoutId = setTimeout(() => controller.abort(`Request timed out after ${timeoutMs}ms`), timeoutMs);
 
   try {
     return await fetch(targetUrl, {
-      ...options,
+      ...fetchOptions,
       signal: controller.signal,
     });
   } finally {
@@ -86,15 +89,23 @@ function mapBackendAssets(value) {
   );
 }
 
-async function fetchFromBackend(pathname) {
+async function fetchFromBackend(pathname, options = {}) {
   const targetUrls = getCandidateUrls(pathname);
   const failures = [];
+  const {
+    revalidate = DEFAULT_REVALIDATE_SECONDS,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    tags = [],
+  } = options;
+  const fetchOptions = {
+    cache: revalidate > 0 ? "force-cache" : "no-store",
+    next: revalidate > 0 ? { revalidate, tags } : undefined,
+    timeoutMs,
+  };
 
   for (const targetUrl of targetUrls) {
     try {
-      const response = await fetchWithTimeout(targetUrl, {
-        cache: "no-store",
-      });
+      const response = await fetchWithTimeout(targetUrl, fetchOptions);
 
       if (!response.ok) {
         const responseText = await response.text().catch(() => "");
@@ -120,15 +131,24 @@ async function fetchFromBackend(pathname) {
 }
 
 export async function getHomePageData() {
-  return fetchFromBackend("/api/site/home");
+  return fetchFromBackend("/api/site/home", {
+    revalidate: 300,
+    tags: ["home-page"],
+  });
 }
 
 export async function getSiteSettings() {
-  return fetchFromBackend("/api/site/settings");
+  return fetchFromBackend("/api/site/settings", {
+    revalidate: 300,
+    tags: ["site-settings"],
+  });
 }
 
 export async function getPricingPageData() {
-  return fetchFromBackend("/api/site/pricing");
+  return fetchFromBackend("/api/site/pricing", {
+    revalidate: 300,
+    tags: ["pricing-page"],
+  });
 }
 
 export async function getPricingDetailData(slug) {
@@ -140,11 +160,17 @@ export async function getProjectDetailData(slug) {
 }
 
 export async function getBlogs() {
-  return fetchFromBackend("/api/site/blogs");
+  return fetchFromBackend("/api/site/blogs", {
+    revalidate: 300,
+    tags: ["blogs"],
+  });
 }
 
 export async function getArticles() {
-  return fetchFromBackend("/api/site/articles");
+  return fetchFromBackend("/api/site/articles", {
+    revalidate: 300,
+    tags: ["articles"],
+  });
 }
 
 export async function getArticleDetailData(slug) {
@@ -152,7 +178,10 @@ export async function getArticleDetailData(slug) {
 }
 
 export async function getServicesPageData() {
-  return fetchFromBackend("/api/site/services");
+  return fetchFromBackend("/api/site/services", {
+    revalidate: 300,
+    tags: ["services"],
+  });
 }
 
 export async function getServiceDetailData(slug) {
@@ -171,11 +200,17 @@ export async function getResearchPublications(query = {}) {
   });
 
   const pathname = `/api/research-publications${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
-  return fetchFromBackend(pathname);
+  return fetchFromBackend(pathname, {
+    revalidate: 300,
+    tags: ["research-publications"],
+  });
 }
 
 export async function getFeaturedResearchPublications() {
-  return fetchFromBackend("/api/research-publications/featured");
+  return fetchFromBackend("/api/research-publications/featured", {
+    revalidate: 300,
+    tags: ["research-publications", "featured-research-publications"],
+  });
 }
 
 export async function getResearchPublicationDetail(slug) {

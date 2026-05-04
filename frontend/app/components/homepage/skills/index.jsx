@@ -70,8 +70,8 @@ function Skills({ skills = [] }) {
                       alt={skill.name}
                       width={44}
                       height={44}
+                      sizes="44px"
                       className="h-9 w-9 object-contain sm:h-11 sm:w-11"
-                      unoptimized
                     />
                   </div>
 

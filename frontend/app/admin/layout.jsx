@@ -1,3 +1,5 @@
+import "ckeditor5/ckeditor5.css";
+
 export default function AdminLayout({ children }) {
   return (
     <div

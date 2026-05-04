@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 
 function isAdminPath(pathname) {
@@ -33,6 +34,29 @@ export default function AdCodeSlot({ code, className = "", label = "Advertisemen
   const containerRef = useRef(null);
   const pathname = usePathname();
   const normalizedCode = String(code || "").trim();
+  const [shouldRenderCode, setShouldRenderCode] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !normalizedCode) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setShouldRenderCode(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: "300px 0px",
+      },
+    );
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [normalizedCode]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -40,7 +64,7 @@ export default function AdCodeSlot({ code, className = "", label = "Advertisemen
       return;
     }
 
-    if (!normalizedCode) {
+    if (!normalizedCode || !shouldRenderCode) {
       container.innerHTML = "";
       return;
     }
@@ -50,7 +74,7 @@ export default function AdCodeSlot({ code, className = "", label = "Advertisemen
     return () => {
       container.innerHTML = "";
     };
-  }, [normalizedCode]);
+  }, [normalizedCode, shouldRenderCode]);
 
   if (!normalizedCode || isAdminPath(pathname || "")) {
     return null;
@@ -62,7 +86,11 @@ export default function AdCodeSlot({ code, className = "", label = "Advertisemen
         <p className="mb-3 text-center text-[11px] uppercase tracking-[0.26em] text-[#6d88a7]">
           {label}
         </p>
-        <div ref={containerRef} suppressHydrationWarning />
+        <div
+          ref={containerRef}
+          suppressHydrationWarning
+          className={!shouldRenderCode ? "min-h-[120px]" : undefined}
+        />
       </div>
     </section>
   );

@@ -1,27 +1,9 @@
-"use client";
-
-import dynamic from "next/dynamic";
 import StatsCounterSection from "./stats-counter";
-
-const HeroSection = dynamic(() => import("./hero-section"), {
-  ssr: false,
-});
-
-const ServicesSection = dynamic(() => import("./services"), {
-  ssr: false,
-});
-
-const HowIWorkSection = dynamic(() => import("./how-i-work"), {
-  ssr: false,
-});
-
-const PricingSection = dynamic(() => import("./pricing"), {
-  ssr: false,
-});
-
-const Projects = dynamic(() => import("./projects"), {
-  ssr: false,
-});
+import HeroSection from "./hero-section";
+import ServicesSection from "./services";
+import HowIWorkSection from "./how-i-work";
+import PricingSection from "./pricing";
+import Projects from "./projects";
 
 export default function HomeClientSections({
   profile,

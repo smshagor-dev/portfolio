@@ -102,23 +102,45 @@ export default function SiteAnalyticsTracker() {
       return undefined;
     }
 
-    sendAnalyticsEvent(pathname, "pageview");
+    const startTracking = () => {
+      sendAnalyticsEvent(pathname, "pageview");
 
-    const sendVisibleHeartbeat = () => {
-      if (document.visibilityState === "visible") {
-        sendAnalyticsEvent(pathname, "heartbeat");
-      }
+      const sendVisibleHeartbeat = () => {
+        if (document.visibilityState === "visible") {
+          sendAnalyticsEvent(pathname, "heartbeat");
+        }
+      };
+
+      const interval = window.setInterval(() => {
+        sendVisibleHeartbeat();
+      }, heartbeatIntervalMs);
+
+      document.addEventListener("visibilitychange", sendVisibleHeartbeat);
+
+      return () => {
+        window.clearInterval(interval);
+        document.removeEventListener("visibilitychange", sendVisibleHeartbeat);
+      };
     };
 
-    const interval = window.setInterval(() => {
-      sendVisibleHeartbeat();
-    }, heartbeatIntervalMs);
-
-    document.addEventListener("visibilitychange", sendVisibleHeartbeat);
+    let cleanup = () => {};
+    const startWhenIdle =
+      "requestIdleCallback" in window
+        ? window.requestIdleCallback(() => {
+            cleanup = startTracking() || (() => {});
+          }, { timeout: 2000 })
+        : window.setTimeout(() => {
+            cleanup = startTracking() || (() => {});
+          }, 1200);
 
     return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", sendVisibleHeartbeat);
+      if ("cancelIdleCallback" in window && typeof startWhenIdle === "number") {
+        window.cancelIdleCallback(startWhenIdle);
+      } else {
+        window.clearTimeout(startWhenIdle);
+      }
+
+      cleanup();
     };
   }, [pathname]);
 

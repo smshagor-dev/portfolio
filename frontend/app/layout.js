@@ -1,22 +1,40 @@
-import { GoogleAnalytics, GoogleTagManager } from "@next/third-parties/google";
+import Script from "next/script";
+import { Geist, Geist_Mono, Cormorant_Garamond } from "next/font/google";
 import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "react-toastify/dist/ReactToastify.css";
-import "ckeditor5/ckeditor5.css";
 import { getHomePageData, getSiteSettings } from "@/lib/api";
 import Footer from "./components/footer";
 import AdCodeSlot from "./components/ad-code-slot";
-import BrowserNotificationBootstrap from "./components/browser-notification-bootstrap";
-import ContentLiveRefresh from "./components/content-live-refresh";
-import LayoutClientChrome from "./components/layout-client-chrome";
 import LayoutShell from "./components/layout-shell";
-import LiveTicketDock from "./components/live-ticket-dock";
-import PageLoadOverlay from "./components/page-load-overlay";
+import DeferredClientFeatures from "./components/deferred-client-features";
+import Navbar from "./components/navbar";
+import ScrollToTop from "./components/helper/scroll-to-top";
+import ToastProvider from "./components/toast-provider";
 import SiteAnalyticsTracker from "./components/site-analytics-tracker";
 import "./css/card.scss";
 import "./css/globals.scss";
 
-export const dynamic = "force-dynamic";
+const sansFont = Geist({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const monoFont = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
+
+const serifFont = Cormorant_Garamond({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  weight: ["500", "600", "700"],
+  display: "swap",
+});
+
+export const revalidate = 300;
 
 function buildAbsoluteUrl(baseUrl, assetPath) {
   if (!assetPath) {
@@ -103,27 +121,65 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning>
+      <body
+        suppressHydrationWarning
+        className={`${sansFont.variable} ${monoFont.variable} ${serifFont.variable}`}
+      >
         <LayoutShell
           footer={<Footer key="layout-footer" profile={profile} settings={siteSettings} />}
-          navbar={<LayoutClientChrome key="layout-navbar" kind="navbar" profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />}
-          scrollToTop={<LayoutClientChrome key="layout-scroll-to-top" kind="scrollToTop" />}
+          navbar={<Navbar key="layout-navbar" profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />}
+          scrollToTop={<ScrollToTop key="layout-scroll-to-top" />}
           pageTopAdCode={siteSettings?.adsensePageTopCode}
           pageBottomAdCode={siteSettings?.adsensePageBottomCode}
         >
           <div key="layout-content">
-            <PageLoadOverlay />
-            <BrowserNotificationBootstrap />
-            <LayoutClientChrome kind="toast" />
+            <ToastProvider />
             <AdCodeSlot code={siteSettings?.adsenseHeadCode} className="hidden" label="Head Script" />
             <SiteAnalyticsTracker />
-            <ContentLiveRefresh />
-            <LiveTicketDock emergencyContacts={emergencyContacts} websiteTitle={siteSettings?.websiteTitle || siteSettings?.seoTitle || "Portfolio Website"} />
+            <DeferredClientFeatures
+              emergencyContacts={emergencyContacts}
+              websiteTitle={siteSettings?.websiteTitle || siteSettings?.seoTitle || "Portfolio Website"}
+            />
             {children}
           </div>
         </LayoutShell>
-        {googleTagManagerId ? <GoogleTagManager gtmId={googleTagManagerId} /> : null}
-        {googleAnalyticsId ? <GoogleAnalytics gaId={googleAnalyticsId} /> : null}
+        {googleTagManagerId ? (
+          <>
+            <Script id="gtm-loader" strategy="lazyOnload">
+              {`
+                (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+                new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+                j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+                'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+                })(window,document,'script','dataLayer','${googleTagManagerId}');
+              `}
+            </Script>
+            <noscript>
+              <iframe
+                src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerId}`}
+                height="0"
+                width="0"
+                style={{ display: "none", visibility: "hidden" }}
+              />
+            </noscript>
+          </>
+        ) : null}
+        {googleAnalyticsId ? (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}
+              strategy="lazyOnload"
+            />
+            <Script id="ga-loader" strategy="lazyOnload">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${googleAnalyticsId}', { send_page_view: false });
+              `}
+            </Script>
+          </>
+        ) : null}
         <VercelAnalytics />
         <SpeedInsights />
       </body>

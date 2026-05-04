@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import ResearchCardMetrics from "@/app/components/research/research-card-metrics";
+import { getSolidBlurDataUrl } from "@/lib/image-placeholder";
 import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 import {
   formatResearchDate,
@@ -20,6 +21,8 @@ export default function ResearchCard({ publication, compact = false, priority = 
               src={buildPublicAssetUrl(publication.thumbnailImage)}
               alt={publication.title || "Research publication thumbnail"}
               fill
+              placeholder="blur"
+              blurDataURL={getSolidBlurDataUrl("#10233a")}
               className="object-cover transition duration-500 group-hover:scale-105 group-hover:opacity-90"
               sizes="(max-width: 1279px) 100vw, 33vw"
               priority={priority}
@@ -102,6 +105,8 @@ export default function ResearchCard({ publication, compact = false, priority = 
             src={buildPublicAssetUrl(publication.thumbnailImage)}
             alt={publication.title || "Research publication thumbnail"}
             fill
+            placeholder="blur"
+            blurDataURL={getSolidBlurDataUrl("#10233a")}
             className="object-cover transition duration-500 group-hover:scale-105 group-hover:opacity-90"
             sizes="(max-width: 1279px) 100vw, 33vw"
             priority={priority}
