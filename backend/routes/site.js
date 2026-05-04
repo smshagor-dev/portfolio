@@ -788,14 +788,23 @@ async function getBlogs(devUsername) {
   }
 
   try {
-    const response = await fetch(
-      `https://dev.to/api/articles?username=${encodeURIComponent(devUsername)}`,
-      {
-        headers: {
-          Accept: "application/json",
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), 4000);
+    let response;
+
+    try {
+      response = await fetch(
+        `https://dev.to/api/articles?username=${encodeURIComponent(devUsername)}`,
+        {
+          headers: {
+            Accept: "application/json",
+          },
+          signal: abortController.signal,
         },
-      },
-    );
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       return [];
@@ -846,13 +855,19 @@ router.get("/home", async (_request, response) => {
       prisma.service.findMany({
         where: { status: true },
         orderBy: [{ isFeatured: "desc" }, { sortOrder: "asc" }],
-        include: {
-          comments: {
-            orderBy: { sortOrder: "asc" },
-            include: {
-              replies: {
-                orderBy: { sortOrder: "asc" },
-              },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          impressionCount: true,
+          description: true,
+          isFeatured: true,
+          icon: true,
+          views: true,
+          sortOrder: true,
+          _count: {
+            select: {
+              comments: true,
             },
           },
         },
@@ -861,12 +876,38 @@ router.get("/home", async (_request, response) => {
       getAchievementsSafely(),
       prisma.skill.findMany({ orderBy: { sortOrder: "asc" } }),
       prisma.experience.findMany({ orderBy: { sortOrder: "asc" } }),
-      prisma.project.findMany({ orderBy: { sortOrder: "asc" } }),
+      prisma.project.findMany({
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          description: true,
+          tools: true,
+          role: true,
+          image: true,
+          views: true,
+          impressionCount: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
       prisma.education.findMany({ orderBy: { sortOrder: "asc" } }),
       hasPricingModel()
         ? prisma.pricing.findMany({
             where: { status: true },
             orderBy: [{ isPopular: "desc" }, { sortOrder: "asc" }],
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              description: true,
+              price: true,
+              duration: true,
+              features: true,
+              isPopular: true,
+              sortOrder: true,
+            },
           })
         : Promise.resolve([]),
       getFaqsSafely(),
@@ -874,18 +915,30 @@ router.get("/home", async (_request, response) => {
         hasArticleModel()
           ? prisma.article.findMany({
               where: getPublishedArticleWhere(),
-              include: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+                shortDescription: true,
+                category: true,
+                featuredImage: true,
+                author: true,
+                publishDate: true,
+                status: true,
                 categories: {
-                  include: {
-                    category: true,
+                  select: {
+                    category: {
+                      select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                      },
+                    },
                   },
                 },
-                comments: {
-                  orderBy: { sortOrder: "asc" },
-                  include: {
-                    replies: {
-                      orderBy: { sortOrder: "asc" },
-                    },
+                _count: {
+                  select: {
+                    comments: true,
                   },
                 },
               },
@@ -904,24 +957,52 @@ router.get("/home", async (_request, response) => {
       return response.status(404).json({ message: "Profile not found." });
     }
 
-    const blogs = await getBlogs(profile.devUsername);
-
     return response.json({
       profile,
       siteSettings: serializeSiteSettings(siteSettings),
       serviceSection,
-      services: services.map(serializeService),
+      services: services.map((service) => ({
+        id: service.id,
+        slug: service.slug,
+        name: service.name,
+        impressionCount: service.impressionCount,
+        description: service.description,
+        isFeatured: service.isFeatured,
+        icon: service.icon,
+        views: service.views,
+        sortOrder: service.sortOrder,
+        commentCount: service._count?.comments || 0,
+      })),
       statsCounters,
       achievements,
       skills,
       experiences,
-      projects: projects.map(serializeProject),
+      projects,
       educations,
       pricings: pricings.map(serializePricing),
       faqs: faqs.map(serializeFaq),
       testimonials: testimonials.map(serializeTestimonial),
-      blogs,
-      articles: (await attachArticleMetrics(articles)).map(serializeArticle),
+      blogs: [],
+      articles: (await attachArticleMetrics(articles)).map((article) => ({
+        id: article.id,
+        title: article.title,
+        slug: article.slug,
+        shortDescription: article.shortDescription,
+        category: article.category,
+        featuredImage: article.featuredImage || "",
+        author: article.author,
+        publishDate: article.publishDate,
+        views: article.views || 0,
+        impressionCount: article.impressionCount || 0,
+        shareCount: article.shareCount || 0,
+        commentCount: article._count?.comments || 0,
+        replyCount: 0,
+        categories: (article.categories || []).map((item) => ({
+          id: item.category?.id ?? item.id,
+          name: item.category?.name ?? item.name,
+          slug: item.category?.slug ?? item.slug,
+        })),
+      })),
       emergencyContacts,
     });
   } catch (error) {

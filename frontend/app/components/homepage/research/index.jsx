@@ -23,8 +23,8 @@ export default function ResearchSection({ publications = [] }) {
           </div>
         ) : (
           <div className="mt-8 grid grid-cols-1 gap-5 xl:grid-cols-3">
-            {latestPublications.map((publication) => (
-              <ResearchCard key={publication.id} publication={publication} compact />
+            {latestPublications.map((publication, index) => (
+              <ResearchCard key={publication.id} publication={publication} compact priority={index < 3} />
             ))}
           </div>
         )}

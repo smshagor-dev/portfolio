@@ -1231,7 +1231,45 @@ function buildFallbackAnalytics(reason = "Google Analytics credentials are not c
     weekly,
     visitors: [],
     fetchedAt: new Date().toISOString(),
+    vercel: getVercelAnalyticsMeta(),
+    speedInsights: getVercelSpeedInsightsMeta(),
     note: reason,
+  };
+}
+
+function getVercelAnalyticsMeta() {
+  const environment = String(process.env.VERCEL_ENV || "").trim();
+  const isVercelRuntime = Boolean(
+    String(process.env.VERCEL || "").trim() ||
+    String(process.env.VERCEL_URL || "").trim() ||
+    environment,
+  );
+
+  return {
+    enabled: true,
+    collecting: isVercelRuntime,
+    environment,
+    note: isVercelRuntime
+      ? "The @vercel/analytics package is installed and the runtime looks like a Vercel deployment."
+      : "The @vercel/analytics package is installed, but this runtime does not look like a Vercel deployment, so dashboard data may not be available there.",
+  };
+}
+
+function getVercelSpeedInsightsMeta() {
+  const environment = String(process.env.VERCEL_ENV || "").trim();
+  const isVercelRuntime = Boolean(
+    String(process.env.VERCEL || "").trim() ||
+    String(process.env.VERCEL_URL || "").trim() ||
+    environment,
+  );
+
+  return {
+    enabled: true,
+    collecting: isVercelRuntime,
+    environment,
+    note: isVercelRuntime
+      ? "The @vercel/speed-insights package is installed and the runtime looks like a Vercel deployment."
+      : "The @vercel/speed-insights package is installed, but this runtime does not look like a Vercel deployment, so dashboard data may not be available there.",
   };
 }
 
@@ -1476,6 +1514,9 @@ async function getInternalAnalyticsData() {
         };
       }),
       fetchedAt: now.toISOString(),
+      vercel: getVercelAnalyticsMeta(),
+      speedInsights: getVercelSpeedInsightsMeta(),
+      speedInsights: getVercelSpeedInsightsMeta(),
       note: "Live traffic data collected directly from your portfolio frontend.",
     };
   } catch (error) {
@@ -1598,6 +1639,8 @@ async function getAnalyticsData() {
       weekly,
       visitors: internalAnalytics.visitors || [],
       fetchedAt: new Date().toISOString(),
+      vercel: getVercelAnalyticsMeta(),
+      speedInsights: getVercelSpeedInsightsMeta(),
       note: "Live data from the Google Analytics Data API.",
     };
   } catch (error) {

@@ -216,8 +216,44 @@ function emptyAnalytics() {
     weekly: [],
     visitors: [],
     fetchedAt: "",
+    vercel: {
+      enabled: false,
+      collecting: false,
+      environment: "",
+      note: "",
+    },
+    speedInsights: {
+      enabled: false,
+      collecting: false,
+      environment: "",
+      note: "",
+    },
     note: "Analytics are loading.",
   };
+}
+
+function getAnalyticsSourceLabel(analytics) {
+  if (analytics.source === "ga4") {
+    return "Google Analytics 4";
+  }
+
+  if (analytics.source === "internal") {
+    return "Internal Analytics";
+  }
+
+  return "Demo dataset";
+}
+
+function getAnalyticsSourceDetail(analytics) {
+  if (analytics.propertyId) {
+    return `Property ${analytics.propertyId}`;
+  }
+
+  if (analytics.source === "internal") {
+    return "Collected by your portfolio frontend tracker";
+  }
+
+  return "No property connected";
 }
 
 function formatMetricValue(value) {
@@ -3192,8 +3228,22 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const dashboardStatusCards = [
     {
       label: "Analytics Source",
-      value: analytics.connected ? "Google Analytics 4" : "Demo dataset",
-      detail: analytics.propertyId ? `Property ${analytics.propertyId}` : "No property connected",
+      value: getAnalyticsSourceLabel(analytics),
+      detail: getAnalyticsSourceDetail(analytics),
+    },
+    {
+      label: "Vercel Analytics",
+      value: analytics.vercel?.enabled ? "Installed" : "Not installed",
+      detail: analytics.vercel?.collecting
+        ? `Collecting${analytics.vercel?.environment ? ` in ${analytics.vercel.environment}` : ""}`
+        : analytics.vercel?.note || "Dashboard collection is not confirmed",
+    },
+    {
+      label: "Speed Insights",
+      value: analytics.speedInsights?.enabled ? "Installed" : "Not installed",
+      detail: analytics.speedInsights?.collecting
+        ? `Collecting${analytics.speedInsights?.environment ? ` in ${analytics.speedInsights.environment}` : ""}`
+        : analytics.speedInsights?.note || "Dashboard collection is not confirmed",
     },
     ...(dashboardSummary.statusCards || []),
   ];
@@ -3494,10 +3544,22 @@ export function AdminSectionPage({ section = "dashboard" }) {
                     <div className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-[#d4e2f0] sm:w-auto sm:min-w-[240px]">
                       <p className="text-xs uppercase tracking-[0.22em] text-[#8ea7c2]">Source</p>
                       <p className="mt-2 font-medium text-white">
-                        {analytics.connected ? "Google Analytics 4" : "Simulated Demo Data"}
+                        {getAnalyticsSourceLabel(analytics)}
                       </p>
                       <p className="mt-1 text-xs text-[#8ea7c2]">
-                        {analytics.propertyId ? `Property ${analytics.propertyId}` : "No property connected"}
+                        {getAnalyticsSourceDetail(analytics)}
+                      </p>
+                      <p className="mt-3 text-[11px] uppercase tracking-[0.2em] text-[#8ea7c2]">
+                        Vercel Analytics: {analytics.vercel?.enabled ? "Installed" : "Not installed"}
+                      </p>
+                      <p className="mt-1 text-xs text-[#8ea7c2]">
+                        {analytics.vercel?.note || "No Vercel analytics status available."}
+                      </p>
+                      <p className="mt-3 text-[11px] uppercase tracking-[0.2em] text-[#8ea7c2]">
+                        Speed Insights: {analytics.speedInsights?.enabled ? "Installed" : "Not installed"}
+                      </p>
+                      <p className="mt-1 text-xs text-[#8ea7c2]">
+                        {analytics.speedInsights?.note || "No Speed Insights status available."}
                       </p>
                     </div>
                   </div>

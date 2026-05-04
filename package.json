@@ -15,9 +15,13 @@
     "start": "concurrently -k -n backend,frontend -c blue,green \"npm run start --prefix backend\" \"npm run start --prefix frontend\"",
     "start:frontend": "npm run start --prefix frontend",
     "start:backend": "npm run start --prefix backend",
-    "lint": "npm run lint --prefix frontend"
+    "lint": "npm run lint --prefix frontend",
+    "vercel:link": "vercel link --repo",
+    "vercel:pull": "vercel pull --yes --environment=production",
+    "vercel:deploy": "vercel --prod"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "vercel": "^53.1.0"
   }
 }

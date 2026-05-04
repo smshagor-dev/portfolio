@@ -4,9 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
-export default function ProjectCard({ project }) {
+export default function ProjectCard({ project, priority = false }) {
   const cardRef = useRef(null);
   const tools = Array.isArray(project?.tools) ? project.tools.filter(Boolean).slice(0, 3) : [];
 
@@ -54,11 +55,12 @@ export default function ProjectCard({ project }) {
       <div className="relative h-40 overflow-hidden border-b border-[#213148] bg-[radial-gradient(circle_at_top,rgba(111,212,255,0.18),transparent_45%),#0c1523]">
         {project?.image ? (
           <Image
-            src={project.image}
+            src={buildPublicAssetUrl(project.image)}
             alt={project?.name || "Project image"}
             fill
             className="object-cover transition duration-500 group-hover:scale-105 group-hover:opacity-90"
-            unoptimized
+            sizes="(max-width: 767px) 100vw, (max-width: 1279px) 50vw, 33vw"
+            priority={priority}
           />
         ) : (
           <div className="flex h-full items-center justify-center px-8 text-center text-sm uppercase tracking-[0.28em] text-[#7fcfff]">

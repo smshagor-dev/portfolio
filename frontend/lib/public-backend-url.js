@@ -1,6 +1,21 @@
 const configuredPublicBackendUrl = String(process.env.NEXT_PUBLIC_BACKEND_URL || "")
   .trim()
   .replace(/\/+$/, "");
+const configuredAppUrl = String(process.env.NEXT_PUBLIC_APP_URL || "")
+  .trim()
+  .replace(/\/+$/, "");
+
+function getOrigin(value) {
+  try {
+    return new URL(value).origin;
+  } catch (_error) {
+    return "";
+  }
+}
+
+function shouldUseAppProxy(pathname) {
+  return pathname.startsWith("/api/") || pathname.startsWith("/uploads/");
+}
 
 export function getPublicBackendUrl() {
   return configuredPublicBackendUrl;
@@ -8,6 +23,15 @@ export function getPublicBackendUrl() {
 
 export function buildPublicApiUrl(pathname) {
   const normalizedPathname = pathname.startsWith("/") ? pathname : `/${pathname}`;
+  const appOrigin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : getOrigin(configuredAppUrl);
+  const backendOrigin = getOrigin(configuredPublicBackendUrl);
+
+  if (shouldUseAppProxy(normalizedPathname) && appOrigin && appOrigin !== backendOrigin) {
+    return `${appOrigin}${normalizedPathname}`;
+  }
 
   if (configuredPublicBackendUrl) {
     return `${configuredPublicBackendUrl}${normalizedPathname}`;
@@ -28,6 +52,16 @@ export function buildPublicAssetUrl(pathname) {
   }
 
   if (normalizedPathname.startsWith("/uploads/")) {
+    const appOrigin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : getOrigin(configuredAppUrl);
+    const backendOrigin = getOrigin(configuredPublicBackendUrl);
+
+    if (appOrigin && appOrigin !== backendOrigin) {
+      return `${appOrigin}${normalizedPathname}`;
+    }
+
     return buildPublicApiUrl(normalizedPathname);
   }
 

@@ -24,8 +24,8 @@ export default function Blog({ articles = [] }) {
           </div>
         ) : (
           <div className="mt-8 grid grid-cols-1 gap-5 xl:grid-cols-3">
-            {latestArticles.map((article) => (
-              <BlogCard article={article} key={article.id} />
+            {latestArticles.map((article, index) => (
+              <BlogCard article={article} key={article.id} priority={index < 3} />
             ))}
           </div>
         )}

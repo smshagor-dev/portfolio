@@ -1,4 +1,6 @@
 import { GoogleAnalytics, GoogleTagManager } from "@next/third-parties/google";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "react-toastify/dist/ReactToastify.css";
 import "ckeditor5/ckeditor5.css";
 import { getHomePageData, getSiteSettings } from "@/lib/api";
@@ -122,6 +124,8 @@ export default async function RootLayout({ children }) {
         </LayoutShell>
         {googleTagManagerId ? <GoogleTagManager gtmId={googleTagManagerId} /> : null}
         {googleAnalyticsId ? <GoogleAnalytics gaId={googleAnalyticsId} /> : null}
+        <VercelAnalytics />
+        <SpeedInsights />
       </body>
     </html>
   );

@@ -97,7 +97,7 @@ function StarRow({ stars = 5 }) {
   );
 }
 
-function TestimonialCard({ item, failedImages, setFailedImages, onOpen }) {
+function TestimonialCard({ item, failedImages, setFailedImages, onOpen, priority = false }) {
   const imageFailed = Boolean(failedImages[item.id]);
   const avatarLabel = getInitials(item.name || "Client");
   const previewText = stripHtml(item.content);
@@ -122,7 +122,7 @@ function TestimonialCard({ item, failedImages, setFailedImages, onOpen }) {
                 width={64}
                 height={64}
                 className="h-[64px] w-[64px] object-cover"
-                unoptimized
+                priority={priority}
                 onError={() => setFailedImages((current) => ({ ...current, [item.id]: true }))}
               />
             ) : (
@@ -498,6 +498,7 @@ export default function TestimonialsSection({
                 failedImages={failedImages}
                 setFailedImages={setFailedImages}
                 onOpen={setActiveTestimonial}
+                priority={index < 3}
               />
             ))}
           </div>
@@ -551,6 +552,7 @@ export default function TestimonialsSection({
                         failedImages={failedImages}
                         setFailedImages={setFailedImages}
                         onOpen={setActiveTestimonial}
+                        priority={index < 3}
                       />
                     </div>
                   ))}
@@ -565,6 +567,7 @@ export default function TestimonialsSection({
                     failedImages={failedImages}
                     setFailedImages={setFailedImages}
                     onOpen={setActiveTestimonial}
+                    priority={index < 3}
                   />
                 ))}
               </div>

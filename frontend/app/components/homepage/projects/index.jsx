@@ -28,8 +28,12 @@ export default function Projects({
         ) : null}
 
         <div className={`relative grid gap-5 sm:gap-6 xl:grid-cols-3 ${showIntro ? "mt-8 sm:mt-10" : ""}`}>
-          {visibleProjects.map((project) => (
-            <ProjectCard key={project.id || project.slug || project.name} project={project} />
+          {visibleProjects.map((project, index) => (
+            <ProjectCard
+              key={project.id || project.slug || project.name}
+              project={project}
+              priority={index < 3}
+            />
           ))}
         </div>
 

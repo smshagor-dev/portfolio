@@ -12,6 +12,8 @@
   "dependencies": {
     "@emailjs/browser": "^4.3.1",
     "@next/third-parties": "^16.0.1",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "axios": "^1.6.8",
     "ckeditor5": "^48.0.0",
     "framer-motion": "^12.38.0",

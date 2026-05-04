@@ -16,7 +16,7 @@ function formatArticleDate(value) {
   }).format(new Date(value));
 }
 
-export default function BlogCard({ article }) {
+export default function BlogCard({ article, priority = false }) {
   const categories = Array.isArray(article?.categories) ? article.categories.slice(0, 2) : [];
   const primaryCategory = (categories.length ? categories : [{ id: "article", name: article?.category || "Article" }])[0];
 
@@ -32,7 +32,8 @@ export default function BlogCard({ article }) {
             alt={article.title || "Article cover"}
             fill
             className="object-cover transition duration-500 group-hover:scale-105 group-hover:opacity-90"
-            unoptimized
+            sizes="(max-width: 1279px) 100vw, 33vw"
+            priority={priority}
           />
         ) : (
           <div className="flex h-full items-center justify-center px-8 text-center text-sm uppercase tracking-[0.28em] text-[#7fcfff]">

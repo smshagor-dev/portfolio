@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ExternalLink, X } from "lucide-react";
 import SectionHeading from "../section-heading";
 
-function AchievementCard({ item, index, onSelect, className = "" }) {
+function AchievementCard({ item, index, onSelect, className = "", priority = false }) {
   return (
     <button
       type="button"
@@ -17,7 +17,14 @@ function AchievementCard({ item, index, onSelect, className = "" }) {
       <div className="flex items-start gap-3 sm:gap-4">
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[#35506f] bg-[#102038] sm:h-20 sm:w-20">
           {item?.image ? (
-            <Image src={item.image} alt={item.title || "Achievement image"} fill className="object-cover" unoptimized />
+            <Image
+              src={item.image}
+              alt={item.title || "Achievement image"}
+              fill
+              className="object-cover"
+              sizes="80px"
+              priority={priority}
+            />
           ) : (
             <div className="flex h-full items-center justify-center text-[10px] uppercase tracking-[0.25em] text-[#8cddff]">
               {item?.type || "Award"}
@@ -121,6 +128,7 @@ export default function AchievementSection({ achievements = [] }) {
               index={index}
               onSelect={handleSelect}
               className="w-full min-w-full snap-center md:min-w-[calc(50%-0.5rem)] xl:min-w-[calc(33.333%-0.75rem)]"
+              priority={index < 3}
             />
           ))}
         </div>
