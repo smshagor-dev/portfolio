@@ -167,7 +167,7 @@ export default async function ArticalDetailPage({ params }) {
             <h1 className="mt-6 max-w-4xl text-3xl font-semibold leading-tight text-white md:text-5xl">
               {article.title}
             </h1>
-            <p className="mt-5 max-w-3xl text-sm leading-8 text-[#bcc8d8] md:text-base">
+            <p className="mt-5 w-full text-sm leading-8 text-[#bcc8d8] md:text-base">
               {article.shortDescription}
             </p>
 
@@ -267,6 +267,29 @@ export default async function ArticalDetailPage({ params }) {
                       href={`/artical/${item.slug}`}
                       className="block rounded-[1.25rem] border border-[#24344d] bg-[#0d1728] p-4 transition hover:border-[#3a5678]"
                     >
+                      {item.featuredImage ? (
+                        <div className="relative mb-4 h-40 overflow-hidden rounded-[1rem] border border-[#203247] bg-[#0a1321]">
+                          <Image
+                            src={buildPublicAssetUrl(item.featuredImage)}
+                            alt={item.title || "Article image"}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      ) : null}
+                      {Array.isArray(item.categories) && item.categories.length ? (
+                        <div className="mb-3 flex flex-wrap gap-2">
+                          {item.categories.slice(0, 2).map((category) => (
+                            <span
+                              key={`${item.id}-${category.id}`}
+                              className="inline-flex items-center rounded-full border border-[#2d5074] bg-[#11253a] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-[#8ad7ff]"
+                            >
+                              {category.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                       <div className="flex items-center justify-between gap-3">
                         <p className="font-medium text-white">{item.title}</p>
                         <span className="text-xs text-[#8fa4bb]">{formatArticleDate(item.publishDate)}</span>

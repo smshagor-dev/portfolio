@@ -1653,25 +1653,10 @@ router.get("/articles/:slug", async (request, response) => {
       ...(await attachArticleMetrics([existingArticle]))[0],
     };
 
-    const categoryIds = (article.categories || [])
-      .map((item) => item.category?.id)
-      .filter(Boolean);
-
     const relatedArticles = await prisma.article.findMany({
       where: {
         ...getPublishedArticleWhere(),
         slug: { not: slug },
-        ...(categoryIds.length
-          ? {
-              categories: {
-                some: {
-                  categoryId: {
-                    in: categoryIds,
-                  },
-                },
-              },
-            }
-          : {}),
       },
       include: {
         categories: {
@@ -1689,7 +1674,6 @@ router.get("/articles/:slug", async (request, response) => {
         },
       },
       orderBy: [{ isFeatured: "desc" }, { publishDate: "desc" }, { createdAt: "desc" }],
-      take: 3,
     });
 
     return response.json({
