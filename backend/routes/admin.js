@@ -196,6 +196,46 @@ function normalizeAiModelName(provider, modelName) {
 }
 
 const ARTICLE_AI_AUTHOR = "Md Shahanur Islam Shagor";
+const ARTICLE_TARGET_WORD_COUNT = 2000;
+const ARTICLE_MIN_WORD_COUNT = 1800;
+const ARTICLE_SHORT_DESCRIPTION_MIN = 180;
+const ARTICLE_SHORT_DESCRIPTION_MAX = 200;
+const ARTICLE_MIN_HEADING_COUNT = 3;
+const ALLOWED_ARTICLE_HTML_TAGS = new Set([
+  "h2",
+  "h3",
+  "p",
+  "ul",
+  "ol",
+  "li",
+  "strong",
+  "em",
+  "blockquote",
+  "code",
+  "pre",
+]);
+const FORBIDDEN_AI_PHRASES = [
+  "in today’s fast-paced world",
+  "in today's fast-paced world",
+  "cutting-edge",
+  "seamless",
+  "robust",
+  "leveraging",
+  "furthermore",
+  "it is important to note",
+  "this article explores",
+  "as we move forward",
+  "revolutionary",
+  "game changer",
+  "innovative solution",
+];
+
+class ArticleGenerationValidationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ArticleGenerationValidationError";
+  }
+}
 
 function cleanJsonFence(value) {
   const normalized = String(value || "").trim();
@@ -218,26 +258,223 @@ function normalizeGeneratedArticlePayload(value) {
     content: String(source.content || "").trim(),
     metaTitle: normalizeString(source.metaTitle),
     metaDescription: normalizeString(source.metaDescription),
-    tags: normalizeStringList(Array.isArray(source.tags) ? source.tags : []),
+    tags: normalizeGeneratedTags(source.tags),
     author: ARTICLE_AI_AUTHOR,
   };
+}
+
+function countWords(value) {
+  return String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+function stripHtmlTags(value) {
+  return String(value || "")
+    .replace(/<pre[\s\S]*?<\/pre>/gi, " ")
+    .replace(/<code[\s\S]*?<\/code>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function detectMarkdown(value) {
+  const normalized = String(value || "");
+  return (
+    /(^|\n)\s{0,3}#{1,6}\s+\S+/m.test(normalized) ||
+    /(^|\n)\s*[-*]\s+\S+/m.test(normalized) ||
+    /(^|\n)\s*\d+\.\s+\S+/m.test(normalized) ||
+    /\*\*[^*]+\*\*/.test(normalized) ||
+    /(^|\n)\s*>+\s*\S+/m.test(normalized)
+  );
+}
+
+function validateAllowedHtmlTags(value) {
+  const tags = String(value || "").match(/<\/?([a-z0-9]+)\b[^>]*>/gi) || [];
+
+  for (const rawTag of tags) {
+    const tagMatch = rawTag.match(/<\/?([a-z0-9]+)/i);
+    const tagName = String(tagMatch?.[1] || "").toLowerCase();
+    if (tagName && !ALLOWED_ARTICLE_HTML_TAGS.has(tagName)) {
+      throw new ArticleGenerationValidationError("AI returned HTML content with unsupported tags.");
+    }
+  }
+}
+
+function normalizeGeneratedTags(tags) {
+  return [...new Set(normalizeStringList(Array.isArray(tags) ? tags : []))];
+}
+
+function isLikelyConclusionContent(value) {
+  const normalized = stripHtmlTags(value).toLowerCase();
+  return normalized.includes("conclusion") || normalized.includes("to wrap up") || normalized.includes("in closing");
+}
+
+function buildFriendlyGenerationErrorMessage(error) {
+  const message = String(error?.message || "").trim();
+
+  if (message === "No active AI provider configured.") {
+    return message;
+  }
+
+  if (message.includes("invalid JSON")) {
+    return "AI provider returned invalid JSON.";
+  }
+
+  if (message.includes("short description")) {
+    return "Generated short description did not meet the required length.";
+  }
+
+  if (message.includes("shorter than")) {
+    return "AI response was too short. Please try again.";
+  }
+
+  if (message.includes("structured sections") || message.includes("headings")) {
+    return "Generated article structure was incomplete. Please try again.";
+  }
+
+  if (message.includes("markdown")) {
+    return "AI returned markdown instead of clean HTML. Please try again.";
+  }
+
+  if (message.includes("meta title") || message.includes("meta description") || message.includes("tags")) {
+    return "Generated article metadata was invalid. Please retry.";
+  }
+
+  if (message.includes("empty")) {
+    return "Failed to generate article. Please retry.";
+  }
+
+  return "Failed to generate article. Please retry.";
+}
+
+function validateGeneratedArticlePayload(article) {
+  const shortDescriptionLength = article.shortDescription.length;
+  const contentWordCount = countWords(stripHtmlTags(article.content));
+  const headingCount = (article.content.match(/<h[23]\b[^>]*>/gi) || []).length;
+  const contentText = stripHtmlTags(article.content);
+  const lowerContent = contentText.toLowerCase();
+
+  if (!article.title) {
+    throw new ArticleGenerationValidationError("AI returned an empty title.");
+  }
+
+  if (!article.content) {
+    throw new ArticleGenerationValidationError("AI returned empty content.");
+  }
+
+  if (detectMarkdown(article.content)) {
+    throw new ArticleGenerationValidationError("AI returned markdown content.");
+  }
+
+  validateAllowedHtmlTags(article.content);
+
+  if (!/<p\b[^>]*>/i.test(article.content)) {
+    throw new ArticleGenerationValidationError("AI returned HTML content without readable paragraphs.");
+  }
+
+  if (
+    shortDescriptionLength < ARTICLE_SHORT_DESCRIPTION_MIN ||
+    shortDescriptionLength > ARTICLE_SHORT_DESCRIPTION_MAX
+  ) {
+    throw new ArticleGenerationValidationError("AI returned a short description outside the 180-200 character range.");
+  }
+
+  if (contentWordCount < ARTICLE_MIN_WORD_COUNT) {
+    throw new ArticleGenerationValidationError("AI returned article content shorter than 1800 words.");
+  }
+
+  if (headingCount < ARTICLE_MIN_HEADING_COUNT) {
+    throw new ArticleGenerationValidationError("AI returned article content without enough structured sections.");
+  }
+
+  if (!/<h[23]\b[^>]*>\s*introduction\s*<\/h[23]>/i.test(article.content) && !lowerContent.startsWith("introduction")) {
+    throw new ArticleGenerationValidationError("AI returned article content without a strong introduction.");
+  }
+
+  if (!isLikelyConclusionContent(article.content)) {
+    throw new ArticleGenerationValidationError("AI returned article content without a clear conclusion section.");
+  }
+
+  if (!article.metaTitle || article.metaTitle.length >= 60) {
+    throw new ArticleGenerationValidationError("AI returned an invalid meta title.");
+  }
+
+  if (!article.metaDescription || article.metaDescription.length >= 160) {
+    throw new ArticleGenerationValidationError("AI returned an invalid meta description.");
+  }
+
+  if (article.tags.length < 5 || article.tags.length > 8) {
+    throw new ArticleGenerationValidationError("AI returned an invalid number of tags.");
+  }
+
+  for (const phrase of FORBIDDEN_AI_PHRASES) {
+    if (lowerContent.includes(phrase)) {
+      throw new ArticleGenerationValidationError("AI returned content with forbidden AI phrasing.");
+    }
+  }
 }
 
 function parseGeneratedArticleResponse(value) {
   const normalized = cleanJsonFence(value);
 
   if (!normalized) {
-    throw new Error("AI returned an empty response.");
+    throw new ArticleGenerationValidationError("AI returned an empty response.");
   }
 
   let parsed;
   try {
     parsed = JSON.parse(normalized);
   } catch (_error) {
-    throw new Error("AI returned invalid JSON.");
+    throw new ArticleGenerationValidationError("AI returned invalid JSON.");
   }
 
-  return normalizeGeneratedArticlePayload(parsed);
+  const article = normalizeGeneratedArticlePayload(parsed);
+  validateGeneratedArticlePayload(article);
+  return article;
+}
+
+async function generateValidatedArticlePreview(aiConfig, prompts) {
+  const attempts = [
+    prompts.baseUserMessage,
+    [
+      prompts.baseUserMessage,
+      "",
+      "The previous response failed validation.",
+      "Return cleaner JSON.",
+      "Generate longer and more detailed human-written HTML content.",
+      "Do not use markdown.",
+      "Do not shorten the article.",
+    ].join("\n"),
+  ];
+
+  let lastError = null;
+
+  for (const userMessage of attempts) {
+    try {
+      const aiResponse = await generateAssistantResponse({
+        provider: aiConfig.provider,
+        apiKey: aiConfig.apiKey,
+        baseUrl: aiConfig.baseUrl,
+        modelName: aiConfig.modelName,
+        systemPrompt: prompts.systemPrompt,
+        userMessage,
+        temperature: 0.6,
+        maxTokens: 5000,
+      });
+
+      return parseGeneratedArticleResponse(aiResponse);
+    } catch (error) {
+      lastError = error;
+      if (!(error instanceof ArticleGenerationValidationError)) {
+        break;
+      }
+    }
+  }
+
+  throw lastError || new Error("Failed to generate article.");
 }
 
 async function getActiveAiConfiguration() {
@@ -2701,13 +2938,35 @@ router.post("/articles/generate", requireAdmin, async (request, response) => {
       "- Do not say the article was generated.",
       "- Avoid robotic phrases and generic filler.",
       "- Make the content practical, technical, and easy to read.",
-      "- Use markdown-style headings in content.",
+      "- Return clean HTML in the content field only.",
+      "- Use only these HTML tags in content: h2, h3, p, ul, ol, li, strong, em, blockquote, code, pre.",
+      "- Do not use markdown.",
       "- Keep the title clear and attractive.",
-      "- shortDescription should be 2-3 sentences.",
+      `- Main article content should be at least ${ARTICLE_TARGET_WORD_COUNT} words.`,
+      "- shortDescription must be between 180 and 200 characters.",
+      "- The shortDescription must feel natural, readable, and not like SEO spam.",
+      "- The content must include a strong introduction.",
+      "- The content must include multiple structured sections with headings.",
+      "- The content must include practical explanations.",
+      "- Add examples where relevant.",
+      "- Use natural transitions between sections.",
+      "- End with a clear conclusion.",
+      "- Avoid repetitive phrasing.",
+      "- Avoid generic AI writing patterns.",
+      "- Do not use filler text.",
+      "- Do not sound robotic.",
+      "- Write like an experienced developer or researcher personally explaining the topic.",
+      "- Maintain human-like sentence variation.",
+      "- Use a conversational but professional tone.",
+      "- Avoid overly formal academic wording.",
+      "- Avoid obvious AI phrases.",
+      "- Return detailed content and do not shorten the article.",
+      "- Do not summarize sections too aggressively.",
+      "- Ensure the article body is rich and readable.",
       "- metaTitle should be under 60 characters.",
       "- metaDescription should be under 160 characters.",
       "- tags should contain 5-8 relevant tags.",
-      "- author must always be Shahanur Islam Shagor.",
+      "- author must always be Md Shahanur Islam Shagor.",
     ].join("\n");
 
     const systemPrompt = [
@@ -2716,33 +2975,35 @@ router.post("/articles/generate", requireAdmin, async (request, response) => {
       "The writing must feel human, natural, clear, and professional.",
       "Do not mention AI or generation.",
       "Avoid these phrases: In today's fast-paced world, cutting-edge, seamless, robust, leveraging, furthermore, it is important to note, this article explores, as we move forward.",
-      "Avoid generic filler, exaggerated marketing language, and keyword stuffing.",
-      "Write like an experienced developer explaining real work with practical examples and confident clarity.",
-      "Use structured markdown-style headings inside the content field.",
+      "Avoid generic filler, exaggerated marketing language, keyword stuffing, repetitive sentence openings, and predictable AI rhythm.",
+      "Write like an experienced developer or researcher explaining the topic from practical understanding and real-world engineering perspective.",
+      `The article body should be at least ${ARTICLE_TARGET_WORD_COUNT} words and should feel rich, detailed, and readable rather than padded.`,
+      "Open with a strong introduction that creates interest quickly and frames the topic with confidence.",
+      "The content field must contain clean CKEditor-compatible HTML only.",
+      "Do not use markdown headings, markdown lists, or markdown emphasis.",
+      "Use only these tags in the content field: h2, h3, p, ul, ol, li, strong, em, blockquote, code, pre.",
+      "Build multiple substantial sections with natural transitions, practical explanations, and examples where they genuinely help.",
+      "End with a clear conclusion that feels earned, not generic.",
+      "Vary sentence length and phrasing so the voice feels personally written.",
+      "Keep the tone conversational but professional.",
+      "Avoid overly formal academic wording unless the topic truly requires it.",
       "The content should suit a developer portfolio and feel like it was written by Md Shahanur Islam Shagor.",
+      `The shortDescription must be between ${ARTICLE_SHORT_DESCRIPTION_MIN} and ${ARTICLE_SHORT_DESCRIPTION_MAX} characters.`,
       "Always return tags as an array of strings.",
       `Always set author to "${ARTICLE_AI_AUTHOR}".`,
     ].join("\n");
 
-    const aiResponse = await generateAssistantResponse({
-      provider: aiConfig.provider,
-      apiKey: aiConfig.apiKey,
-      baseUrl: aiConfig.baseUrl,
-      modelName: aiConfig.modelName,
+    const generatedArticle = await generateValidatedArticlePreview(aiConfig, {
+      baseUserMessage: userMessage,
       systemPrompt,
-      userMessage,
-      temperature: 0.6,
-      maxTokens: 2200,
     });
-
-    const generatedArticle = parseGeneratedArticleResponse(aiResponse);
 
     return response.json(generatedArticle);
   } catch (error) {
     console.error("Failed to generate article content:", error.message);
-    return response.status(500).json({
-      message: error.message || "Failed to generate article content.",
-    });
+    const friendlyMessage = buildFriendlyGenerationErrorMessage(error);
+    const statusCode = friendlyMessage === "No active AI provider configured." ? 400 : 500;
+    return response.status(statusCode).json({ message: friendlyMessage });
   }
 });
 

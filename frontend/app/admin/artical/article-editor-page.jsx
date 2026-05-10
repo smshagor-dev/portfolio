@@ -47,59 +47,26 @@ function formatDateTimeLocal(value) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function formatGeneratedContentForEditor(value) {
-  const normalized = String(value || "").trim();
+function getGenerateErrorMessage(message) {
+  const normalized = String(message || "").trim();
 
   if (!normalized) {
-    return "";
+    return "Failed to generate article. Please retry.";
   }
 
-  if (/<[a-z][\s\S]*>/i.test(normalized)) {
+  if (normalized === "No active AI provider configured.") {
     return normalized;
   }
 
-  const blocks = normalized.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
+  if (normalized.includes("too short")) {
+    return "AI response was too short. Please try again.";
+  }
 
-  return blocks
-    .map((block) => {
-      const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+  if (normalized.includes("invalid JSON")) {
+    return "AI provider returned invalid JSON.";
+  }
 
-      if (!lines.length) {
-        return "";
-      }
-
-      if (lines.every((line) => /^[-*]\s+/.test(line))) {
-        return `<ul>${lines
-          .map((line) => `<li>${escapeHtml(line.replace(/^[-*]\s+/, ""))}</li>`)
-          .join("")}</ul>`;
-      }
-
-      const firstLine = lines[0];
-      if (/^###\s+/.test(firstLine)) {
-        return `<h3>${escapeHtml(firstLine.replace(/^###\s+/, ""))}</h3>`;
-      }
-
-      if (/^##\s+/.test(firstLine)) {
-        return `<h2>${escapeHtml(firstLine.replace(/^##\s+/, ""))}</h2>`;
-      }
-
-      if (/^#\s+/.test(firstLine)) {
-        return `<h1>${escapeHtml(firstLine.replace(/^#\s+/, ""))}</h1>`;
-      }
-
-      return `<p>${lines.map((line) => escapeHtml(line)).join("<br>")}</p>`;
-    })
-    .filter(Boolean)
-    .join("\n");
+  return "Failed to generate article. Please retry.";
 }
 
 function emptyArticleForm() {
@@ -262,7 +229,7 @@ export default function ArticleEditorPage({ articleId = null }) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to generate article content.");
+        throw new Error(getGenerateErrorMessage(data.message));
       }
 
       setGeneratedPreview({
@@ -275,8 +242,7 @@ export default function ArticleEditorPage({ articleId = null }) {
         author: ARTICLE_AI_AUTHOR,
       });
     } catch (error) {
-      toast.error(error.message || "Failed to generate article content.");
-      setGeneratedPreview(null);
+      toast.error(getGenerateErrorMessage(error.message));
     } finally {
       setIsGenerating(false);
     }
@@ -291,7 +257,7 @@ export default function ArticleEditorPage({ articleId = null }) {
     setForm((current) => ({
       ...current,
       shortDescription: generatedPreview.shortDescription || "",
-      content: formatGeneratedContentForEditor(generatedPreview.content),
+      content: generatedPreview.content || "",
       metaTitle: generatedPreview.metaTitle || "",
       metaDescription: generatedPreview.metaDescription || "",
       tags: Array.isArray(generatedPreview.tags) ? generatedPreview.tags.join(", ") : "",
@@ -459,6 +425,7 @@ export default function ArticleEditorPage({ articleId = null }) {
                 placeholder="Example: Why clean API design matters in modern web apps"
                 value={generatorTopic}
                 onChange={(event) => setGeneratorTopic(event.target.value)}
+                disabled={isGenerating}
               />
             </div>
             <button
