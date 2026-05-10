@@ -11,6 +11,8 @@ async function generateAssistantResponse({
   modelName,
   systemPrompt,
   userMessage,
+  temperature,
+  maxTokens,
 }) {
   switch (String(provider || "").trim().toLowerCase()) {
     case "openai":
@@ -20,6 +22,8 @@ async function generateAssistantResponse({
         modelName,
         systemPrompt,
         userMessage,
+        temperature,
+        maxTokens,
       });
     case "deepseek":
       return generateWithDeepSeek({
@@ -28,6 +32,8 @@ async function generateAssistantResponse({
         modelName,
         systemPrompt,
         userMessage,
+        temperature,
+        maxTokens,
       });
     case "gemini":
       return generateWithGemini({
@@ -36,6 +42,8 @@ async function generateAssistantResponse({
         modelName,
         systemPrompt,
         userMessage,
+        temperature,
+        maxTokens,
       });
     default:
       throw new Error("Unsupported AI provider selected.");

@@ -29,6 +29,8 @@ async function generateWithOpenAI({
   modelName,
   systemPrompt,
   userMessage,
+  temperature = 0.2,
+  maxTokens = 700,
 }) {
   const response = await fetch(`${normalizeBaseUrl(baseUrl, DEFAULT_OPENAI_BASE_URL)}/chat/completions`, {
     method: "POST",
@@ -38,8 +40,8 @@ async function generateWithOpenAI({
     },
     body: JSON.stringify({
       model: modelName,
-      temperature: 0.2,
-      max_completion_tokens: 700,
+      temperature,
+      max_completion_tokens: maxTokens,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
@@ -63,6 +65,8 @@ async function generateWithDeepSeek({
   modelName,
   systemPrompt,
   userMessage,
+  temperature = 0.2,
+  maxTokens = 700,
 }) {
   const response = await fetch(`${normalizeBaseUrl(baseUrl, DEFAULT_DEEPSEEK_BASE_URL)}/chat/completions`, {
     method: "POST",
@@ -72,8 +76,8 @@ async function generateWithDeepSeek({
     },
     body: JSON.stringify({
       model: modelName,
-      temperature: 0.2,
-      max_tokens: 700,
+      temperature,
+      max_tokens: maxTokens,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
@@ -97,6 +101,8 @@ async function generateWithGemini({
   modelName,
   systemPrompt,
   userMessage,
+  temperature = 0.2,
+  maxTokens = 700,
 }) {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl, DEFAULT_GEMINI_BASE_URL);
   const response = await fetch(
@@ -118,8 +124,8 @@ async function generateWithGemini({
           },
         ],
         generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 700,
+          temperature,
+          maxOutputTokens: maxTokens,
         },
       }),
     },

@@ -13,6 +13,8 @@ const RichTextEditor = dynamic(() => import("@/app/components/admin/rich-text-ed
   ssr: false,
 });
 
+const ARTICLE_AI_AUTHOR = "Md Shahanur Islam Shagor";
+
 function adminFetch(input, init = {}) {
   return fetch(input, {
     cache: "no-store",
@@ -45,6 +47,61 @@ function formatDateTimeLocal(value) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatGeneratedContentForEditor(value) {
+  const normalized = String(value || "").trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (/<[a-z][\s\S]*>/i.test(normalized)) {
+    return normalized;
+  }
+
+  const blocks = normalized.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
+
+  return blocks
+    .map((block) => {
+      const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+
+      if (!lines.length) {
+        return "";
+      }
+
+      if (lines.every((line) => /^[-*]\s+/.test(line))) {
+        return `<ul>${lines
+          .map((line) => `<li>${escapeHtml(line.replace(/^[-*]\s+/, ""))}</li>`)
+          .join("")}</ul>`;
+      }
+
+      const firstLine = lines[0];
+      if (/^###\s+/.test(firstLine)) {
+        return `<h3>${escapeHtml(firstLine.replace(/^###\s+/, ""))}</h3>`;
+      }
+
+      if (/^##\s+/.test(firstLine)) {
+        return `<h2>${escapeHtml(firstLine.replace(/^##\s+/, ""))}</h2>`;
+      }
+
+      if (/^#\s+/.test(firstLine)) {
+        return `<h1>${escapeHtml(firstLine.replace(/^#\s+/, ""))}</h1>`;
+      }
+
+      return `<p>${lines.map((line) => escapeHtml(line)).join("<br>")}</p>`;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
 function emptyArticleForm() {
   return {
     title: "",
@@ -70,8 +127,11 @@ export default function ArticleEditorPage({ articleId = null }) {
   const [isLoading, setIsLoading] = useState(Boolean(articleId));
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(emptyArticleForm());
+  const [generatorTopic, setGeneratorTopic] = useState("");
+  const [generatedPreview, setGeneratedPreview] = useState(null);
 
   const isEditing = useMemo(() => Boolean(articleId), [articleId]);
 
@@ -151,6 +211,16 @@ export default function ArticleEditorPage({ articleId = null }) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function updateGeneratedPreviewField(key, value) {
+    setGeneratedPreview((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return { ...current, [key]: value };
+    });
+  }
+
   function handleTitleChange(value) {
     setForm((current) => ({
       ...current,
@@ -169,6 +239,70 @@ export default function ArticleEditorPage({ articleId = null }) {
           : [...current.categoryIds, categoryId],
       };
     });
+  }
+
+  async function handleGenerateArticle() {
+    if (!token || !generatorTopic.trim()) {
+      toast.error("Topic is required for AI generation.");
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+      const response = await adminFetch(buildPublicApiUrl("/api/admin/articles/generate"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          topic: generatorTopic.trim(),
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to generate article content.");
+      }
+
+      setGeneratedPreview({
+        title: data.title || "",
+        shortDescription: data.shortDescription || "",
+        content: data.content || "",
+        metaTitle: data.metaTitle || "",
+        metaDescription: data.metaDescription || "",
+        tags: Array.isArray(data.tags) ? data.tags : [],
+        author: ARTICLE_AI_AUTHOR,
+      });
+    } catch (error) {
+      toast.error(error.message || "Failed to generate article content.");
+      setGeneratedPreview(null);
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  function handleInsertGeneratedIntoForm() {
+    if (!generatedPreview) {
+      return;
+    }
+
+    handleTitleChange(generatedPreview.title || "");
+    setForm((current) => ({
+      ...current,
+      shortDescription: generatedPreview.shortDescription || "",
+      content: formatGeneratedContentForEditor(generatedPreview.content),
+      metaTitle: generatedPreview.metaTitle || "",
+      metaDescription: generatedPreview.metaDescription || "",
+      tags: Array.isArray(generatedPreview.tags) ? generatedPreview.tags.join(", ") : "",
+      author: ARTICLE_AI_AUTHOR,
+    }));
+    setGeneratedPreview(null);
+    toast.success("Generated content inserted into the form.");
+  }
+
+  function handleCancelGeneratedPreview() {
+    setGeneratedPreview(null);
   }
 
   async function handleImageUpload(event) {
@@ -306,6 +440,137 @@ export default function ArticleEditorPage({ articleId = null }) {
       </div>
 
       <form className="space-y-6" onSubmit={handleSubmit}>
+        <section className="rounded-[2rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.28em] text-[#6bd4ff]">AI Generator</p>
+              <h2 className="mt-2 text-2xl font-semibold text-white">Draft article content from a topic</h2>
+              <p className="mt-2 text-sm leading-7 text-[#9fb1c7]">
+                Generate a first draft, review it here, then choose whether to insert it into the form.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-end">
+            <div className="flex-1">
+              <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Topic</label>
+              <input
+                className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                placeholder="Example: Why clean API design matters in modern web apps"
+                value={generatorTopic}
+                onChange={(event) => setGeneratorTopic(event.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleGenerateArticle}
+              disabled={isGenerating}
+              className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isGenerating ? "Generating..." : "Generate"}
+            </button>
+          </div>
+
+          {generatedPreview ? (
+            <div className="mt-6 rounded-[1.6rem] border border-[#2c3852] bg-[#0d1728] p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.22em] text-[#7fdcff]">Preview</p>
+                  <p className="mt-1 text-sm text-[#9fb1c7]">
+                    Review and edit the generated draft before inserting it into the main article form.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Title</label>
+                  <input
+                    className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                    value={generatedPreview.title}
+                    onChange={(event) => updateGeneratedPreviewField("title", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Short Description</label>
+                  <textarea
+                    className="min-h-[120px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                    value={generatedPreview.shortDescription}
+                    onChange={(event) => updateGeneratedPreviewField("shortDescription", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Content</label>
+                  <textarea
+                    className="min-h-[320px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                    value={generatedPreview.content}
+                    onChange={(event) => updateGeneratedPreviewField("content", event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Meta Title</label>
+                    <input
+                      className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                      value={generatedPreview.metaTitle}
+                      onChange={(event) => updateGeneratedPreviewField("metaTitle", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Author</label>
+                    <input
+                      className="w-full rounded-xl border border-[#2c3852] bg-[#0c1626] px-4 py-3 text-[#9fb1c7] outline-none"
+                      value={ARTICLE_AI_AUTHOR}
+                      readOnly
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Meta Description</label>
+                  <textarea
+                    className="min-h-[120px] w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                    value={generatedPreview.metaDescription}
+                    onChange={(event) => updateGeneratedPreviewField("metaDescription", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-[#d7dfec]">Tags</label>
+                  <input
+                    className="w-full rounded-xl border border-[#2c3852] bg-[#101b2d] px-4 py-3 text-white outline-none transition focus:border-[#49c1ff]"
+                    value={generatedPreview.tags.join(", ")}
+                    onChange={(event) =>
+                      updateGeneratedPreviewField(
+                        "tags",
+                        event.target.value
+                          .split(",")
+                          .map((item) => item.trim())
+                          .filter(Boolean),
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleInsertGeneratedIntoForm}
+                  className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#07111d] transition hover:opacity-90"
+                >
+                  Insert into Form
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelGeneratedPreview}
+                  className="inline-flex items-center justify-center rounded-full border border-[#36557e] px-5 py-3 text-sm font-semibold text-[#9fdcff] transition hover:border-[#4dc4ff] hover:text-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_420px]">
           <div className="space-y-6">
             <div className="rounded-[2rem] border border-[#24344d] bg-[#0d1728] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">

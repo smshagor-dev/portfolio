@@ -14,7 +14,8 @@ const {
   signAdminToken,
   verifyTwoFactorCode,
 } = require("../lib/auth");
-const { encryptText } = require("../utils/encryption");
+const { decryptText, encryptText } = require("../utils/encryption");
+const { generateAssistantResponse } = require("../services/ai");
 const {
   getDefaultSiteSettings,
   isSmtpConfigured,
@@ -192,6 +193,88 @@ function normalizeAiModelName(provider, modelName) {
   }
 
   return normalizedModel;
+}
+
+const ARTICLE_AI_AUTHOR = "Md Shahanur Islam Shagor";
+
+function cleanJsonFence(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+}
+
+function normalizeGeneratedArticlePayload(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+
+  return {
+    title: normalizeString(source.title),
+    shortDescription: normalizeString(source.shortDescription),
+    content: String(source.content || "").trim(),
+    metaTitle: normalizeString(source.metaTitle),
+    metaDescription: normalizeString(source.metaDescription),
+    tags: normalizeStringList(Array.isArray(source.tags) ? source.tags : []),
+    author: ARTICLE_AI_AUTHOR,
+  };
+}
+
+function parseGeneratedArticleResponse(value) {
+  const normalized = cleanJsonFence(value);
+
+  if (!normalized) {
+    throw new Error("AI returned an empty response.");
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(normalized);
+  } catch (_error) {
+    throw new Error("AI returned invalid JSON.");
+  }
+
+  return normalizeGeneratedArticlePayload(parsed);
+}
+
+async function getActiveAiConfiguration() {
+  if (!hasAiSettingsModel() || !hasAiProviderModel()) {
+    throw new Error("No active AI provider configured.");
+  }
+
+  const settings = await prisma.aiSettings.findUnique({
+    where: { id: 1 },
+  });
+
+  if (!settings?.activeProvider || !settings?.modelName) {
+    throw new Error("No active AI provider configured.");
+  }
+
+  const provider = await prisma.aiProvider.findFirst({
+    where: {
+      name: normalizeString(settings.activeProvider).toLowerCase(),
+      isActive: true,
+    },
+  });
+
+  if (!provider?.apiKey) {
+    throw new Error("No active AI provider configured.");
+  }
+
+  const apiKey = decryptText(provider.apiKey);
+  if (!apiKey) {
+    throw new Error("No active AI provider configured.");
+  }
+
+  return {
+    provider: provider.name,
+    apiKey,
+    baseUrl: provider.baseUrl || "",
+    modelName: normalizeAiModelName(provider.name, settings.modelName),
+  };
 }
 
 function buildContactChatHash(ticketId, token) {
@@ -1236,6 +1319,7 @@ function buildFallbackAnalytics(reason = "Google Analytics credentials are not c
     note: reason,
   };
 }
+
 
 function getVercelAnalyticsMeta() {
   const environment = String(process.env.VERCEL_ENV || "").trim();
@@ -2572,6 +2656,93 @@ router.get("/articles/:articleId", requireAdmin, async (request, response) => {
   } catch (error) {
     console.error("Failed to load article:", error.message);
     return response.status(500).json({ message: "Failed to load article." });
+  }
+});
+
+router.post("/articles/generate", requireAdmin, async (request, response) => {
+  try {
+    const topic = normalizeString(request.body?.topic);
+
+    if (!topic) {
+      return response.status(400).json({ message: "Topic is required." });
+    }
+
+    const aiConfig = await getActiveAiConfiguration().catch((error) => {
+      if (error?.message === "No active AI provider configured.") {
+        return null;
+      }
+
+      throw error;
+    });
+
+    if (!aiConfig) {
+      return response.status(400).json({ message: "No active AI provider configured." });
+    }
+
+    const userMessage = [
+      "Generate a professional article for a developer portfolio based on this topic:",
+      "",
+      `Topic: ${topic}`,
+      "",
+      "Return only valid JSON:",
+      "{",
+      '  "title": "",',
+      '  "shortDescription": "",',
+      '  "content": "",',
+      '  "metaTitle": "",',
+      '  "metaDescription": "",',
+      '  "tags": [],',
+      '  "author": "Md Shahanur Islam Shagor"',
+      "}",
+      "",
+      "Rules:",
+      "- Write in a natural human voice.",
+      "- Do not mention AI.",
+      "- Do not say the article was generated.",
+      "- Avoid robotic phrases and generic filler.",
+      "- Make the content practical, technical, and easy to read.",
+      "- Use markdown-style headings in content.",
+      "- Keep the title clear and attractive.",
+      "- shortDescription should be 2-3 sentences.",
+      "- metaTitle should be under 60 characters.",
+      "- metaDescription should be under 160 characters.",
+      "- tags should contain 5-8 relevant tags.",
+      "- author must always be Shahanur Islam Shagor.",
+    ].join("\n");
+
+    const systemPrompt = [
+      "You write polished portfolio articles for Md Shahanur Islam Shagor.",
+      "Return valid JSON only with no markdown fences, no explanation, and no extra keys.",
+      "The writing must feel human, natural, clear, and professional.",
+      "Do not mention AI or generation.",
+      "Avoid these phrases: In today's fast-paced world, cutting-edge, seamless, robust, leveraging, furthermore, it is important to note, this article explores, as we move forward.",
+      "Avoid generic filler, exaggerated marketing language, and keyword stuffing.",
+      "Write like an experienced developer explaining real work with practical examples and confident clarity.",
+      "Use structured markdown-style headings inside the content field.",
+      "The content should suit a developer portfolio and feel like it was written by Md Shahanur Islam Shagor.",
+      "Always return tags as an array of strings.",
+      `Always set author to "${ARTICLE_AI_AUTHOR}".`,
+    ].join("\n");
+
+    const aiResponse = await generateAssistantResponse({
+      provider: aiConfig.provider,
+      apiKey: aiConfig.apiKey,
+      baseUrl: aiConfig.baseUrl,
+      modelName: aiConfig.modelName,
+      systemPrompt,
+      userMessage,
+      temperature: 0.6,
+      maxTokens: 2200,
+    });
+
+    const generatedArticle = parseGeneratedArticleResponse(aiResponse);
+
+    return response.json(generatedArticle);
+  } catch (error) {
+    console.error("Failed to generate article content:", error.message);
+    return response.status(500).json({
+      message: error.message || "Failed to generate article content.",
+    });
   }
 });
 
