@@ -83,14 +83,6 @@ export default function ResearchCard({ publication, compact = false, priority = 
                 </span>
               </div>
             </Link>
-            <ResearchCardMetrics
-              slug={publication.slug}
-              views={publication.views || 0}
-              impressions={publication.impressionCount || 0}
-              discussionCount={(publication.commentCount || 0) + (publication.replyCount || 0)}
-              shares={publication.shareCount || 0}
-              className="mt-3"
-            />
           </div>
         </div>
       </article>

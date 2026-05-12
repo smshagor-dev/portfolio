@@ -1095,7 +1095,6 @@ router.get("/projects/:slug", async (request, response) => {
       prisma.project.findMany({
         where: { slug: { not: slug } },
         orderBy: { sortOrder: "asc" },
-        take: 3,
       }),
     ]);
 

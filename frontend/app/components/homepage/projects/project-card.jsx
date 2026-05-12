@@ -53,6 +53,12 @@ export default function ProjectCard({ project, priority = false }) {
       ref={cardRef}
       className="group relative overflow-hidden rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,rgba(17,29,46,0.98),rgba(9,17,29,0.98))] shadow-[0_20px_50px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-[#4d7298]"
     >
+      <Link
+        href={project?.slug ? `/project/${project.slug}` : "/portfolio"}
+        aria-label={project?.name ? `View project ${project.name}` : "View project"}
+        className="absolute inset-0 z-10"
+      />
+
       <div className="relative h-40 overflow-hidden border-b border-[#213148] bg-[radial-gradient(circle_at_top,rgba(111,212,255,0.18),transparent_45%),#0c1523]">
         {project?.image ? (
           <Image
@@ -118,16 +124,13 @@ export default function ProjectCard({ project, priority = false }) {
           </div>
         ) : null}
 
-        <div className="mt-4 border-t border-[#1f2d41] pt-3">
-          <Link
-            href={project?.slug ? `/project/${project.slug}` : "/portfolio"}
-            className="flex items-center justify-between gap-3"
-          >
+        <div className="relative z-20 mt-4 border-t border-[#1f2d41] pt-3">
+          <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-[#93d8ff]">View case study</span>
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#35506f] bg-[#11253a] text-[#bfe9ff] transition group-hover:border-[#72d5ff] group-hover:text-white">
               <ArrowRight size={16} />
             </span>
-          </Link>
+          </div>
         </div>
       </div>
     </article>

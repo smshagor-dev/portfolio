@@ -5,6 +5,7 @@ import { ArrowRight, BriefcaseBusiness, Eye, Layers3, Sparkles } from "lucide-re
 import { getProjectDetailData } from "@/lib/api";
 import ProjectCommentsPanel from "@/app/components/project/project-comments-panel";
 import { buildPageMetadata } from "@/lib/site-metadata";
+import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +84,7 @@ export default async function ProjectDetailPage({ params }) {
             <h1 className="mt-6 max-w-4xl text-3xl font-semibold leading-tight text-white md:text-5xl">
               {project.name}
             </h1>
-            <p className="mt-5 max-w-3xl text-sm leading-8 text-[#bcc8d8] md:text-base">
+            <p className="mt-5 w-full text-sm leading-8 text-[#bcc8d8] md:text-base">
               {project.description}
             </p>
 
@@ -128,7 +129,7 @@ export default async function ProjectDetailPage({ params }) {
               <div className="relative h-60 w-full bg-[#0a1321]">
                 {project.image ? (
                   <Image
-                    src={project.image}
+                    src={buildPublicAssetUrl(project.image)}
                     alt={project.name || "Project image"}
                     fill
                     className="object-cover"
@@ -195,6 +196,17 @@ export default async function ProjectDetailPage({ params }) {
                       href={`/project/${item.slug}`}
                       className="block rounded-[1.25rem] border border-[#24344d] bg-[#0d1728] p-4 transition hover:border-[#3a5678]"
                     >
+                      {item.image ? (
+                        <div className="relative mb-4 h-40 overflow-hidden rounded-[1rem] border border-[#203247] bg-[#0a1321]">
+                          <Image
+                            src={buildPublicAssetUrl(item.image)}
+                            alt={item.name || "Project image"}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      ) : null}
                       <div className="flex items-center justify-between gap-3">
                         <p className="font-medium text-white">{item.name}</p>
                         <span className="text-xs text-[#8fa4bb]">{item.role || "Project"}</span>

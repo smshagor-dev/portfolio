@@ -139,7 +139,7 @@ export default async function ResearchDetailPage({ params }) {
             <h1 className="mt-6 max-w-4xl text-3xl font-semibold leading-tight text-white md:text-5xl">
               {publication.title}
             </h1>
-            <p className="mt-5 max-w-3xl text-sm leading-8 text-[#bcc8d8] md:text-base">
+            <p className="mt-5 w-full text-sm leading-8 text-[#bcc8d8] md:text-base">
               {publication.shortSummary}
             </p>
 
@@ -244,7 +244,18 @@ export default async function ResearchDetailPage({ params }) {
                 {publication.doi ? (
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.22em] text-[#86a0ba]">DOI</p>
-                    <p className="mt-1 break-all">{publication.doi}</p>
+                    {doiUrl ? (
+                      <Link
+                        href={doiUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-flex break-all text-[#8fdcff] transition hover:text-white"
+                      >
+                        {publication.doi}
+                      </Link>
+                    ) : (
+                      <p className="mt-1 break-all">{publication.doi}</p>
+                    )}
                   </div>
                 ) : null}
               </div>
