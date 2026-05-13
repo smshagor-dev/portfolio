@@ -5,7 +5,7 @@ import ResearchCard from "@/app/components/research/research-card";
 import ResearchCommentsPanel from "@/app/components/research/research-comments-panel";
 import ResearchHeaderMetrics from "@/app/components/research/research-header-metrics";
 import ResearchShareButton from "@/app/components/research/research-share-button";
-import { getFeaturedResearchPublications, getResearchPublicationDetail, getSiteSettings } from "@/lib/api";
+import { getResearchPublicationDetail, getSiteSettings } from "@/lib/api";
 import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 import { buildDoiUrl, formatAuthors, formatResearchDate, normalizeAuthors, toTitleCase } from "@/lib/research";
 import { buildPageMetadata } from "@/lib/site-metadata";
@@ -65,9 +65,8 @@ export async function generateMetadata({ params }) {
 
 export default async function ResearchDetailPage({ params }) {
   const resolvedParams = await params;
-  const [publicationResponse, featuredResponse, settings] = await Promise.all([
+  const [publicationResponse, settings] = await Promise.all([
     loadResearchPublication(resolvedParams.slug),
-    getFeaturedResearchPublications().catch(() => ({ data: [] })),
     getSiteSettings().catch(() => null),
   ]);
 
@@ -81,9 +80,9 @@ export default async function ResearchDetailPage({ params }) {
     : `http://localhost:3000/research/${publication.slug}`;
   const doiUrl = buildDoiUrl(publication.doi);
   const authors = normalizeAuthors(publication.authors);
-  const relatedPublications = (featuredResponse?.data || [])
-    .filter((item) => item.slug !== publication.slug)
-    .slice(0, 3);
+  const relatedPublications = Array.isArray(publicationResponse?.relatedPublications)
+    ? publicationResponse.relatedPublications
+    : [];
   const sameAs = [doiUrl, publication.publicationUrl, publication.citationUrl].filter(Boolean);
   const schema = {
     "@context": "https://schema.org",

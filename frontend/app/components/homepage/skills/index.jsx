@@ -6,6 +6,16 @@ import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { skillsImage } from "@/utils/skill-image";
 import SectionHeading from "../section-heading";
 
+function getSkillInitials(name = "") {
+  return String(name)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("");
+}
+
 function normalizeSkills(skills = []) {
   return skills
     .map((skill, index) => {
@@ -20,7 +30,7 @@ function normalizeSkills(skills = []) {
       return {
         id: skill?.id || `${name}-${index}`,
         name,
-        image: image || skillsImage(name)?.src || "/profile.png",
+        image: image || skillsImage(name)?.src || "",
         percentage,
       };
     })
@@ -29,9 +39,9 @@ function normalizeSkills(skills = []) {
 
 function Skills({ skills = [] }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [failedImages, setFailedImages] = useState({});
   const items = normalizeSkills(skills);
   const previewCount = 8;
-  const visibleItems = isExpanded ? items : items.slice(0, previewCount);
   const hasMoreItems = items.length > previewCount;
 
   if (!items.length) {
@@ -58,21 +68,34 @@ function Skills({ skills = [] }) {
           />
 
           <div id="skills-grid" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {visibleItems.map((skill) => (
+            {items.map((skill, index) => (
               <article
                 key={skill.id}
-                className="rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.18)] sm:p-5"
+                className={`rounded-[1.5rem] border border-[#24344d] bg-[linear-gradient(180deg,#101a2c,#0b1422)] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.18)] sm:p-5 ${
+                  !isExpanded && index >= previewCount ? "hidden" : ""
+                }`}
+                aria-hidden={!isExpanded && index >= previewCount}
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.2rem] border border-[#314768] bg-[#0d1728] p-3 sm:h-16 sm:w-16">
-                    <Image
-                      src={skill.image}
-                      alt={skill.name}
-                      width={44}
-                      height={44}
-                      sizes="44px"
-                      className="h-9 w-9 object-contain sm:h-11 sm:w-11"
-                    />
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1.2rem] border border-[#314768] bg-[#0d1728] p-3 sm:h-16 sm:w-16">
+                    {skill.image && !failedImages[skill.id] ? (
+                      <img
+                        src={skill.image}
+                        alt={skill.name}
+                        width="44"
+                        height="44"
+                        loading="eager"
+                        fetchPriority="high"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                        className="h-9 w-9 object-contain sm:h-11 sm:w-11"
+                        onError={() => setFailedImages((current) => ({ ...current, [skill.id]: true }))}
+                      />
+                    ) : (
+                      <span className="text-sm font-semibold uppercase tracking-[0.18em] text-[#8fe6c1]">
+                        {getSkillInitials(skill.name) || "SK"}
+                      </span>
+                    )}
                   </div>
 
                   <div className="min-w-0 flex-1">

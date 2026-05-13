@@ -229,22 +229,39 @@ router.get("/research-publications/:slug", async (request, response) => {
     }
 
     const slug = normalizeString(request.params.slug).toLowerCase();
-    const publication = await prisma.researchPublication.findFirst({
-      where: {
-        slug,
-        status: "published",
-      },
-      include: {
-        comments: {
-          orderBy: { sortOrder: "asc" },
-          include: {
-            replies: {
-              orderBy: { sortOrder: "asc" },
+    const [publication, relatedPublications] = await Promise.all([
+      prisma.researchPublication.findFirst({
+        where: {
+          slug,
+          status: "published",
+        },
+        include: {
+          comments: {
+            orderBy: { sortOrder: "asc" },
+            include: {
+              replies: {
+                orderBy: { sortOrder: "asc" },
+              },
             },
           },
         },
-      },
-    });
+      }),
+      prisma.researchPublication.findMany({
+        where: {
+          status: "published",
+          slug: { not: slug },
+        },
+        include: {
+          comments: {
+            include: {
+              replies: true,
+            },
+          },
+        },
+        orderBy: [{ isFeatured: "desc" }, { publishedDate: "desc" }, { createdAt: "desc" }],
+        take: 5,
+      }),
+    ]);
 
     if (!publication) {
       return response.status(404).json(buildResearchErrorResponse("Research publication not found."));
@@ -274,6 +291,9 @@ router.get("/research-publications/:slug", async (request, response) => {
         {
           ...serializeResearchPublication(updatedPublication || publication),
           comments: ((updatedPublication || publication)?.comments || []).map(serializeResearchComment),
+        },
+        {
+          relatedPublications: relatedPublications.map(serializeResearchPublication),
         },
       ),
     );

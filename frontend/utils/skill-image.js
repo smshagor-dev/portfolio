@@ -82,10 +82,24 @@ import kubernetes from '../app/assets/svg/skills/kubernetes.svg'
 import linux from '../app/assets/svg/skills/linux.svg'
 import sqlalchemy from '../app/assets/svg/skills/sqlalchemy.svg'
 import fastapi from '../app/assets/svg/skills/fastapi.svg'
+
+function normalizeSkillKey(skill = "") {
+  return String(skill)
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/\./g, "")
+    .replace(/\+/g, "plus")
+    .replace(/\s*\/\s*/g, "/")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
 export const skillsImage = (skill) => {
-  const skillID = skill.toLowerCase();
+  const skillID = normalizeSkillKey(skill);
   switch (skillID) {
     case 'gcp':
+    case 'google cloud':
       return gcp;
     case 'html':
       return html;
@@ -102,6 +116,7 @@ export const skillsImage = (skill) => {
     case 'css':
       return css;
     case 'angular':
+    case 'angular js':
       return angular;
     case 'javascript':
       return javascript;
@@ -110,12 +125,14 @@ export const skillsImage = (skill) => {
     case 'nuxt js':
       return nuxtJS;
     case 'react':
+    case 'react native':
       return react;
     case 'svelte':
       return svelte;
     case 'typescript':
       return typescript;
     case 'vue':
+    case 'vue js':
       return vue;
     case 'bootstrap':
       return bootstrap;
@@ -183,8 +200,11 @@ export const skillsImage = (skill) => {
       return git;
     case 'graphql':
       return graphql;
+    case 'express js':
+      return javascript;
     case 'lightroom':
       return lightroom;
+    case 'material ui':
     case 'materialui':
       return materialui;
     case 'nginx':
@@ -251,7 +271,26 @@ export const skillsImage = (skill) => {
       return sqlalchemy;
     case 'fastapi':
       return fastapi;
+    case 'node js':
+      return javascript;
+    case 'laravel':
+      return php;
+    case 'google cloud platform':
+      return gcp;
+    case 'jest':
+      return javascript;
+    case 'phpunit':
+      return php;
+    case 'pytest':
+      return python;
+    case 'socket/io':
+    case 'socketio':
+      return javascript;
+    case 'prometheus':
+    case 'grafana':
+    case 'digital ocean':
+      return docker;
     default:
-      break;
+      return null;
   }
 }

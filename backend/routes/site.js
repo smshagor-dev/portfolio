@@ -1093,8 +1093,9 @@ router.get("/projects/:slug", async (request, response) => {
         },
       }),
       prisma.project.findMany({
-        where: { slug: { not: slug } },
-        orderBy: { sortOrder: "asc" },
+        where: { status: true, slug: { not: slug } },
+        orderBy: [{ sortOrder: "asc" }],
+        take: 5,
       }),
     ]);
 
@@ -1673,6 +1674,7 @@ router.get("/articles/:slug", async (request, response) => {
         },
       },
       orderBy: [{ isFeatured: "desc" }, { publishDate: "desc" }, { createdAt: "desc" }],
+      take: 5,
     });
 
     return response.json({
