@@ -1093,7 +1093,7 @@ router.get("/projects/:slug", async (request, response) => {
         },
       }),
       prisma.project.findMany({
-        where: { status: true, slug: { not: slug } },
+        where: { slug: { not: slug } },
         orderBy: [{ sortOrder: "asc" }],
         take: 5,
       }),
