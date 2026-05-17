@@ -3481,21 +3481,22 @@ export function AdminSectionPage({ section = "dashboard" }) {
         </aside>
 
         <div className="min-w-0 space-y-6">
-          <section className="rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(11,20,34,0.9),rgba(8,15,27,0.88))] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:px-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-xs uppercase tracking-[0.24em] text-[#8fdcff]">Admin Inbox</p>
+          <section className="relative z-10 overflow-visible rounded-[1.8rem] border border-white/10 bg-[linear-gradient(180deg,rgba(11,20,34,0.92),rgba(8,15,27,0.88))] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:px-5 sm:py-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs uppercase tracking-[0.24em] text-[#8fdcff]">Admin Workspace</p>
                 <h2 className="mt-2 truncate text-2xl font-semibold text-white">
                   {activeTabMeta?.label || "Dashboard"}
                 </h2>
-                <p className="mt-2 text-sm text-[#9fb1c7]">
+                <p className="mt-2 max-w-2xl text-sm text-[#9fb1c7]">
                   Stay on top of new contact messages, live replies, and ongoing conversations from one place.
                 </p>
               </div>
-              <div className="flex items-center justify-end gap-3">
-                <div className="hidden rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-right sm:block">
+              <div className="flex items-center justify-end gap-3 md:pl-4">
+                <div className="hidden min-w-[180px] rounded-[1.35rem] border border-white/10 bg-white/[0.04] px-4 py-3 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:block">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-[#8ea7c2]">Signed In</p>
-                  <p className="mt-1 text-sm font-medium text-white">{admin?.name || "Admin"}</p>
+                  <p className="mt-1 truncate text-sm font-medium text-white">{admin?.name || "Admin"}</p>
+                  <p className="mt-1 truncate text-xs text-[#7f96ad]">{admin?.email || "support@smshagor.com"}</p>
                 </div>
                 <AdminNotificationCenter
                   token={token}
