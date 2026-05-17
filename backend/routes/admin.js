@@ -17,6 +17,9 @@ const {
 const { decryptText, encryptText } = require("../utils/encryption");
 const { generateAssistantResponse } = require("../services/ai");
 const {
+  serializeAdminNotification,
+} = require("../lib/admin-notifications");
+const {
   getDefaultSiteSettings,
   isSmtpConfigured,
   normalizeSiteSettings,
@@ -168,6 +171,15 @@ const verificationFileUpload = multer({
 
 function normalizeString(value) {
   return String(value || "").trim();
+}
+
+function normalizePositiveInt(value, fallback, { max = 100 } = {}) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return Math.min(parsed, max);
 }
 
 function normalizeAiModelName(provider, modelName) {
@@ -3242,6 +3254,112 @@ router.get("/analytics", requireAdmin, async (_request, response) => {
   } catch (error) {
     console.error("Failed to load analytics:", error.message);
     return response.status(500).json({ message: "Failed to load analytics data." });
+  }
+});
+
+router.get("/notifications", requireAdmin, async (request, response) => {
+  try {
+    const page = normalizePositiveInt(request.query?.page, 1, { max: 1000 });
+    const limit = normalizePositiveInt(request.query?.limit, 12, { max: 50 });
+    const skip = (page - 1) * limit;
+    const [notifications, total] = await Promise.all([
+      prisma.adminNotification.findMany({
+        orderBy: [{ isRead: "asc" }, { createdAt: "desc" }],
+        skip,
+        take: limit,
+      }),
+      prisma.adminNotification.count(),
+    ]);
+
+    return response.json({
+      notifications: notifications.map(serializeAdminNotification),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
+  } catch (error) {
+    console.error("Failed to load admin notifications:", error.message);
+    return response.status(500).json({ message: "Failed to load notifications." });
+  }
+});
+
+router.get("/notifications/unread-count", requireAdmin, async (_request, response) => {
+  try {
+    const count = await prisma.adminNotification.count({
+      where: { isRead: false },
+    });
+
+    return response.json({ count });
+  } catch (error) {
+    console.error("Failed to load unread admin notification count:", error.message);
+    return response.status(500).json({ message: "Failed to load unread notification count." });
+  }
+});
+
+router.patch("/notifications/read-all", requireAdmin, async (_request, response) => {
+  try {
+    await prisma.adminNotification.updateMany({
+      where: { isRead: false },
+      data: { isRead: true },
+    });
+
+    return response.json({ message: "All notifications marked as read." });
+  } catch (error) {
+    console.error("Failed to mark all admin notifications as read:", error.message);
+    return response.status(500).json({ message: "Failed to mark notifications as read." });
+  }
+});
+
+router.patch("/notifications/:id/read", requireAdmin, async (request, response) => {
+  try {
+    const notificationId = normalizeString(request.params.id);
+    if (!notificationId) {
+      return response.status(400).json({ message: "Notification id is required." });
+    }
+
+    const notification = await prisma.adminNotification.update({
+      where: { id: notificationId },
+      data: { isRead: true },
+    });
+
+    return response.json({
+      message: "Notification marked as read.",
+      notification: serializeAdminNotification(notification),
+    });
+  } catch (error) {
+    if (error?.code === "P2025") {
+      return response.status(404).json({ message: "Notification not found." });
+    }
+
+    console.error("Failed to mark admin notification as read:", error.message);
+    return response.status(500).json({ message: "Failed to mark notification as read." });
+  }
+});
+
+router.delete("/notifications/:id", requireAdmin, async (request, response) => {
+  try {
+    const notificationId = normalizeString(request.params.id);
+    if (!notificationId) {
+      return response.status(400).json({ message: "Notification id is required." });
+    }
+
+    await prisma.adminNotification.delete({
+      where: { id: notificationId },
+    });
+
+    return response.json({
+      message: "Notification deleted successfully.",
+    });
+  } catch (error) {
+    if (error?.code === "P2025") {
+      return response.status(404).json({ message: "Notification not found." });
+    }
+
+    console.error("Failed to delete admin notification:", error.message);
+    return response.status(500).json({ message: "Failed to delete notification." });
   }
 });
 

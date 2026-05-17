@@ -12,6 +12,11 @@ const {
   normalizeSiteSettings,
   serializeSiteSettings,
 } = require("../lib/site-settings");
+const {
+  buildMessageActionUrl,
+  createAdminNotification,
+  emitAdminNotification,
+} = require("../lib/admin-notifications");
 const { generatePortfolioAssistantReply } = require("../services/contact-assistant");
 
 const router = express.Router();
@@ -2089,6 +2094,23 @@ router.post(
       console.error("Failed to send contact email:", mailError.message);
     }
 
+    try {
+      const newMessageNotification = await createAdminNotification({
+        type: "NEW_MESSAGE",
+        visitorName: savedMessage.name,
+        visitorEmail: savedMessage.email,
+        visitorPhone: "",
+        messageId: savedMessage.id,
+        conversationId: savedMessage.id,
+        subject: savedMessage.subject,
+        preview: savedMessage.message,
+        actionUrl: buildMessageActionUrl(savedMessage.id),
+      });
+      emitAdminNotification(request.app.get("io"), "admin:new-message", newMessageNotification);
+    } catch (notificationError) {
+      console.error("Failed to create admin notification:", notificationError.message);
+    }
+
     request.app.get("io")?.to(`contact:ticket:${savedMessage.id}`).emit("contact:assistant_typing", {
       ticketId: savedMessage.id,
       isTyping: true,
@@ -2185,6 +2207,8 @@ router.post(
       select: {
         id: true,
         name: true,
+        email: true,
+        subject: true,
         ticketToken: true,
         status: true,
       },
@@ -2210,6 +2234,23 @@ router.post(
         file: attachedFile ? `/uploads/${attachedFile.filename}` : "",
       },
     });
+
+    try {
+      const replyNotification = await createAdminNotification({
+        type: "MESSAGE_REPLY",
+        visitorName: ticket.name,
+        visitorEmail: ticket.email,
+        visitorPhone: "",
+        messageId: ticket.id,
+        conversationId: ticket.id,
+        subject: ticket.subject,
+        preview: message,
+        actionUrl: buildMessageActionUrl(ticket.id),
+      });
+      emitAdminNotification(request.app.get("io"), "admin:message-reply", replyNotification);
+    } catch (notificationError) {
+      console.error("Failed to create admin notification:", notificationError.message);
+    }
 
     request.app.get("io")?.to(`contact:ticket:${ticket.id}`).emit("contact:message_created", {
       ticketId: ticket.id,

@@ -383,6 +383,31 @@ model ContactChatMessage {
   @@index([contactMessageId, createdAt])
 }
 
+enum AdminNotificationType {
+  NEW_MESSAGE
+  MESSAGE_REPLY
+}
+
+model AdminNotification {
+  id             String                @id @default(cuid())
+  type           AdminNotificationType
+  title          String
+  body           String?               @db.Text
+  visitorName    String?
+  visitorEmail   String?
+  visitorPhone   String?
+  messageId      Int?
+  conversationId Int?
+  preview        String?               @db.Text
+  actionUrl      String?
+  isRead         Boolean               @default(false)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([isRead, createdAt])
+  @@index([messageId, conversationId])
+}
+
 model EmergencyContact {
   id        Int      @id @default(autoincrement())
   label     String

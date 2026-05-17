@@ -4,11 +4,12 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import { showChatMessageNotification } from "@/lib/browser-notifications";
 import { buildPublicApiUrl, buildPublicAssetUrl, getPublicBackendUrl, getSocketServerUrl } from "@/lib/public-backend-url";
+import AdminNotificationCenter from "@/app/components/admin/admin-notification-center";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
 import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiHelpCircle, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiPhone, FiSend, FiSettings, FiUpload, FiX } from "react-icons/fi";
 import { getSocialIconOption, searchSocialIcons, socialIconOptions } from "@/utils/social-icons";
@@ -742,6 +743,7 @@ const tabs = [
 export function AdminSectionPage({ section = "dashboard" }) {
   const analyticsVisitorsPerPage = 10;
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [token, setToken] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -795,6 +797,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
   const messageReplyPhotoInputRef = useRef(null);
   const messageReplyFileInputRef = useRef(null);
   const messagesRef = useRef([]);
+  const lastOpenedMessageIdRef = useRef(null);
   const [messageActionId, setMessageActionId] = useState(null);
   const [socialSearch, setSocialSearch] = useState({});
   const [openCounterIconIndex, setOpenCounterIconIndex] = useState(null);
@@ -1766,6 +1769,58 @@ export function AdminSectionPage({ section = "dashboard" }) {
     },
     [],
   );
+
+  const openMessageThreadFromNotification = useCallback(
+    async ({ messageId, actionUrl }) => {
+      const normalizedMessageId = Number.parseInt(messageId, 10);
+      if (!normalizedMessageId) {
+        if (actionUrl) {
+          router.push(actionUrl);
+        }
+        return;
+      }
+
+      lastOpenedMessageIdRef.current = null;
+      const nextUrl = actionUrl || `/admin/messages?messageId=${normalizedMessageId}`;
+      router.push(nextUrl);
+      setSelectedMessageThread(null);
+      setMessageReplyDraft("");
+      setMessageReplyAttachments({ photo: null, file: null });
+      setActiveMessageImagePreview("");
+
+      if (messageReplyPhotoInputRef.current) {
+        messageReplyPhotoInputRef.current.value = "";
+      }
+
+      if (messageReplyFileInputRef.current) {
+        messageReplyFileInputRef.current.value = "";
+      }
+
+      if (token) {
+        await loadMessageThread(token, normalizedMessageId);
+      }
+    },
+    [loadMessageThread, router, token],
+  );
+
+  useEffect(() => {
+    if (activeTab !== "messages" || !token) {
+      return;
+    }
+
+    const messageIdFromUrl = Number.parseInt(searchParams.get("messageId"), 10);
+    if (!messageIdFromUrl) {
+      lastOpenedMessageIdRef.current = null;
+      return;
+    }
+
+    if (lastOpenedMessageIdRef.current === messageIdFromUrl) {
+      return;
+    }
+
+    lastOpenedMessageIdRef.current = messageIdFromUrl;
+    loadMessageThread(token, messageIdFromUrl);
+  }, [activeTab, loadMessageThread, searchParams, token]);
 
   const sendAdminMessageReply = useCallback(
     async (authToken) => {
@@ -3426,6 +3481,31 @@ export function AdminSectionPage({ section = "dashboard" }) {
         </aside>
 
         <div className="min-w-0 space-y-6">
+          <section className="rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(11,20,34,0.9),rgba(8,15,27,0.88))] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.24)] backdrop-blur-2xl sm:px-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-[0.24em] text-[#8fdcff]">Admin Inbox</p>
+                <h2 className="mt-2 truncate text-2xl font-semibold text-white">
+                  {activeTabMeta?.label || "Dashboard"}
+                </h2>
+                <p className="mt-2 text-sm text-[#9fb1c7]">
+                  Stay on top of new contact messages, live replies, and ongoing conversations from one place.
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-3">
+                <div className="hidden rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-right sm:block">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-[#8ea7c2]">Signed In</p>
+                  <p className="mt-1 text-sm font-medium text-white">{admin?.name || "Admin"}</p>
+                </div>
+                <AdminNotificationCenter
+                  token={token}
+                  currentMessageId={selectedMessageThread?.id || null}
+                  onOpenMessage={openMessageThreadFromNotification}
+                />
+              </div>
+            </div>
+          </section>
+
           {false ? (
           <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(96,165,250,0.18),transparent_28%),radial-gradient(circle_at_top_left,rgba(110,231,183,0.12),transparent_24%),linear-gradient(180deg,rgba(15,26,42,0.94),rgba(11,20,34,0.92))] p-6 shadow-[0_28px_70px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
