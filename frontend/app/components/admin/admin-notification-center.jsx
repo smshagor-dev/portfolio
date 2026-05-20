@@ -8,7 +8,6 @@ import { toast } from "react-toastify";
 import {
   FiBell,
   FiCheck,
-  FiClock,
   FiExternalLink,
   FiMail,
   FiMessageSquare,
@@ -51,20 +50,9 @@ function truncatePreview(value, maxLength = 120) {
   return `${normalized.slice(0, maxLength - 3).trimEnd()}...`;
 }
 
-function extractFieldFromBody(body, label) {
-  const normalizedBody = String(body || "");
-  if (!normalizedBody) {
-    return "";
-  }
-
-  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = normalizedBody.match(new RegExp(`^${escapedLabel}:\\s*(.+)$`, "im"));
-  return match?.[1]?.trim?.() || "";
-}
-
 function isUrgentNotification(notification) {
-  const source = `${notification?.preview || ""} ${notification?.body || ""}`.toLowerCase();
-  return /\b(urgent|asap|emergency|immediate)\b/.test(source) || source.includes("জরুরি");
+  const source = `${notification?.latestMessagePreview || ""} ${notification?.subject || ""}`.toLowerCase();
+  return /\b(urgent|asap|emergency|immediate)\b/.test(source) || source.includes("\u099c\u09b0\u09c1\u09b0\u09bf");
 }
 
 function getNotificationTypeLabel(type, notification) {
@@ -72,7 +60,7 @@ function getNotificationTypeLabel(type, notification) {
     return "Urgent";
   }
 
-  return type === "NEW_MESSAGE" ? "New message" : "Reply";
+  return type === "MESSAGE" ? "Message" : "Reply";
 }
 
 function getNotificationIcon(notification, size = 18) {
@@ -80,7 +68,13 @@ function getNotificationIcon(notification, size = 18) {
     return <FiBell size={size} />;
   }
 
-  return notification.type === "NEW_MESSAGE" ? <FiMail size={size} /> : <FiMessageSquare size={size} />;
+  return notification.type === "MESSAGE" ? <FiMail size={size} /> : <FiMessageSquare size={size} />;
+}
+
+function sortNotificationsByLatest(items) {
+  return [...items].sort(
+    (left, right) => new Date(right?.latestCreatedAt || 0).getTime() - new Date(left?.latestCreatedAt || 0).getTime(),
+  );
 }
 
 function getBellWidth() {
@@ -125,8 +119,6 @@ function buildDropdownPosition(rect) {
 }
 
 function NotificationToast({ notification, onOpen, onClose }) {
-  const subject = extractFieldFromBody(notification.body, "Subject");
-
   return (
     <motion.div
       initial={{ opacity: 0, y: -10, scale: 0.96 }}
@@ -152,7 +144,9 @@ function NotificationToast({ notification, onOpen, onClose }) {
               }`}>
                 {getNotificationTypeLabel(notification.type, notification)}
               </p>
-              <h4 className="mt-1 text-sm font-semibold leading-5 text-white">{notification.title}</h4>
+              <h4 className="mt-1 text-sm font-semibold leading-5 text-white">
+                {notification.subject || notification.senderName || "Conversation update"}
+              </h4>
             </div>
             <button
               type="button"
@@ -165,26 +159,28 @@ function NotificationToast({ notification, onOpen, onClose }) {
           </div>
 
           <div className="mt-3 space-y-1.5 text-sm text-[#c8d7e7]">
-            {notification.visitorName ? <p className="truncate">Name: {notification.visitorName}</p> : null}
-            {notification.visitorEmail ? <p className="truncate">Email: {notification.visitorEmail}</p> : null}
-            {notification.visitorPhone ? <p className="truncate">Phone: {notification.visitorPhone}</p> : null}
-            {subject ? <p className="truncate">Subject: {subject}</p> : null}
-            {notification.preview ? (
+            {notification.senderName ? <p className="truncate">Name: {notification.senderName}</p> : null}
+            {notification.email ? <p className="truncate">Email: {notification.email}</p> : null}
+            <p className="text-[#8ea7c2]">
+              {notification.messageCount} message{notification.messageCount === 1 ? "" : "s"}
+              {notification.unreadCount > 0 ? ` | ${notification.unreadCount} unread` : ""}
+            </p>
+            {notification.latestMessagePreview ? (
               <p className="line-clamp-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-[#dbe9f6]">
-                {truncatePreview(notification.preview, 140)}
+                {truncatePreview(notification.latestMessagePreview, 140)}
               </p>
             ) : null}
           </div>
 
           <div className="mt-4 flex items-center justify-between gap-3">
-            <span className="text-xs text-[#8ea7c2]">{formatNotificationTime(notification.createdAt)}</span>
+            <span className="text-xs text-[#8ea7c2]">{formatNotificationTime(notification.latestCreatedAt)}</span>
             <button
               type="button"
               onClick={onOpen}
               className="inline-flex items-center gap-2 rounded-full border border-[#335172] bg-[#11253a] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9fe4ff] transition hover:border-[#4dc4ff] hover:text-white"
             >
               <FiExternalLink size={13} />
-              {notification.type === "NEW_MESSAGE" ? "View message" : "View conversation"}
+              View conversation
             </button>
           </div>
         </div>
@@ -199,8 +195,7 @@ function NotificationItem({
   onMarkRead,
   onDelete,
 }) {
-  const subject = extractFieldFromBody(notification.body, "Subject");
-  const isUnread = !notification.isRead;
+  const isUnread = Number(notification.unreadCount || 0) > 0;
 
   return (
     <motion.div
@@ -223,7 +218,7 @@ function NotificationItem({
                 ? "border-[#335172] bg-[#11253a] text-[#82ddff]"
                 : "border-white/10 bg-white/[0.03] text-[#9fb1c7]"
           }`}>
-            {notification.visitorName ? <FiUser size={18} /> : getNotificationIcon(notification, 18)}
+            {notification.senderName ? <FiUser size={18} /> : getNotificationIcon(notification, 18)}
           </span>
           {isUnread ? (
             <span className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border-2 border-[#0b1524] bg-[#54c8ff]" />
@@ -238,19 +233,30 @@ function NotificationItem({
               }`}>
                 {getNotificationTypeLabel(notification.type, notification)}
               </p>
-              <h4 className="mt-1 text-sm font-semibold leading-5 text-white">{notification.title}</h4>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <h4 className="min-w-0 text-sm font-semibold leading-5 text-white">
+                  {notification.subject || notification.senderName || "Conversation update"}
+                </h4>
+                <span className="rounded-full border border-[#335172] bg-[#11253a] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#9fe4ff]">
+                  {notification.messageCount} message{notification.messageCount === 1 ? "" : "s"}
+                </span>
+                {notification.unreadCount > 0 ? (
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#dbe9f6]">
+                    {notification.unreadCount} unread
+                  </span>
+                ) : null}
+              </div>
             </div>
             <span className="shrink-0 text-[11px] text-[#8ea7c2]">
-              {formatNotificationTime(notification.createdAt)}
+              {formatNotificationTime(notification.latestCreatedAt)}
             </span>
           </div>
 
           <div className="mt-3 space-y-1.5 text-sm text-[#c3d3e4]">
-            {notification.visitorEmail ? <p className="truncate">Email: {notification.visitorEmail}</p> : null}
-            {notification.visitorPhone ? <p className="truncate">Phone: {notification.visitorPhone}</p> : null}
-            {subject ? <p className="truncate">Subject: {subject}</p> : null}
-            {notification.preview ? (
-              <p className="line-clamp-2 text-[#dbe9f6]">{truncatePreview(notification.preview, 132)}</p>
+            {notification.senderName ? <p className="truncate">Name: {notification.senderName}</p> : null}
+            {notification.email ? <p className="truncate">Email: {notification.email}</p> : null}
+            {notification.latestMessagePreview ? (
+              <p className="line-clamp-2 text-[#dbe9f6]">{truncatePreview(notification.latestMessagePreview, 132)}</p>
             ) : null}
           </div>
 
@@ -261,13 +267,13 @@ function NotificationItem({
               className="inline-flex items-center gap-2 rounded-full border border-[#335172] bg-[#11253a] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9fe4ff] transition hover:border-[#4dc4ff] hover:text-white"
             >
               <FiExternalLink size={12} />
-              {notification.type === "NEW_MESSAGE" ? "View message" : "View conversation"}
+              View conversation
             </button>
 
             {isUnread ? (
               <button
                 type="button"
-                onClick={() => onMarkRead(notification.id)}
+                onClick={() => onMarkRead(notification.groupId)}
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#c6d8ea] transition hover:border-[#4dc4ff] hover:text-white"
               >
                 <FiCheck size={12} />
@@ -277,7 +283,7 @@ function NotificationItem({
 
             <button
               type="button"
-              onClick={() => onDelete(notification.id)}
+              onClick={() => onDelete(notification.groupId)}
               className="inline-flex items-center gap-2 rounded-full border border-red-400/20 bg-red-400/5 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-red-200 transition hover:border-red-400/40 hover:text-white"
             >
               <FiTrash2 size={12} />
@@ -308,7 +314,7 @@ export default function AdminNotificationCenter({
   const notificationsRef = useRef([]);
 
   const unreadNotifications = useMemo(
-    () => notifications.filter((item) => !item.isRead),
+    () => notifications.filter((item) => Number(item.unreadCount || 0) > 0),
     [notifications],
   );
 
@@ -341,14 +347,14 @@ export default function AdminNotificationCenter({
   }, [isOpen, syncDropdownPosition]);
 
   const upsertNotification = useCallback((notification) => {
-    if (!notification?.id) {
+    if (!notification?.groupId) {
       return;
     }
 
     setNotifications((current) => {
-      const existingIndex = current.findIndex((item) => item.id === notification.id);
+      const existingIndex = current.findIndex((item) => item.groupId === notification.groupId);
       if (existingIndex === -1) {
-        return [notification, ...current].slice(0, 20);
+        return sortNotificationsByLatest([notification, ...current]).slice(0, 20);
       }
 
       const next = [...current];
@@ -356,7 +362,7 @@ export default function AdminNotificationCenter({
         ...next[existingIndex],
         ...notification,
       };
-      return next;
+      return sortNotificationsByLatest(next);
     });
   }, []);
 
@@ -408,8 +414,8 @@ export default function AdminNotificationCenter({
       }
 
       const nextNotifications = Array.isArray(data.notifications) ? data.notifications : [];
-      setNotifications(nextNotifications);
-      setUnreadCount(nextNotifications.filter((item) => !item.isRead).length);
+      setNotifications(sortNotificationsByLatest(nextNotifications));
+      refreshUnreadCount(authToken);
     } catch (_error) {
       // Keep current items if background fetch fails.
     } finally {
@@ -417,22 +423,25 @@ export default function AdminNotificationCenter({
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [refreshUnreadCount]);
 
-  const markNotificationRead = useCallback(async (notificationId, { optimistic = true } = {}) => {
-    if (!token || !notificationId) {
+  const markNotificationRead = useCallback(async (groupId, { optimistic = true } = {}) => {
+    if (!token || !groupId) {
       return;
     }
 
     if (optimistic) {
       setNotifications((current) =>
-        current.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item)),
+        current.map((item) => (
+          item.groupId === groupId
+            ? { ...item, unreadCount: 0, isRead: true }
+            : item
+        )),
       );
-      setUnreadCount((current) => Math.max(0, current - 1));
     }
 
     try {
-      const response = await adminFetch(buildPublicApiUrl(`/api/admin/notifications/${notificationId}/read`), {
+      const response = await adminFetch(buildPublicApiUrl(`/api/admin/notifications/${encodeURIComponent(groupId)}/read`), {
         method: "PATCH",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -444,27 +453,25 @@ export default function AdminNotificationCenter({
         throw new Error(data.message || "Failed to mark notification as read.");
       }
 
-      if (data.notification?.id) {
+      if (data.notification?.groupId) {
         upsertNotification(data.notification);
       }
+
+      refreshUnreadCount(token);
     } catch (_error) {
       await loadNotifications(token, { background: true });
     }
-  }, [loadNotifications, token, upsertNotification]);
+  }, [loadNotifications, refreshUnreadCount, token, upsertNotification]);
 
-  const handleDeleteNotification = useCallback(async (notificationId) => {
-    if (!token || !notificationId) {
+  const handleDeleteNotification = useCallback(async (groupId) => {
+    if (!token || !groupId) {
       return;
     }
 
-    const target = notifications.find((item) => item.id === notificationId);
-    setNotifications((current) => current.filter((item) => item.id !== notificationId));
-    if (target && !target.isRead) {
-      setUnreadCount((current) => Math.max(0, current - 1));
-    }
+    setNotifications((current) => current.filter((item) => item.groupId !== groupId));
 
     try {
-      const response = await adminFetch(buildPublicApiUrl(`/api/admin/notifications/${notificationId}`), {
+      const response = await adminFetch(buildPublicApiUrl(`/api/admin/notifications/${encodeURIComponent(groupId)}`), {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -475,10 +482,12 @@ export default function AdminNotificationCenter({
       if (!response.ok) {
         throw new Error(data.message || "Failed to delete notification.");
       }
+
+      refreshUnreadCount(token);
     } catch (_error) {
       await loadNotifications(token, { background: true });
     }
-  }, [loadNotifications, notifications, token]);
+  }, [loadNotifications, refreshUnreadCount, token]);
 
   const handleMarkAllRead = useCallback(async () => {
     if (!token || unreadNotifications.length === 0) {
@@ -486,7 +495,7 @@ export default function AdminNotificationCenter({
     }
 
     setIsMarkingAll(true);
-    setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
+    setNotifications((current) => current.map((item) => ({ ...item, unreadCount: 0, isRead: true })));
     setUnreadCount(0);
 
     try {
@@ -513,14 +522,14 @@ export default function AdminNotificationCenter({
       return;
     }
 
-    if (!notification.isRead) {
-      markNotificationRead(notification.id);
+    if (Number(notification.unreadCount || 0) > 0) {
+      markNotificationRead(notification.groupId);
     }
 
-    if (typeof onOpenMessage === "function" && notification.messageId) {
+    if (typeof onOpenMessage === "function" && notification.conversationId) {
       onOpenMessage({
-        messageId: notification.messageId,
-        notificationId: notification.id,
+        messageId: notification.conversationId,
+        notificationId: notification.groupId,
         actionUrl: notification.actionUrl,
       });
       setIsOpen(false);
@@ -533,12 +542,13 @@ export default function AdminNotificationCenter({
   }, [markNotificationRead, onOpenMessage]);
 
   const showPopup = useCallback((notification) => {
-    if (!notification?.id || popupIdsRef.current.has(notification.id)) {
+    const popupKey = `${notification?.groupId || ""}:${notification?.latestCreatedAt || ""}`;
+    if (!notification?.groupId || popupIdsRef.current.has(popupKey)) {
       return;
     }
 
-    popupIdsRef.current.add(notification.id);
-    const toastId = `admin-notification-${notification.id}`;
+    popupIdsRef.current.add(popupKey);
+    const toastId = `admin-notification-${popupKey}`;
     toast(
       ({ closeToast }) => (
         <NotificationToast
@@ -596,14 +606,22 @@ export default function AdminNotificationCenter({
 
     function handleIncomingNotification(payload) {
       const notification = payload?.notification;
-      if (!notification?.id) {
+      if (!notification?.groupId) {
         return;
       }
 
-      const existingNotification = notificationsRef.current.find((item) => item.id === notification.id);
+      const existingNotification = notificationsRef.current.find((item) => item.groupId === notification.groupId);
       upsertNotification(notification);
-      if (!existingNotification && !notification.isRead) {
-        setUnreadCount((current) => current + 1);
+
+      if (
+        Number(notification.unreadCount || 0) > 0 &&
+        (
+          !existingNotification ||
+          Number(notification.unreadCount || 0) > Number(existingNotification.unreadCount || 0) ||
+          notification.latestCreatedAt !== existingNotification.latestCreatedAt
+        )
+      ) {
+        refreshUnreadCount(token);
         showPopup(notification);
       }
     }
@@ -616,27 +634,23 @@ export default function AdminNotificationCenter({
       socket.off("admin:message-reply", handleIncomingNotification);
       socket.disconnect();
     };
-  }, [showPopup, token, upsertNotification]);
+  }, [refreshUnreadCount, showPopup, token, upsertNotification]);
 
   useEffect(() => {
     if (!currentMessageId || !token) {
       return;
     }
 
-    const matchingUnread = notifications.filter((item) => {
-      if (item.isRead) {
-        return false;
-      }
-
-      return item.messageId === currentMessageId || item.conversationId === currentMessageId;
-    });
+    const matchingUnread = notifications.filter((item) => (
+      Number(item.unreadCount || 0) > 0 && item.conversationId === currentMessageId
+    ));
 
     if (matchingUnread.length === 0) {
       return;
     }
 
     matchingUnread.forEach((item) => {
-      markNotificationRead(item.id);
+      markNotificationRead(item.groupId);
     });
   }, [currentMessageId, markNotificationRead, notifications, token]);
 
@@ -743,7 +757,7 @@ export default function AdminNotificationCenter({
                 <div className="space-y-3">
                   {notifications.map((notification) => (
                     <NotificationItem
-                      key={notification.id}
+                      key={notification.groupId}
                       notification={notification}
                       onOpen={openNotification}
                       onMarkRead={markNotificationRead}

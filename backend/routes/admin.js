@@ -17,7 +17,10 @@ const {
 const { decryptText, encryptText } = require("../utils/encryption");
 const { generateAssistantResponse } = require("../services/ai");
 const {
-  serializeAdminNotification,
+  countUnreadAdminNotificationGroups,
+  deleteAdminNotificationGroup,
+  listAdminNotificationGroups,
+  markAdminNotificationGroupRead,
 } = require("../lib/admin-notifications");
 const {
   getDefaultSiteSettings,
@@ -3261,18 +3264,10 @@ router.get("/notifications", requireAdmin, async (request, response) => {
   try {
     const page = normalizePositiveInt(request.query?.page, 1, { max: 1000 });
     const limit = normalizePositiveInt(request.query?.limit, 12, { max: 50 });
-    const skip = (page - 1) * limit;
-    const [notifications, total] = await Promise.all([
-      prisma.adminNotification.findMany({
-        orderBy: [{ isRead: "asc" }, { createdAt: "desc" }],
-        skip,
-        take: limit,
-      }),
-      prisma.adminNotification.count(),
-    ]);
+    const { notifications, total } = await listAdminNotificationGroups({ page, limit });
 
     return response.json({
-      notifications: notifications.map(serializeAdminNotification),
+      notifications,
       pagination: {
         page,
         limit,
@@ -3288,9 +3283,7 @@ router.get("/notifications", requireAdmin, async (request, response) => {
 
 router.get("/notifications/unread-count", requireAdmin, async (_request, response) => {
   try {
-    const count = await prisma.adminNotification.count({
-      where: { isRead: false },
-    });
+    const count = await countUnreadAdminNotificationGroups();
 
     return response.json({ count });
   } catch (error) {
@@ -3315,25 +3308,21 @@ router.patch("/notifications/read-all", requireAdmin, async (_request, response)
 
 router.patch("/notifications/:id/read", requireAdmin, async (request, response) => {
   try {
-    const notificationId = normalizeString(request.params.id);
-    if (!notificationId) {
-      return response.status(400).json({ message: "Notification id is required." });
+    const groupId = normalizeString(request.params.id);
+    if (!groupId) {
+      return response.status(400).json({ message: "Notification group id is required." });
     }
 
-    const notification = await prisma.adminNotification.update({
-      where: { id: notificationId },
-      data: { isRead: true },
-    });
+    const notification = await markAdminNotificationGroupRead(groupId);
+    if (!notification) {
+      return response.status(404).json({ message: "Notification group not found." });
+    }
 
     return response.json({
-      message: "Notification marked as read.",
-      notification: serializeAdminNotification(notification),
+      message: "Notification group marked as read.",
+      notification,
     });
   } catch (error) {
-    if (error?.code === "P2025") {
-      return response.status(404).json({ message: "Notification not found." });
-    }
-
     console.error("Failed to mark admin notification as read:", error.message);
     return response.status(500).json({ message: "Failed to mark notification as read." });
   }
@@ -3341,23 +3330,20 @@ router.patch("/notifications/:id/read", requireAdmin, async (request, response) 
 
 router.delete("/notifications/:id", requireAdmin, async (request, response) => {
   try {
-    const notificationId = normalizeString(request.params.id);
-    if (!notificationId) {
-      return response.status(400).json({ message: "Notification id is required." });
+    const groupId = normalizeString(request.params.id);
+    if (!groupId) {
+      return response.status(400).json({ message: "Notification group id is required." });
     }
 
-    await prisma.adminNotification.delete({
-      where: { id: notificationId },
-    });
+    const deletedGroup = await deleteAdminNotificationGroup(groupId);
+    if (!deletedGroup) {
+      return response.status(404).json({ message: "Notification group not found." });
+    }
 
     return response.json({
-      message: "Notification deleted successfully.",
+      message: "Notification group deleted successfully.",
     });
   } catch (error) {
-    if (error?.code === "P2025") {
-      return response.status(404).json({ message: "Notification not found." });
-    }
-
     console.error("Failed to delete admin notification:", error.message);
     return response.status(500).json({ message: "Failed to delete notification." });
   }

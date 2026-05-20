@@ -2106,7 +2106,7 @@ router.post(
         preview: savedMessage.message,
         actionUrl: buildMessageActionUrl(savedMessage.id),
       });
-      emitAdminNotification(request.app.get("io"), "admin:new-message", newMessageNotification);
+      await emitAdminNotification(request.app.get("io"), "admin:new-message", newMessageNotification);
     } catch (notificationError) {
       console.error("Failed to create admin notification:", notificationError.message);
     }
@@ -2247,7 +2247,7 @@ router.post(
         preview: message,
         actionUrl: buildMessageActionUrl(ticket.id),
       });
-      emitAdminNotification(request.app.get("io"), "admin:message-reply", replyNotification);
+      await emitAdminNotification(request.app.get("io"), "admin:message-reply", replyNotification);
     } catch (notificationError) {
       console.error("Failed to create admin notification:", notificationError.message);
     }
