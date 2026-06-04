@@ -479,6 +479,8 @@ model SiteSettings {
   contactEmail          String
   mobileNumber          String
   footerText            String   @db.Text
+  privacyPolicyHtml     String   @db.LongText
+  termsConditionsHtml   String   @db.LongText
   canonicalUrl          String
   googleSiteVerification String
   googleVerificationFilePath String

@@ -76,6 +76,10 @@ const siteSettings = {
   contactEmail: "smshagor.ru@gmail.com",
   mobileNumber: "+79954949836",
   footerText: "Developer Portfolio by Shahanur Islam Shagor",
+  privacyPolicyHtml:
+    "<p>This privacy policy explains how this portfolio website handles visitor information, contact form submissions, analytics, and communication data.</p>",
+  termsConditionsHtml:
+    "<p>These terms and conditions explain the acceptable use of this portfolio website, its content, contact forms, and services information.</p>",
   canonicalUrl,
   googleSiteVerification: "",
   googleVerificationFilePath: "",

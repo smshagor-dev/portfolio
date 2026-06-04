@@ -125,6 +125,43 @@ export default async function RootLayout({ children }) {
         suppressHydrationWarning
         className={`${sansFont.variable} ${monoFont.variable} ${serifFont.variable}`}
       >
+        <Script id="strip-extension-skin-check-attrs" strategy="beforeInteractive">
+          {`
+            (function () {
+              function cleanSkinCheckAttributes(root) {
+                var scope = root && root.querySelectorAll ? root : document;
+                if (root && root.nodeType === 1 && root.hasAttribute && root.hasAttribute("bis_skin_checked")) {
+                  root.removeAttribute("bis_skin_checked");
+                }
+                var nodes = scope.querySelectorAll ? scope.querySelectorAll("[bis_skin_checked]") : [];
+                for (var i = 0; i < nodes.length; i += 1) {
+                  nodes[i].removeAttribute("bis_skin_checked");
+                }
+              }
+
+              cleanSkinCheckAttributes(document);
+
+              if (typeof MutationObserver !== "undefined") {
+                new MutationObserver(function (mutations) {
+                  for (var i = 0; i < mutations.length; i += 1) {
+                    var mutation = mutations[i];
+                    if (mutation.type === "attributes" && mutation.attributeName === "bis_skin_checked") {
+                      mutation.target.removeAttribute("bis_skin_checked");
+                    }
+                    for (var j = 0; j < mutation.addedNodes.length; j += 1) {
+                      cleanSkinCheckAttributes(mutation.addedNodes[j]);
+                    }
+                  }
+                }).observe(document.documentElement, {
+                  attributes: true,
+                  attributeFilter: ["bis_skin_checked"],
+                  childList: true,
+                  subtree: true
+                });
+              }
+            })();
+          `}
+        </Script>
         <LayoutShell
           footer={<Footer key="layout-footer" profile={profile} settings={siteSettings} />}
           navbar={<Navbar key="layout-navbar" profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />}

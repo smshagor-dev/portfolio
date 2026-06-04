@@ -31,6 +31,8 @@ export default async function sitemap() {
     "/service",
     "/pricing",
     "/contact",
+    "/privacy-policy",
+    "/terms-and-conditions",
     "/blog",
     "/artical",
     "/research",

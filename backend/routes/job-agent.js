@@ -33,6 +33,30 @@ const { buildManualJob } = require("../services/job-sources/manual-source");
 const router = express.Router();
 const oauthStates = new Map();
 
+function emitJobAgentUpdate(request, eventType, extra = {}) {
+  request.app.get("io")?.to("job-agent:admin").emit("job-agent:updated", {
+    eventType,
+    path: request.originalUrl,
+    method: request.method,
+    updatedAt: new Date().toISOString(),
+    ...extra,
+  });
+}
+
+router.use((request, response, next) => {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
+    return next();
+  }
+
+  response.on("finish", () => {
+    if (response.statusCode >= 200 && response.statusCode < 400) {
+      emitJobAgentUpdate(request, "MUTATION");
+    }
+  });
+
+  return next();
+});
+
 function normalizeString(value) {
   return String(value || "").trim();
 }

@@ -413,3 +413,52 @@ body {
   }
 }
 
+.legal-content {
+  line-height: 1.8;
+}
+
+.legal-content h1,
+.legal-content h2,
+.legal-content h3 {
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.legal-content h1 {
+  font-size: 2rem;
+}
+
+.legal-content h2 {
+  font-size: 1.5rem;
+}
+
+.legal-content h3 {
+  font-size: 1.2rem;
+}
+
+.legal-content p,
+.legal-content ul,
+.legal-content ol {
+  margin: 0.8rem 0;
+}
+
+.legal-content ul,
+.legal-content ol {
+  padding-left: 1.5rem;
+}
+
+.legal-content ul {
+  list-style: disc;
+}
+
+.legal-content ol {
+  list-style: decimal;
+}
+
+.legal-content a {
+  color: #8fdcff;
+  text-decoration: underline;
+}
+

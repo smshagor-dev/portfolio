@@ -2569,6 +2569,55 @@ router.delete("/ai/training/:id", requireAdmin, async (request, response) => {
   }
 });
 
+router.get("/legal-pages", requireAdmin, async (_request, response) => {
+  try {
+    const existing = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+    const settings = normalizeSiteSettings(existing || getDefaultSiteSettings());
+
+    return response.json({
+      privacyPolicyHtml: settings.privacyPolicyHtml,
+      termsConditionsHtml: settings.termsConditionsHtml,
+    });
+  } catch (error) {
+    console.error("Failed to load legal pages:", error.message);
+    return response.status(500).json({ message: "Failed to load legal pages." });
+  }
+});
+
+router.put("/legal-pages", requireAdmin, async (request, response) => {
+  try {
+    const existing = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+    const normalized = normalizeSiteSettings(
+      {
+        ...(existing || getDefaultSiteSettings()),
+        privacyPolicyHtml: String(request.body?.privacyPolicyHtml || "").trim(),
+        termsConditionsHtml: String(request.body?.termsConditionsHtml || "").trim(),
+      },
+      existing || {},
+    );
+
+    const settings = await prisma.siteSettings.upsert({
+      where: { id: 1 },
+      update: {
+        privacyPolicyHtml: normalized.privacyPolicyHtml,
+        termsConditionsHtml: normalized.termsConditionsHtml,
+      },
+      create: normalized,
+    });
+
+    emitContentUpdated(request, "legal-pages", {});
+
+    return response.json({
+      message: "Legal pages saved successfully.",
+      privacyPolicyHtml: settings.privacyPolicyHtml,
+      termsConditionsHtml: settings.termsConditionsHtml,
+    });
+  } catch (error) {
+    console.error("Failed to save legal pages:", error.message);
+    return response.status(500).json({ message: "Failed to save legal pages." });
+  }
+});
+
 router.get("/articles", requireAdmin, async (_request, response) => {
   try {
     if (!hasArticleModel()) {

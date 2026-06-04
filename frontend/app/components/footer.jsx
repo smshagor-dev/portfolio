@@ -26,12 +26,33 @@ function Footer({ profile, settings }) {
         <div className="flex justify-center -z-40">
           <div className="absolute top-0 h-[1px] w-1/2 bg-gradient-to-r from-transparent via-violet-500 to-transparent"></div>
         </div>
-        <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-          <p className="text-center text-sm text-[#c8d3e1] md:text-left">
-            © {currentYear} {footerText}
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
+          <nav aria-label="Footer legal links" className="md:justify-self-start">
+            <ul className="flex flex-wrap items-center justify-center gap-4 text-sm text-[#c8d3e1] md:justify-start">
+              <li>
+                <Link href="/privacy-policy" className="transition hover:text-[#16f2b3]">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms-and-conditions" className="transition hover:text-[#16f2b3]">
+                  Terms and Conditions
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="transition hover:text-[#16f2b3]">
+                  Contact
+                </Link>
+              </li>
+            </ul>
+          </nav>
+
+          <p className="text-center text-sm text-[#c8d3e1]">
+            &copy; {currentYear} {footerText}
           </p>
+
           {socialLinks.length > 0 ? (
-            <ul className="flex flex-wrap items-center justify-center gap-3 md:justify-end">
+            <ul className="flex flex-wrap items-center justify-center gap-3 md:justify-end md:justify-self-end">
               {socialLinks.map((item) => {
                 const Icon = item.icon;
 

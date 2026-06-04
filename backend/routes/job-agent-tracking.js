@@ -28,6 +28,15 @@ function getUserAgent(request) {
   return normalizeString(request.headers["user-agent"]).slice(0, 2000);
 }
 
+function emitTrackingUpdate(request, eventType) {
+  request.app.get("io")?.to("job-agent:admin").emit("job-agent:updated", {
+    eventType,
+    path: request.originalUrl,
+    method: request.method,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
 async function getDraftAndSetting(trackingId) {
   const draft = await prisma.jobEmailDraft.findUnique({
     where: { trackingId },
@@ -86,6 +95,7 @@ router.get("/track/open/:trackingId.png", async (request, response) => {
           },
         }),
       ]);
+      emitTrackingUpdate(request, "OPENED");
     }
   } catch (_error) {
     // Tracking should never break image loading.
@@ -136,6 +146,7 @@ router.get("/track/click/:trackingId", async (request, response) => {
           },
         }),
       ]);
+      emitTrackingUpdate(request, "CLICKED");
     }
   } catch (_error) {
     // Redirect should still happen even if tracking storage fails.

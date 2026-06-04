@@ -45,6 +45,7 @@ const adminTabs = [
   { id: "social", label: "Social", icon: HiOutlineUsers, href: "/admin/social" },
   { id: "contact", label: "Contact", icon: FiPhone, href: "/admin/contact" },
   { id: "messages", label: "Messages", icon: FiMail, href: "/admin/messages" },
+  { id: "privacy", label: "Privacy & Terms", icon: FiBookOpen, href: "/admin/privacy" },
   { id: "settings", label: "Settings", icon: FiSettings, href: "/admin/settings" },
 ];
 

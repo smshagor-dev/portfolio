@@ -34,6 +34,10 @@ function getDefaultSiteSettings() {
     contactEmail: "",
     mobileNumber: "",
     footerText: "All rights reserved.",
+    privacyPolicyHtml:
+      "<p>This privacy policy explains how this portfolio website handles visitor information, contact form submissions, analytics, and communication data.</p>",
+    termsConditionsHtml:
+      "<p>These terms and conditions explain the acceptable use of this portfolio website, its content, contact forms, and services information.</p>",
     canonicalUrl: appUrl,
     googleSiteVerification: "",
     googleVerificationFilePath: "",
@@ -80,6 +84,12 @@ function normalizeSiteSettings(value, fallback = {}) {
     contactEmail: normalizeString(value?.contactEmail ?? defaults.contactEmail),
     mobileNumber: normalizeString(value?.mobileNumber ?? defaults.mobileNumber),
     footerText: normalizeString(value?.footerText ?? defaults.footerText),
+    privacyPolicyHtml: String(
+      value?.privacyPolicyHtml ?? defaults.privacyPolicyHtml,
+    ).trim(),
+    termsConditionsHtml: String(
+      value?.termsConditionsHtml ?? defaults.termsConditionsHtml,
+    ).trim(),
     canonicalUrl: normalizeString(value?.canonicalUrl ?? defaults.canonicalUrl),
     googleSiteVerification: normalizeString(
       value?.googleSiteVerification ?? defaults.googleSiteVerification,

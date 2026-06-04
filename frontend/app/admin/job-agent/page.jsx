@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import {
   FiActivity,
@@ -19,7 +20,9 @@ import {
   FiTrash2,
 } from "react-icons/fi";
 import AdminFixedSidebarShell from "@/app/components/admin/admin-fixed-sidebar-shell";
-import { buildPublicApiUrl } from "@/lib/public-backend-url";
+import { buildPublicApiUrl, getSocketServerUrl } from "@/lib/public-backend-url";
+
+const socketServerUrl = getSocketServerUrl();
 
 const tabs = [
   { id: "overview", label: "Overview", icon: FiActivity },
@@ -180,6 +183,11 @@ export default function AdminJobAgentPage() {
   const [token, setToken] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [working, setWorking] = useState("");
+  const [liveState, setLiveState] = useState({
+    connected: false,
+    lastEvent: "",
+    lastUpdatedAt: "",
+  });
   const [state, setState] = useState({
     overview: { loading: true, error: "", data: null },
     gmail: { loading: true, error: "", data: null },
@@ -409,6 +417,72 @@ export default function AdminJobAgentPage() {
     setToken(savedToken);
     loadAll(savedToken);
   }, [loadAll, router]);
+
+  useEffect(() => {
+    if (!token || !socketServerUrl) {
+      return undefined;
+    }
+
+    let refreshTimer = null;
+    const socket = io(socketServerUrl, {
+      transports: ["websocket", "polling"],
+      auth: { token },
+    });
+
+    function scheduleLiveRefresh(payload = {}) {
+      setLiveState({
+        connected: true,
+        lastEvent: payload.eventType || "UPDATED",
+        lastUpdatedAt: payload.updatedAt || new Date().toISOString(),
+      });
+
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+      }
+
+      refreshTimer = window.setTimeout(() => {
+        Promise.all([
+          loadModule("overview"),
+          loadModule("gmail"),
+          loadModule("sources"),
+          loadModule("jobs"),
+          loadModule("matches"),
+          loadModule("drafts"),
+          loadModule("events"),
+          loadModule("email"),
+          loadModule("ai"),
+        ]).catch(() => null);
+      }, 350);
+    }
+
+    socket.on("connect", () => {
+      setLiveState((current) => ({ ...current, connected: true }));
+      socket.emit("job-agent:admin_join", { token });
+    });
+    socket.on("disconnect", () => {
+      setLiveState((current) => ({ ...current, connected: false }));
+    });
+    socket.on("job-agent:connected", (payload) => {
+      setLiveState({
+        connected: true,
+        lastEvent: "CONNECTED",
+        lastUpdatedAt: payload?.joinedAt || new Date().toISOString(),
+      });
+    });
+    socket.on("job-agent:updated", scheduleLiveRefresh);
+
+    return () => {
+      if (refreshTimer) {
+        window.clearTimeout(refreshTimer);
+      }
+      socket.emit("job-agent:admin_leave");
+      socket.off("connect");
+      socket.off("disconnect");
+      socket.off("job-agent:connected");
+      socket.off("job-agent:updated", scheduleLiveRefresh);
+      socket.disconnect();
+    };
+  }, [loadModule, token]);
 
   useEffect(() => {
     const status = searchParams.get("gmail");
@@ -784,6 +858,17 @@ export default function AdminJobAgentPage() {
             <button onClick={() => loadAll()} className="inline-flex items-center gap-2 rounded-full border border-[#6fd8ff]/30 px-4 py-3 text-sm font-semibold text-[#dff7ff]" type="button">
               <FiRefreshCw size={15} /> Refresh All
             </button>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#9fb1c7]">
+            <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 ${liveState.connected ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200" : "border-rose-400/25 bg-rose-400/10 text-rose-200"}`}>
+              <span className={`h-2 w-2 rounded-full ${liveState.connected ? "bg-emerald-300" : "bg-rose-300"}`} />
+              {liveState.connected ? "Live updates connected" : "Live updates disconnected"}
+            </span>
+            {liveState.lastUpdatedAt ? (
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2">
+                Last event: {liveState.lastEvent || "UPDATED"} at {formatDate(liveState.lastUpdatedAt)}
+              </span>
+            ) : null}
           </div>
           <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
             {tabs.map((tab) => {

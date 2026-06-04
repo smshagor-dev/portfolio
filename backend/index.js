@@ -314,6 +314,25 @@ io.on("connection", (socket) => {
     socket.leave("testimonials");
   });
 
+  socket.on("job-agent:admin_join", ({ token }) => {
+    const normalizedToken = String(token || "").trim();
+    if (!normalizedToken) {
+      return;
+    }
+
+    try {
+      verifyAdminToken(normalizedToken);
+      socket.join("job-agent:admin");
+      socket.emit("job-agent:connected", { connected: true, joinedAt: new Date().toISOString() });
+    } catch (_error) {
+      // Ignore failed admin socket joins.
+    }
+  });
+
+  socket.on("job-agent:admin_leave", () => {
+    socket.leave("job-agent:admin");
+  });
+
   socket.on("contact:join", async ({ messageId, token }) => {
     const normalizedId = Number.parseInt(messageId, 10);
     const normalizedToken = String(token || "").trim();
