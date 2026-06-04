@@ -8,6 +8,9 @@
     "db:seed": "node scripts/run-prisma.js db seed",
     "db:prepare": "node scripts/ensure-db.js && npm run db:generate && npm run db:migrate",
     "db:setup": "npm run db:prepare && npm run db:seed",
+    "smoke:job-agent-email": "node scripts/job-agent-email-smoke.js",
+    "smoke:job-agent-gmail": "node scripts/job-agent-gmail-smoke.js",
+    "smoke:job-agent-prompt": "node scripts/job-agent-prompt-smoke.js",
     "dev": "node scripts/stop-port-process.js 5000 && npm run db:setup && nodemon index.js",
     "start": "npm run db:prepare && node index.js"
   },

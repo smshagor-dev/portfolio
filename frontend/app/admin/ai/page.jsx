@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
-import { FiBarChart2, FiBookOpen, FiBriefcase, FiCheckCircle, FiCode, FiCpu, FiDollarSign, FiEye, FiEyeOff, FiFolder, FiHelpCircle, FiKey, FiLogOut, FiMail, FiMessageSquare, FiPhone, FiPlus, FiSave, FiSettings, FiTrash2 } from "react-icons/fi";
+import { FiBarChart2, FiBookOpen, FiBriefcase, FiCheckCircle, FiCode, FiCpu, FiDollarSign, FiEye, FiEyeOff, FiFolder, FiHelpCircle, FiKey, FiLogOut, FiMail, FiMessageSquare, FiPhone, FiPlus, FiSave, FiSend, FiSettings, FiTrash2 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
@@ -24,6 +24,7 @@ const adminTabs = [
   { id: "pricing", label: "Pricing", icon: FiDollarSign, href: "/admin/pricing" },
   { id: "faq", label: "FAQ", icon: FiHelpCircle, href: "/admin/faq" },
   { id: "ai", label: "AI Settings", icon: FiSettings, href: "/admin/ai" },
+  { id: "job-agent", label: "Job Agent", icon: FiSend, href: "/admin/job-agent" },
   { id: "testimonials", label: "Testimonials", icon: FiMessageSquare, href: "/admin/testimonials" },
   { id: "skills", label: "Skills", icon: FiCode, href: "/admin/skills" },
   { id: "experience", label: "Experience", icon: FiBriefcase, href: "/admin/experience" },

@@ -20,6 +20,7 @@ import {
   FiMail,
   FiMessageSquare,
   FiPhone,
+  FiSend,
   FiSettings,
 } from "react-icons/fi";
 
@@ -34,6 +35,7 @@ const adminTabs = [
   { id: "pricing", label: "Pricing", icon: FiDollarSign, href: "/admin/pricing" },
   { id: "faq", label: "FAQ", icon: FiHelpCircle, href: "/admin/faq" },
   { id: "ai", label: "AI Settings", icon: FiSettings, href: "/admin/ai" },
+  { id: "job-agent", label: "Job Agent", icon: FiSend, href: "/admin/job-agent" },
   { id: "testimonials", label: "Testimonials", icon: FiMessageSquare, href: "/admin/testimonials" },
   { id: "skills", label: "Skills", icon: FiCode, href: "/admin/skills" },
   { id: "experience", label: "Experience", icon: FiBriefcase, href: "/admin/experience" },
@@ -101,6 +103,7 @@ export default function AdminFixedSidebarShell({ children, title = "Portfolio Ad
               const Icon = tab.icon;
               const isActive =
                 pathname === tab.href ||
+                (tab.href === "/admin/job-agent" && pathname.startsWith("/admin/job-agent")) ||
                 (tab.href === "/admin/artical" && pathname.startsWith("/admin/artical/"));
 
               return (
@@ -137,6 +140,7 @@ export default function AdminFixedSidebarShell({ children, title = "Portfolio Ad
               const Icon = tab.icon;
               const isActive =
                 pathname === tab.href ||
+                (tab.href === "/admin/job-agent" && pathname.startsWith("/admin/job-agent")) ||
                 (tab.href === "/admin/artical" && pathname.startsWith("/admin/artical/"));
 
               return (

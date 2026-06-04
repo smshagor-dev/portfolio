@@ -728,6 +728,7 @@ const tabs = [
   { id: "pricing", label: "Pricing", icon: FiDollarSign, href: "/admin/pricing" },
   { id: "faq", label: "FAQ", icon: FiHelpCircle, href: "/admin/faq" },
   { id: "ai", label: "AI Settings", icon: FiSettings, href: "/admin/ai" },
+  { id: "job-agent", label: "Job Agent", icon: FiSend, href: "/admin/job-agent" },
   { id: "testimonials", label: "Testimonials", icon: FiMessageSquare, href: "/admin/testimonials" },
   { id: "skills", label: "Skills", icon: FiCode, href: "/admin/skills" },
   { id: "experience", label: "Experience", icon: FiBriefcase, href: "/admin/experience" },

@@ -9,6 +9,8 @@ const prisma = require("./lib/prisma");
 const { validateAuthConfig, verifyAdminToken } = require("./lib/auth");
 const adminRoutes = require("./routes/admin");
 const assistantRoutes = require("./routes/assistant");
+const jobAgentRoutes = require("./routes/job-agent");
+const jobAgentTrackingRoutes = require("./routes/job-agent-tracking");
 const researchRoutes = require("./routes/research");
 const siteRoutes = require("./routes/site");
 
@@ -391,6 +393,8 @@ app.get("/health", (_request, response) => {
 });
 
 app.use("/api/site", siteRoutes);
+app.use("/api/job-agent", jobAgentTrackingRoutes);
+app.use("/api/admin/job-agent", jobAgentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api", researchRoutes);
 app.use("/api", assistantRoutes);
