@@ -129,7 +129,7 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
             </span>
           </Link>
 
-          <ul className="flex flex-nowrap items-center justify-center gap-0.5 overflow-hidden 2xl:gap-x-3">
+          <ul className="m-0 flex list-none flex-nowrap items-center justify-center gap-0.5 overflow-hidden p-0 2xl:gap-x-3">
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
 
@@ -151,7 +151,7 @@ function Navbar({ profile, settings, emergencyContacts = [] }) {
               })}
           </ul>
 
-          <ul className="flex flex-nowrap items-center gap-2 text-[#f3ede2] 2xl:gap-4">
+          <ul className="m-0 flex list-none flex-nowrap items-center gap-2 p-0 text-[#f3ede2] 2xl:gap-4">
               {socialLinks.map((item) => {
                 const Icon = item.icon;
 
