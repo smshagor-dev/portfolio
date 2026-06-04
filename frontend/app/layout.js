@@ -169,7 +169,7 @@ export default async function RootLayout({ children }) {
           pageTopAdCode={siteSettings?.adsensePageTopCode}
           pageBottomAdCode={siteSettings?.adsensePageBottomCode}
         >
-          <div key="layout-content">
+          <div key="layout-content" className="w-full">
             <ToastProvider />
             <AdCodeSlot code={siteSettings?.adsenseHeadCode} className="hidden" label="Head Script" />
             <SiteAnalyticsTracker />

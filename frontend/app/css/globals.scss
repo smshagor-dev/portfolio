@@ -359,6 +359,28 @@ body {
   animation: navbarSweep 4.6s linear infinite;
 }
 
+.navbar-shell ul,
+.navbar-shell ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navbar-shell li::marker {
+  content: "";
+}
+
+.footer-shell ul,
+.footer-shell ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.footer-shell li::marker {
+  content: "";
+}
+
 .hero-skills-marquee {
   overflow: hidden;
 }

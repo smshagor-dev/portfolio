@@ -37,7 +37,7 @@ export default function LayoutShell({
         <div className="relative z-10 mx-auto w-full shrink-0 px-4 sm:px-6 lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem]">
           {navbar}
         </div>
-        <main className="relative mx-auto flex min-h-0 flex-1 w-full flex-col overflow-hidden px-0 text-white lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem]">
+        <main className="relative mx-auto flex min-h-0 w-full flex-1 flex-col overflow-hidden px-0 text-white lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem]">
           <div className="flex min-h-0 flex-1 flex-col [&>*]:flex [&>*]:min-h-0 [&>*]:flex-1 [&>*]:flex-col">
             {children}
           </div>
@@ -51,7 +51,7 @@ export default function LayoutShell({
 
   return (
     <>
-      <main className="relative mx-auto min-h-screen px-6 text-white sm:px-12 lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem]">
+      <main className="relative mx-auto min-h-screen w-full px-6 text-white sm:px-12 lg:max-w-[70rem] xl:max-w-[76rem] 2xl:max-w-[92rem]">
         {navbar}
         <AdCodeSlot
           code={pageTopAdCode}

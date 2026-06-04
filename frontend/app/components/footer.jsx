@@ -21,14 +21,14 @@ function Footer({ profile, settings }) {
     .filter((item) => item && item.icon);
 
   return (
-    <div className="relative border-t border-[#353951] bg-[#0d1224] text-white">
+    <div className="footer-shell relative border-t border-[#353951] bg-[#0d1224] text-white">
       <div className="mx-auto px-6 py-6 sm:px-12 lg:max-w-[70rem] lg:py-10 xl:max-w-[76rem] 2xl:max-w-[92rem]">
         <div className="flex justify-center -z-40">
           <div className="absolute top-0 h-[1px] w-1/2 bg-gradient-to-r from-transparent via-violet-500 to-transparent"></div>
         </div>
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
           <nav aria-label="Footer legal links" className="md:justify-self-start">
-            <ul className="flex flex-wrap items-center justify-center gap-4 text-sm text-[#c8d3e1] md:justify-start">
+            <ul className="m-0 flex list-none flex-wrap items-center justify-center gap-4 p-0 text-sm text-[#c8d3e1] md:justify-start">
               <li>
                 <Link href="/privacy-policy" className="transition hover:text-[#16f2b3]">
                   Privacy Policy
@@ -52,7 +52,7 @@ function Footer({ profile, settings }) {
           </p>
 
           {socialLinks.length > 0 ? (
-            <ul className="flex flex-wrap items-center justify-center gap-3 md:justify-end md:justify-self-end">
+            <ul className="m-0 flex list-none flex-wrap items-center justify-center gap-3 p-0 md:justify-end md:justify-self-end">
               {socialLinks.map((item) => {
                 const Icon = item.icon;
 
