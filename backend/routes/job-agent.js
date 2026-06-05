@@ -1810,6 +1810,33 @@ async function markDraftSendFailed(draftId, request = null, message = "") {
   return failedDraft;
 }
 
+async function hasSentJobEmailToRecipient(email, excludeDraftId = null) {
+  const recipientEmail = normalizeEmail(email);
+  if (!recipientEmail) return false;
+
+  const existingSentEvent = await prisma.jobAgentEmailEvent.findFirst({
+    where: {
+      eventType: "SENT",
+      recipientEmail,
+      ...(excludeDraftId ? { draftId: { not: excludeDraftId } } : {}),
+    },
+    select: { id: true },
+  });
+
+  if (existingSentEvent) return true;
+
+  const existingSentDraft = await prisma.jobEmailDraft.findFirst({
+    where: {
+      toEmail: recipientEmail,
+      status: { in: ["SENT", "OPENED", "CLICKED"] },
+      ...(excludeDraftId ? { id: { not: excludeDraftId } } : {}),
+    },
+    select: { id: true },
+  });
+
+  return Boolean(existingSentDraft);
+}
+
 async function sendDraftById(draftId, { request = null, toEmail: requestedToEmail = "", triggeredBy = "manual" } = {}) {
   const draft = await prisma.jobEmailDraft.findUnique({
     where: { id: draftId },
@@ -1819,6 +1846,13 @@ async function sendDraftById(draftId, { request = null, toEmail: requestedToEmai
   if (!draft) {
     const error = new Error("Draft was not found.");
     error.statusCode = 404;
+    throw error;
+  }
+
+  if (["SENT", "OPENED", "CLICKED"].includes(String(draft.status || "").toUpperCase())) {
+    const error = new Error("This draft was already sent.");
+    error.statusCode = 409;
+    error.skipFailureMark = true;
     throw error;
   }
 
@@ -1842,6 +1876,13 @@ async function sendDraftById(draftId, { request = null, toEmail: requestedToEmai
   if (!contact?.verified) {
     const error = new Error("Recipient must be a verified email manually provided or found in a job email/public company contact text.");
     error.statusCode = 400;
+    throw error;
+  }
+
+  if (await hasSentJobEmailToRecipient(toEmail, draft.id)) {
+    const error = new Error(`Already sent one job email to ${toEmail}. Duplicate sends are blocked.`);
+    error.statusCode = 409;
+    error.skipFailureMark = true;
     throw error;
   }
 
@@ -1877,6 +1918,14 @@ async function sendDraftById(draftId, { request = null, toEmail: requestedToEmai
       status: "READY",
     },
   });
+
+  if (await hasSentJobEmailToRecipient(toEmail, draft.id)) {
+    const error = new Error(`Already sent one job email to ${toEmail}. Duplicate sends are blocked.`);
+    error.statusCode = 409;
+    error.skipFailureMark = true;
+    throw error;
+  }
+
   const sent = await sendDraftEmail({ ...draftForSend, ...readyDraft, jobPost: draftForSend.jobPost || draft.jobPost }, setting, request, aiSettings);
   const sentAt = new Date();
 
@@ -1916,7 +1965,9 @@ async function sendJobEmailDraft(request, response, draftId) {
     return response.json({ message: "Draft sent with Job Agent Gmail SMTP.", draft: finalDraft });
   } catch (error) {
     console.error("Failed to send Job Agent draft:", error.message);
-    await markDraftSendFailed(draftId, request, error.message);
+    if (!error.skipFailureMark) {
+      await markDraftSendFailed(draftId, request, error.message);
+    }
     return response.status(error.statusCode || 500).json({ message: error.message || "Failed to send draft." });
   }
 }
@@ -2916,6 +2967,7 @@ async function runEmailAutoSendIfDue(io) {
     let sentCount = 0;
     let skippedCount = 0;
     const errors = [];
+    const recipientEmailsUsedThisRun = new Set();
 
     for (const draft of drafts) {
       if (sentCount >= take) break;
@@ -2927,6 +2979,11 @@ async function runEmailAutoSendIfDue(io) {
         continue;
       }
 
+      if (recipientEmailsUsedThisRun.has(toEmail) || await hasSentJobEmailToRecipient(toEmail, updatedDraft.id)) {
+        skippedCount += 1;
+        continue;
+      }
+
       if (aiSettings.requireAdminApproval && updatedDraft.approvalStatus !== "APPROVED") {
         skippedCount += 1;
         continue;
@@ -2934,11 +2991,16 @@ async function runEmailAutoSendIfDue(io) {
 
       try {
         await sendDraftById(updatedDraft.id, { toEmail, triggeredBy: "auto" });
+        recipientEmailsUsedThisRun.add(toEmail);
         sentCount += 1;
         sendsToday += 1;
       } catch (error) {
         if (error.statusCode === 429) {
           break;
+        }
+        if (error.skipFailureMark) {
+          skippedCount += 1;
+          continue;
         }
         errors.push({ draftId: updatedDraft.id, message: error.message });
         await markDraftSendFailed(updatedDraft.id, null, error.message);
