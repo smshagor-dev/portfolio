@@ -180,29 +180,6 @@ function normalizeString(value) {
   return String(value || "").trim();
 }
 
-async function loadDefaultCvProfile() {
-  return prisma.cvProfile.findFirst({
-    where: { isDefault: true },
-    orderBy: { updatedAt: "desc" },
-  });
-}
-
-function serializePublicProfile(profile, cvProfile) {
-  if (!profile) {
-    return profile;
-  }
-
-  const jobAgentResumeUrl = normalizeString(cvProfile?.resumeUrl);
-
-  return {
-    ...profile,
-    resume: jobAgentResumeUrl || profile.resume,
-    jobAgentResumeUrl,
-    jobAgentResumeFileName: normalizeString(cvProfile?.resumeFileName),
-    jobAgentResumeUpdatedAt: cvProfile?.resumeUpdatedAt || null,
-  };
-}
-
 function createTicketToken() {
   if (typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -876,9 +853,8 @@ async function getFaqsSafely() {
 
 router.get("/home", async (_request, response) => {
   try {
-    const [profile, cvProfile, siteSettings, serviceSection, services, statsCounters, achievements, skills, experiences, projects, educations, pricings, faqs, testimonials, articles, emergencyContacts] = await Promise.all([
+    const [profile, siteSettings, serviceSection, services, statsCounters, achievements, skills, experiences, projects, educations, pricings, faqs, testimonials, articles, emergencyContacts] = await Promise.all([
       prisma.profile.findUnique({ where: { id: 1 } }),
-      loadDefaultCvProfile(),
       getSiteSettingsRecord(),
       prisma.serviceSection.findUnique({ where: { id: 1 } }),
       prisma.service.findMany({
@@ -987,7 +963,7 @@ router.get("/home", async (_request, response) => {
     }
 
     return response.json({
-      profile: serializePublicProfile(profile, cvProfile),
+      profile,
       siteSettings: serializeSiteSettings(siteSettings),
       serviceSection,
       services: services.map((service) => ({
