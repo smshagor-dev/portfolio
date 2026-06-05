@@ -1729,6 +1729,9 @@ router.post("/profile-context/cv", requireAdmin, async (request, response) => {
         : await prisma.cvProfile.create({
             data: {
               title: "Job Agent CV",
+              extraNotes: "",
+              targetRoles: [],
+              preferredCountries: [],
               resumeUrl: publicUrl,
               resumeFileName: originalName,
               resumeUpdatedAt: new Date(),
