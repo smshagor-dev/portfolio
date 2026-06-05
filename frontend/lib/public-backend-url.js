@@ -65,8 +65,7 @@ export function buildPublicAssetUrl(pathname) {
         assetUrl.origin === backendOrigin &&
         shouldUseAppProxy(assetUrl.pathname)
       ) {
-        const proxiedPath = `${assetUrl.pathname}${assetUrl.search}${assetUrl.hash}`;
-        return appOrigin ? `${appOrigin}${proxiedPath}` : proxiedPath;
+        return `${assetUrl.pathname}${assetUrl.search}${assetUrl.hash}`;
       }
     } catch (_error) {
       return normalizedPathname;
@@ -83,7 +82,7 @@ export function buildPublicAssetUrl(pathname) {
     const backendOrigin = getOrigin(configuredPublicBackendUrl);
 
     if (appOrigin && appOrigin !== backendOrigin) {
-      return `${appOrigin}${normalizedPathname}`;
+      return normalizedPathname;
     }
 
     return buildPublicApiUrl(normalizedPathname);
