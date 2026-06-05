@@ -48,7 +48,7 @@ function normalizeHeroSkills(heroSkillsValue) {
 
 export default function HeroSection({ profile }) {
   const heroImage = buildPublicAssetUrl(profile?.profile || "/profile.png");
-  const resumeUrl = buildPublicAssetUrl(profile?.resume || "#");
+  const resumeUrl = buildPublicAssetUrl(profile?.jobAgentResumeUrl || profile?.resume || "#");
   const heroSkills = normalizeHeroSkills(profile?.heroSkills);
 
   return (
