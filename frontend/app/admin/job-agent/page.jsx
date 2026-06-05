@@ -64,6 +64,30 @@ const searchOptions = {
   preferredLanguagesJson: ["English", "German optional"],
 };
 
+const emailContentTestJobs = {
+  web: {
+    label: "Web Developer",
+    title: "Full-Stack Web Developer",
+    company: "Sample SaaS Company",
+    location: "Remote",
+    description: "We need a full-stack developer with React, Next.js, Node.js, Laravel, GraphQL, REST APIs, payment integrations, WebSockets, Docker, CI/CD, Nginx, and production performance optimization experience.",
+  },
+  drone: {
+    label: "Drone / AI",
+    title: "Autonomous Systems AI Engineer",
+    company: "Sample Robotics Lab",
+    location: "Hybrid",
+    description: "We are hiring an AI research engineer for GPS-denied UAV navigation, autonomous drones, sensor fusion, VIO, UWB TDOA, EKF, robotics, Python, C++20, embedded systems, and real-time computation.",
+  },
+  cyber: {
+    label: "Cyber Security",
+    title: "Cyber Security Engineer",
+    company: "Sample Secure Mobility",
+    location: "Remote",
+    description: "We need a cybersecurity engineer focused on secure communications, post-quantum cryptography, blockchain for V2X, Byzantine fault tolerance, OWASP hardening, Zero-Knowledge Proofs, threat detection, and secure web systems.",
+  },
+};
+
 const JOBS_PAGE_SIZE = 10;
 
 const actionLabels = {
@@ -369,6 +393,7 @@ export default function AdminJobAgentPage() {
   });
   const [showGeneratedPromptPreview, setShowGeneratedPromptPreview] = useState(false);
   const [aiPreview, setAiPreview] = useState({ email: null, coverLetterText: "", promptPreview: null });
+  const [emailContentTest, setEmailContentTest] = useState({ category: "", email: null, coverLetterText: "", promptPreview: null });
   const [draftEditor, setDraftEditor] = useState(null);
   const [draftView, setDraftView] = useState("ready");
 
@@ -980,6 +1005,26 @@ export default function AdminJobAgentPage() {
         promptPreview: data.promptPreview || current.promptPreview,
       }));
       toast.success(data.message || "Preview generated.");
+    });
+  }
+
+  function previewEmailContentTest(category) {
+    const sampleJob = emailContentTestJobs[category];
+    if (!sampleJob) return;
+
+    doAction(`ai-preview-email-test-${category}`, async () => {
+      const payload = JSON.stringify(sampleJob);
+      const [emailData, coverLetterData] = await Promise.all([
+        adminRequest("/api/admin/job-agent/ai/preview-email", { method: "POST", body: payload }),
+        adminRequest("/api/admin/job-agent/ai/preview-cover-letter", { method: "POST", body: payload }),
+      ]);
+      setEmailContentTest({
+        category,
+        email: emailData.email || null,
+        coverLetterText: coverLetterData.coverLetterText || emailData.coverLetterText || "",
+        promptPreview: coverLetterData.promptPreview || emailData.promptPreview || null,
+      });
+      toast.success(`${sampleJob.label} test preview generated.`);
     });
   }
 
@@ -1657,6 +1702,34 @@ export default function AdminJobAgentPage() {
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-3"><label className="flex justify-between rounded-[0.9rem] border border-white/10 p-3 text-white">Enabled<input type="checkbox" checked={emailForm.isEnabled} onChange={(event) => setEmailForm((current) => ({ ...current, isEnabled: event.target.checked }))} /></label><label className="flex justify-between rounded-[0.9rem] border border-white/10 p-3 text-white">Open tracking<input type="checkbox" checked={emailForm.openTrackingEnabled} onChange={(event) => setEmailForm((current) => ({ ...current, openTrackingEnabled: event.target.checked }))} /></label><label className="flex justify-between rounded-[0.9rem] border border-white/10 p-3 text-white">Click tracking<input type="checkbox" checked={emailForm.clickTrackingEnabled} onChange={(event) => setEmailForm((current) => ({ ...current, clickTrackingEnabled: event.target.checked }))} /></label></div>
               <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]"><FieldLabel label="Test email recipient"><input value={emailForm.testToEmail} onChange={(event) => setEmailForm((current) => ({ ...current, testToEmail: event.target.value }))} placeholder="Test email recipient" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel><button onClick={saveEmailSettings} className="mt-7 rounded-full border border-[#6fd8ff]/30 px-4 py-3 font-semibold text-[#dff7ff]">Save Email Settings</button><button onClick={sendTestEmail} className="mt-7 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-4 py-3 font-semibold text-[#07111d]">Send Test Email</button></div>
+              <div className="mt-5 rounded-[1rem] border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="font-semibold text-white">Email Content Test</h3>
+                    <p className="mt-1 text-sm text-[#9fb1c7]">Preview generated email and cover letter for web, drone/AI, and cyber security sample jobs.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(emailContentTestJobs).map(([key, sample]) => (
+                      <button key={key} onClick={() => previewEmailContentTest(key)} disabled={working === `ai-preview-email-test-${key}`} className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                        {sample.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {emailContentTest.email || emailContentTest.coverLetterText ? (
+                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                    <div className="rounded-[0.9rem] border border-white/10 bg-[#07111d] p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8ea7c2]">{emailContentTestJobs[emailContentTest.category]?.label || "Test"} email</p>
+                      <p className="mt-2 text-sm font-semibold text-[#dff7ff]">{emailContentTest.email?.subject || "No subject"}</p>
+                      <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap text-sm leading-6 text-[#cfe4f7]">{emailContentTest.email?.body || "No email preview yet."}</pre>
+                    </div>
+                    <div className="rounded-[0.9rem] border border-white/10 bg-[#07111d] p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8ea7c2]">{emailContentTestJobs[emailContentTest.category]?.label || "Test"} cover letter</p>
+                      <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap text-sm leading-6 text-[#cfe4f7]">{emailContentTest.coverLetterText || "No cover letter preview yet."}</pre>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </ModuleState>
           </section>
         )}

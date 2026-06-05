@@ -30,38 +30,103 @@ function wrapLine(line, maxChars = 88) {
   return lines.length ? lines : [""];
 }
 
-function buildPdfLines({ applicantName, applicantEmail, portfolioUrl, jobTitle, company, coverLetterText }) {
-  const header = [
-    applicantName || "Md Shahanur Islam Shagor",
-    applicantEmail,
-    portfolioUrl,
-    "",
-    `${jobTitle || "Cover Letter"}${company ? ` - ${company}` : ""}`,
-    "",
-  ].filter((line, index) => index < 3 ? Boolean(line) : true);
-
-  const body = normalizeString(coverLetterText)
-    .split(/\r?\n/)
-    .flatMap((line) => wrapLine(line, 88));
-
-  return [...header, ...body].slice(0, 70);
+function applicantHeader() {
+  return [
+    "Md Shahanur Islam Shagor",
+    "Full-Stack Developer & AI Engineer",
+    "smshagor.ru@gmail.com  |  +7 995 494 9836  |  www.smshagor.com",
+    "github.com/smshagor-dev  |  linkedin.com/in/sm-shagor",
+  ];
 }
 
-function buildSimplePdf(lines) {
-  const pageHeight = 792;
-  const lineHeight = 15;
-  const startY = 744;
-  const content = [
+function applicantFooter() {
+  return [
+    "Sincerely,",
+    "",
+    "Md Shahanur Islam Shagor",
+    "Full-Stack Developer & AI Engineer",
+  ];
+}
+
+function stripGeneratedLetterChrome(value) {
+  return normalizeString(value)
+    .replace(/^Md Shahanur Islam Shagor\s*/i, "")
+    .replace(/^Full-Stack Developer & AI Engineer\s*/i, "")
+    .replace(/^Dear Hiring Team,?\s*/i, "")
+    .replace(/^Hello,?\s*/i, "")
+    .replace(/Sincerely,?\s*Md Shahanur Islam Shagor\s*(Full-Stack Developer & AI Engineer)?\s*$/i, "")
+    .trim();
+}
+
+function buildPdfSections({ coverLetterText }) {
+  const paragraphs = stripGeneratedLetterChrome(coverLetterText)
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  return {
+    header: applicantHeader(),
+    body: paragraphs.flatMap((paragraph) => [...wrapLine(paragraph, 86).map((line) => ({ text: line, justify: true })), { text: "", justify: false }]).slice(0, 50),
+    footer: applicantFooter(),
+  };
+}
+
+function lineWidth(line, fontSize = 11) {
+  return String(line || "").length * fontSize * 0.52;
+}
+
+function centeredX(line, fontSize = 11, pageWidth = 612) {
+  return Math.max(40, Math.round((pageWidth - lineWidth(line, fontSize)) / 2));
+}
+
+function justifySpacing(line, fontSize = 11, targetWidth = 512) {
+  const words = String(line || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length < 4 || line.length < 45) return 0;
+  const naturalWidth = lineWidth(line, fontSize);
+  if (naturalWidth >= targetWidth) return 0;
+  return Math.min(4, Math.max(0, (targetWidth - naturalWidth) / (words.length - 1)));
+}
+
+function textAt(line, x, y, { fontSize = 11, wordSpacing = 0 } = {}) {
+  return [
     "BT",
-    "/F1 11 Tf",
-    "50 744 Td",
-    "14 TL",
-    ...lines.flatMap((line, index) => {
-      const escaped = escapePdfText(line);
-      return index === 0 ? [`(${escaped}) Tj`] : ["T*", `(${escaped}) Tj`];
-    }),
+    `/F1 ${fontSize} Tf`,
+    `${wordSpacing.toFixed(2)} Tw`,
+    `${x} ${y} Td`,
+    `(${escapePdfText(line)}) Tj`,
     "ET",
   ].join("\n");
+}
+
+function buildSimplePdf(sections) {
+  const pageHeight = 792;
+  let y = 744;
+  const parts = [];
+
+  sections.header.forEach((line, index) => {
+    const fontSize = index === 0 ? 13 : 10;
+    parts.push(textAt(line, centeredX(line, fontSize), y, { fontSize }));
+    y -= index === 0 ? 18 : 14;
+  });
+
+  y -= 16;
+  for (const line of sections.body) {
+    if (!line.text) {
+      y -= 10;
+      continue;
+    }
+    parts.push(textAt(line.text, 56, y, { fontSize: 11, wordSpacing: line.justify ? justifySpacing(line.text) : 0 }));
+    y -= 15;
+    if (y < 150) break;
+  }
+
+  y = Math.min(y - 10, 130);
+  sections.footer.forEach((line) => {
+    parts.push(textAt(line, 56, y, { fontSize: 11 }));
+    y -= 15;
+  });
+
+  const content = parts.join("\n");
   const stream = Buffer.from(content, "utf8");
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
@@ -92,18 +157,14 @@ async function generateCoverLetterPdf({ draftId, job, profileContext, coverLette
   const uploadRoot = path.resolve(process.cwd(), "public", "uploads", "job-agent");
   await fs.mkdir(uploadRoot, { recursive: true });
 
-  const profile = profileContext?.profile || {};
-  const lines = buildPdfLines({
-    applicantName: profile.name || "Md Shahanur Islam Shagor",
-    applicantEmail: profile.email,
-    portfolioUrl: profile.github || profile.linkedIn || profile.devUsername,
+  const sections = buildPdfSections({
     jobTitle: job?.title,
     company: job?.company,
     coverLetterText,
   });
   const filename = `cover-letter-${draftId}-${Date.now()}.pdf`;
   const filePath = path.join(uploadRoot, filename);
-  await fs.writeFile(filePath, buildSimplePdf(lines));
+  await fs.writeFile(filePath, buildSimplePdf(sections));
 
   return {
     publicUrl: `/uploads/job-agent/${filename}`,

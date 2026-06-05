@@ -34,7 +34,7 @@ const DEFAULT_RECRUITER_EMAIL_PROMPT =
   "Create a short recruiter outreach email for the job below. The email must feel personal, natural, and written by the applicant, not by an AI. Start with a simple greeting. If recruiter name exists, use it; otherwise use 'Hello'. Mention the exact role/company if available. Connect 1-2 strongest relevant skills or projects from the provided portfolio context to the job requirements. Keep the tone professional, warm, confident, and humble. Keep it under {{maxEmailWords}} words. Include that CV and cover letter are attached if attachments are enabled. Include portfolio link only if available. Do not overpromise. Do not use fake claims. End with a polite interest in discussing the opportunity.";
 
 const DEFAULT_COVER_LETTER_PROMPT =
-  "Write a customized cover letter for this job using only the provided real portfolio context. Make it recruiter-friendly, ATS-friendly, and natural. Structure it with a clear opening, relevant skills/projects/experience, motivation for the role, and a polite closing. Avoid generic filler and AI-style language. Do not invent facts. Keep it under {{maxCoverLetterWords}} words. The letter should make the recruiter feel the applicant is relevant, honest, motivated, and worth reviewing.";
+  "Write only the body paragraphs for a customized cover letter using the provided real portfolio context and job description. The PDF renderer will add the applicant header and signature footer automatically, so do not include contact details, greeting, or signature. Infer whether the job is web/full-stack, AI/research/drone/autonomous systems, cybersecurity/secure communications, embedded/IoT, or general software engineering, then emphasize the most relevant real experience. Make it recruiter-friendly, ATS-friendly, natural, and specific. Avoid generic filler and AI-style language. Do not invent facts. Keep it under {{maxCoverLetterWords}} words.";
 
 function normalizeString(value) {
   return String(value || "").trim();
@@ -252,6 +252,43 @@ function topSkills(profileContext, job, limit = 4) {
   return (matched.length ? matched : skills).slice(0, limit);
 }
 
+function inferApplicationFocus(job) {
+  const haystack = `${job?.title || ""} ${job?.company || ""} ${job?.description || ""}`.toLowerCase();
+  if (/(cyber|security|secure|cryptograph|post-quantum|blockchain|v2x|owasp|threat|zero-knowledge|zkp)/i.test(haystack)) {
+    return {
+      label: "cybersecurity and secure systems",
+      strengths: "post-quantum cryptography, secure communications, OWASP-aware application hardening, and threat-focused system design",
+      proof: "including work on post-quantum blockchain architecture for V2X communication and secure decentralized systems",
+    };
+  }
+  if (/(drone|uav|autonomous|robot|navigation|sensor fusion|vio|uwb|ekf|slam|research|ai|machine learning|computer vision)/i.test(haystack)) {
+    return {
+      label: "AI, research, and autonomous systems",
+      strengths: "autonomous drone systems, VIO, UWB TDOA, EKF fusion, C++20, Go, Python, and applied AI engineering",
+      proof: "including GPS-denied UAV navigation research and complete sensor-fusion system design",
+    };
+  }
+  if (/(embedded|iot|microcontroller|firmware|hardware|real-time|assistive|raspberry|arduino|sensor)/i.test(haystack)) {
+    return {
+      label: "embedded, IoT, and real-time systems",
+      strengths: "embedded hardware, IoT systems, sensor integration, real-time computation, and production software engineering",
+      proof: "including an embedded assistive navigation system with strong indoor accuracy at significantly reduced cost",
+    };
+  }
+  if (/(frontend|front-end|backend|back-end|full-stack|full stack|web|react|next|node|laravel|graphql|javascript|typescript|php|ecommerce|e-commerce|api)/i.test(haystack)) {
+    return {
+      label: "full-stack web development",
+      strengths: "Laravel, Next.js, React, Node.js, GraphQL, scalable architecture, payment integrations, WebSockets, CI/CD, Docker, and Nginx",
+      proof: "including production multivendor platforms, real-time features, API integrations, and Linux-based deployments",
+    };
+  }
+  return {
+    label: "software engineering and applied AI",
+    strengths: "full-stack engineering, applied AI, autonomous systems research, secure communications, and maintainable production delivery",
+    proof: "including production web applications and research systems across C++20, Go, Python, and modern web stacks",
+  };
+}
+
 function mockHumanEmail({ job, profileContext, settings, attachmentState, recruiterName }) {
   const greeting = recruiterName ? `Hello ${recruiterName},` : "Hello,";
   const skills = topSkills(profileContext, job, 2);
@@ -276,19 +313,17 @@ function mockHumanEmail({ job, profileContext, settings, attachmentState, recrui
 
 function mockCoverLetter({ job, profileContext }) {
   const skills = topSkills(profileContext, job, 4).join(", ") || "modern web development";
+  const focus = inferApplicationFocus(job);
+  const role = normalizeString(job?.title) || "software engineering";
+  const company = normalizeString(job?.company) || "your organization";
   return [
-    "Md Shahanur Islam Shagor",
+    `I am writing to express my strong interest in the ${role} role at ${company}. With more than four years of professional experience across ${focus.label}, I bring a combination of production-grade development skill and research-driven engineering judgment.`,
     "",
-    `Dear Hiring Team,`,
+    `My background aligns with this opportunity through ${focus.strengths}. I have delivered scalable applications and complete technical systems while keeping architecture, performance, security, and maintainability at the center of the work.`,
     "",
-    `I am writing to express my interest in the ${normalizeString(job?.title) || "open"} role${job?.company ? ` at ${job.company}` : ""}. My portfolio background shows practical experience across ${skills}, and I focus on building reliable, user-friendly software with clean implementation details.`,
+    `The job description especially connects with my experience in ${skills}. My related work includes ${focus.proof}, which reflects my ability to move between implementation, research, and real-world constraints.`,
     "",
-    `The role stood out to me because it connects closely with the kind of work I enjoy: solving real problems, learning quickly, and delivering thoughtful web experiences. Based on the provided job details, I believe my skills, projects, and experience would let me contribute with honesty and care from the start.`,
-    "",
-    "Thank you for reviewing my application. I would welcome the opportunity to discuss how my background can support your team.",
-    "",
-    "Sincerely,",
-    "Md Shahanur Islam Shagor",
+    "I work well across teams and disciplines, communicate clearly in English and Bengali, and stay self-directed when solving complex problems. I would welcome the opportunity to contribute to your team and discuss how my background aligns with your goals.",
   ].join("\n");
 }
 
