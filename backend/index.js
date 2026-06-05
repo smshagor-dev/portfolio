@@ -423,3 +423,18 @@ validateAuthConfig();
 server.listen(port, () => {
   console.log(`Backend server is running on ${serverBaseUrl}`);
 });
+
+if (typeof jobAgentRoutes.startJobAgentGmailAutoSync === "function") {
+  jobAgentRoutes.startJobAgentGmailAutoSync({ io });
+  console.log("Job Agent Gmail auto sync is scheduled every 6 hours.");
+}
+
+if (typeof jobAgentRoutes.startJobAgentApprovedSourcesAutoSync === "function") {
+  jobAgentRoutes.startJobAgentApprovedSourcesAutoSync({ io });
+  console.log("Job Agent approved sources auto sync is scheduled every 6 hours.");
+}
+
+if (typeof jobAgentRoutes.startJobAgentEmailAutoSend === "function") {
+  jobAgentRoutes.startJobAgentEmailAutoSend({ io });
+  console.log("Job Agent email auto-send is scheduled.");
+}
