@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const express = require("express");
 const fs = require("fs");
 const { google } = require("googleapis");
+const multer = require("multer");
 const nodemailer = require("nodemailer");
 const path = require("path");
 const prisma = require("../lib/prisma");
@@ -32,12 +33,40 @@ const { buildManualJob } = require("../services/job-sources/manual-source");
 
 const router = express.Router();
 const oauthStates = new Map();
+const jobAgentCvUploadDirectory = path.resolve(process.cwd(), "public", "uploads", "job-agent", "cv");
 const GMAIL_AUTO_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const APPROVED_SOURCES_AUTO_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const EMAIL_AUTO_SEND_INTERVAL_MS = Math.max(60 * 1000, Number.parseInt(process.env.JOB_AGENT_EMAIL_AUTO_SEND_INTERVAL_MS, 10) || 10 * 60 * 1000);
+const HUNTER_DAILY_CALL_LIMIT = Math.max(0, Number.parseInt(process.env.JOB_AGENT_HUNTER_MAX_CALLS_PER_DAY, 10) || 1);
+const JOB_APPLICATION_DAILY_SEND_LIMIT = Math.max(1, Number.parseInt(process.env.JOB_AGENT_APPLICATION_MAX_SENDS_PER_DAY, 10) || 1);
 let gmailAutoSyncRunning = false;
 let approvedSourcesAutoSyncRunning = false;
 let emailAutoSendRunning = false;
+
+if (!fs.existsSync(jobAgentCvUploadDirectory)) {
+  fs.mkdirSync(jobAgentCvUploadDirectory, { recursive: true });
+}
+
+const cvUpload = multer({
+  storage: multer.diskStorage({
+    destination(_request, _file, callback) {
+      callback(null, jobAgentCvUploadDirectory);
+    },
+    filename(_request, file, callback) {
+      const extension = path.extname(file.originalname || ".pdf").toLowerCase() || ".pdf";
+      callback(null, `agent-cv-${Date.now()}-${crypto.randomBytes(6).toString("hex")}${extension}`);
+    },
+  }),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter(_request, file, callback) {
+    const extension = path.extname(file.originalname || "").toLowerCase();
+    const allowed = [".pdf", ".doc", ".docx"];
+    if (!allowed.includes(extension)) {
+      return callback(new Error("Only PDF, DOC, or DOCX files are allowed for the Job Agent CV."));
+    }
+    return callback(null, true);
+  },
+});
 
 function emitJobAgentUpdate(request, eventType, extra = {}) {
   request.app.get("io")?.to("job-agent:admin").emit("job-agent:updated", {
@@ -158,11 +187,15 @@ async function getActiveAiConfiguration() {
 }
 
 function serializeSettings(settings) {
+  const quotaState = getInternalQuotaState(settings);
   return {
     ...settings,
     gmailRefreshToken: undefined,
     gmailConnected: Boolean(settings.gmailRefreshToken),
     gmailSafeQueries: SAFE_JOB_ALERT_QUERIES,
+    approvedApiSources: quotaState.sources,
+    hunterQuota: quotaState.quotas.hunter || { date: todayKey(), count: 0, limit: HUNTER_DAILY_CALL_LIMIT },
+    dailySendLimit: Math.min(settings.dailySendLimit || JOB_APPLICATION_DAILY_SEND_LIMIT, JOB_APPLICATION_DAILY_SEND_LIMIT),
   };
 }
 
@@ -747,7 +780,7 @@ function serializeEmailSetting(setting) {
     smtpPort: setting?.smtpPort || 465,
     smtpSecure: typeof setting?.smtpSecure === "boolean" ? setting.smtpSecure : true,
     smtpUsername: setting?.smtpUsername || "",
-    dailySendLimit: setting?.dailySendLimit || 5,
+    dailySendLimit: Math.min(setting?.dailySendLimit || JOB_APPLICATION_DAILY_SEND_LIMIT, JOB_APPLICATION_DAILY_SEND_LIMIT),
     isEnabled: Boolean(setting?.isEnabled),
     openTrackingEnabled: Boolean(setting?.openTrackingEnabled),
     clickTrackingEnabled: Boolean(setting?.clickTrackingEnabled),
@@ -881,7 +914,7 @@ async function getEmailSetting() {
     create: {
       id: 1,
       smtpPasswordEncrypted: "",
-      dailySendLimit: 5,
+      dailySendLimit: JOB_APPLICATION_DAILY_SEND_LIMIT,
       smtpHost: "smtp.gmail.com",
       smtpPort: 465,
       smtpSecure: true,
@@ -919,10 +952,69 @@ function recruiterEmailRank(email) {
   return 2;
 }
 
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getInternalQuotaState(settings) {
+  const approvedApiSources = settings?.approvedApiSources;
+  if (approvedApiSources && !Array.isArray(approvedApiSources) && typeof approvedApiSources === "object") {
+    return {
+      sources: Array.isArray(approvedApiSources.sources) ? approvedApiSources.sources : [],
+      quotas: approvedApiSources.quotas && typeof approvedApiSources.quotas === "object" ? approvedApiSources.quotas : {},
+    };
+  }
+  return {
+    sources: Array.isArray(approvedApiSources) ? approvedApiSources : [],
+    quotas: {},
+  };
+}
+
+async function reserveHunterDailyCall() {
+  if (HUNTER_DAILY_CALL_LIMIT <= 0) {
+    return false;
+  }
+
+  const settings = await getSettings();
+  const state = getInternalQuotaState(settings);
+  const date = todayKey();
+  const hunter = state.quotas.hunter || {};
+  const nextCount = hunter.date === date ? Number(hunter.count || 0) + 1 : 1;
+
+  if (nextCount > HUNTER_DAILY_CALL_LIMIT) {
+    return false;
+  }
+
+  await prisma.jobAgentSettings.update({
+    where: { id: settings.id },
+    data: {
+      approvedApiSources: {
+        sources: state.sources,
+        quotas: {
+          ...state.quotas,
+          hunter: {
+            date,
+            count: nextCount,
+            limit: HUNTER_DAILY_CALL_LIMIT,
+          },
+        },
+      },
+    },
+  });
+
+  return true;
+}
+
 async function lookupHunterRecruiterEmails(domain) {
   const apiKey = normalizeString(process.env.HUNTER_API_KEY || process.env.HUNTER_IO_API_KEY);
   const normalizedDomain = normalizeString(domain).toLowerCase();
   if (!apiKey || !normalizedDomain || typeof fetch !== "function") {
+    return [];
+  }
+
+  const quotaReserved = await reserveHunterDailyCall();
+  if (!quotaReserved) {
+    console.log(`Hunter lookup skipped: daily limit ${HUNTER_DAILY_CALL_LIMIT} reached.`);
     return [];
   }
 
@@ -1103,7 +1195,10 @@ function normalizeEmailSettingPayload(body, existing = null) {
     smtpPort,
     smtpSecure,
     smtpUsername,
-    dailySendLimit: Math.max(1, Number.parseInt(body?.dailySendLimit, 10) || existing?.dailySendLimit || 5),
+    dailySendLimit: Math.min(
+      JOB_APPLICATION_DAILY_SEND_LIMIT,
+      Math.max(1, Number.parseInt(body?.dailySendLimit, 10) || existing?.dailySendLimit || JOB_APPLICATION_DAILY_SEND_LIMIT),
+    ),
     isEnabled: typeof body?.isEnabled === "boolean" ? body.isEnabled : Boolean(existing?.isEnabled),
     openTrackingEnabled:
       typeof body?.openTrackingEnabled === "boolean"
@@ -1186,6 +1281,13 @@ function resolvePublicUploadPath(publicUrl) {
   return resolved;
 }
 
+function deletePublicUploadIfLocal(publicUrl) {
+  const resolved = resolvePublicUploadPath(publicUrl);
+  if (resolved && fs.existsSync(resolved)) {
+    fs.unlinkSync(resolved);
+  }
+}
+
 function buildAttachment(publicUrl, fallbackFilename) {
   const normalized = normalizeString(publicUrl);
   if (!normalized) {
@@ -1221,8 +1323,7 @@ function buildDraftAttachments(draft, aiSettings) {
 }
 
 async function countSentToday() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
+  const start = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   return prisma.jobAgentEmailEvent.count({
     where: {
@@ -1286,8 +1387,7 @@ router.get("/", requireAdmin, async (_request, response) => {
 
 router.get("/overview", requireAdmin, async (_request, response) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const gmailClientIdConfigured = Boolean(normalizeString(process.env.GOOGLE_CLIENT_ID || process.env.GMAIL_CLIENT_ID));
     const gmailClientSecretConfigured = Boolean(normalizeString(process.env.GOOGLE_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET));
     const gmailRedirectUriConfigured = Boolean(normalizeString(process.env.GMAIL_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI));
@@ -1304,7 +1404,7 @@ router.get("/overview", requireAdmin, async (_request, response) => {
         prisma.jobEmailDraft.count({ where: { openCount: { gt: 0 } } }),
         prisma.jobEmailDraft.count({ where: { clickCount: { gt: 0 } } }),
         prisma.jobEmailDraft.count({ where: { status: "FAILED" } }),
-        prisma.jobAgentEmailEvent.count({ where: { eventType: "SENT", createdAt: { gte: today } } }),
+        prisma.jobAgentEmailEvent.count({ where: { eventType: "SENT", createdAt: { gte: last24Hours } } }),
         prisma.jobPost.count({ where: { sourceType: "gmail" } }),
         prisma.jobPost.count({ where: { importMethod: { in: ["API", "RSS", "PUBLIC_BOARD", "COMPANY_CAREER_SITE"] } } }),
         prisma.jobPost.count({ where: { importMethod: "MANUAL" } }),
@@ -1327,6 +1427,7 @@ router.get("/overview", requireAdmin, async (_request, response) => {
     const gmailConnected = Boolean(settings.gmailRefreshToken);
     const smtpPasswordConfigured = Boolean(emailSetting.smtpPasswordEncrypted);
     const smtpReady = Boolean(emailSetting.isEnabled && emailSetting.fromEmail && emailSetting.smtpUsername && smtpPasswordConfigured);
+    const effectiveDailySendLimit = Math.min(emailSetting.dailySendLimit || JOB_APPLICATION_DAILY_SEND_LIMIT, JOB_APPLICATION_DAILY_SEND_LIMIT);
 
     return response.json({
       overview: {
@@ -1342,7 +1443,7 @@ router.get("/overview", requireAdmin, async (_request, response) => {
         jobsNeedingDescription,
         autoDraftedJobs,
         sentToday,
-        dailySendLimit: emailSetting.dailySendLimit,
+        dailySendLimit: effectiveDailySendLimit,
         gmail: {
           oauthConfigured: gmailOAuthConfigured,
           clientIdConfigured: gmailClientIdConfigured,
@@ -1367,7 +1468,7 @@ router.get("/overview", requireAdmin, async (_request, response) => {
           smtpPort: emailSetting.smtpPort,
           smtpSecure: Boolean(emailSetting.smtpSecure),
           passwordConfigured: smtpPasswordConfigured,
-          dailySendLimit: emailSetting.dailySendLimit,
+          dailySendLimit: effectiveDailySendLimit,
           ready: smtpReady,
           status: smtpReady ? "READY" : Boolean(emailSetting.isEnabled) ? "CONFIG_REQUIRED" : "DISABLED",
           message: smtpReady
@@ -1583,27 +1684,106 @@ router.put("/profile-context/notes", requireAdmin, async (request, response) => 
   }
 });
 
+router.post("/profile-context/cv", requireAdmin, async (request, response) => {
+  cvUpload.single("cv")(request, response, async (error) => {
+    if (error) {
+      return response.status(400).json({ message: error.message || "Failed to upload Job Agent CV." });
+    }
+
+    if (!request.file) {
+      return response.status(400).json({ message: "Please choose a CV file to upload." });
+    }
+
+    try {
+      const existing = await prisma.cvProfile.findFirst({
+        where: { isDefault: true },
+        orderBy: { updatedAt: "desc" },
+      });
+      const publicUrl = `/uploads/job-agent/cv/${request.file.filename}`;
+      const originalName = normalizeString(request.file.originalname) || request.file.filename;
+
+      if (existing?.resumeUrl && existing.resumeUrl !== publicUrl) {
+        deletePublicUploadIfLocal(existing.resumeUrl);
+      }
+
+      for (const filename of fs.readdirSync(jobAgentCvUploadDirectory)) {
+        if (filename !== request.file.filename) {
+          const resolved = path.resolve(jobAgentCvUploadDirectory, filename);
+          if (resolved.startsWith(jobAgentCvUploadDirectory) && fs.existsSync(resolved)) {
+            fs.unlinkSync(resolved);
+          }
+        }
+      }
+
+      const cvProfile = existing
+        ? await prisma.cvProfile.update({
+            where: { id: existing.id },
+            data: {
+              title: "Job Agent CV",
+              resumeUrl: publicUrl,
+              resumeFileName: originalName,
+              resumeUpdatedAt: new Date(),
+              isDefault: true,
+            },
+          })
+        : await prisma.cvProfile.create({
+            data: {
+              title: "Job Agent CV",
+              resumeUrl: publicUrl,
+              resumeFileName: originalName,
+              resumeUpdatedAt: new Date(),
+              isDefault: true,
+            },
+          });
+
+      await prisma.jobEmailDraft.updateMany({
+        where: { status: { in: ["DRAFT", "READY"] } },
+        data: { cvUrl: publicUrl },
+      });
+
+      const profileContext = await buildJobAgentProfileContext();
+      return response.json({
+        message: "Job Agent CV uploaded. Previous CV was replaced.",
+        cvProfile,
+        profileContext,
+      });
+    } catch (uploadError) {
+      console.error("Failed to upload Job Agent CV:", uploadError.message);
+      deletePublicUploadIfLocal(`/uploads/job-agent/cv/${request.file.filename}`);
+      return response.status(500).json({ message: uploadError.message || "Failed to upload Job Agent CV." });
+    }
+  });
+});
+
 router.put("/settings", requireAdmin, async (request, response) => {
   try {
+    const existingSettings = await getSettings();
+    const existingQuotaState = getInternalQuotaState(existingSettings);
+    const approvedApiSources = {
+      sources: Array.isArray(request.body?.approvedApiSources)
+        ? request.body.approvedApiSources
+        : existingQuotaState.sources,
+      quotas: existingQuotaState.quotas,
+    };
+    const dailySendLimit = Math.min(
+      JOB_APPLICATION_DAILY_SEND_LIMIT,
+      Math.max(1, Number.parseInt(request.body?.dailySendLimit, 10) || existingSettings.dailySendLimit || JOB_APPLICATION_DAILY_SEND_LIMIT),
+    );
     const settings = await prisma.jobAgentSettings.upsert({
       where: { id: 1 },
       update: {
         gmailQuery: normalizeString(request.body?.gmailQuery) || undefined,
-        dailySendLimit: Math.max(1, Number.parseInt(request.body?.dailySendLimit, 10) || 5),
+        dailySendLimit,
         autoSendEnabled: false,
-        approvedApiSources: Array.isArray(request.body?.approvedApiSources)
-          ? request.body.approvedApiSources
-          : [],
+        approvedApiSources,
       },
       create: {
         id: 1,
         gmailRefreshToken: "",
         gmailQuery: normalizeString(request.body?.gmailQuery) || undefined,
-        dailySendLimit: Math.max(1, Number.parseInt(request.body?.dailySendLimit, 10) || 5),
+        dailySendLimit,
         autoSendEnabled: false,
-        approvedApiSources: Array.isArray(request.body?.approvedApiSources)
-          ? request.body.approvedApiSources
-          : [],
+        approvedApiSources,
       },
     });
 
@@ -1898,7 +2078,8 @@ async function sendDraftById(draftId, { request = null, toEmail: requestedToEmai
   validateEmailSettingForSend(setting);
 
   const sendsToday = await countSentToday();
-  if (sendsToday >= setting.dailySendLimit) {
+  const effectiveDailySendLimit = Math.min(setting.dailySendLimit || JOB_APPLICATION_DAILY_SEND_LIMIT, JOB_APPLICATION_DAILY_SEND_LIMIT);
+  if (sendsToday >= effectiveDailySendLimit) {
     const error = new Error("Daily job email sending limit reached.");
     error.statusCode = 429;
     throw error;
@@ -2947,7 +3128,8 @@ async function runEmailAutoSendIfDue(io) {
     validateEmailSettingForSend(setting);
 
     let sendsToday = await countSentToday();
-    const remainingToday = Math.max(0, (setting.dailySendLimit || 0) - sendsToday);
+    const effectiveDailySendLimit = Math.min(setting.dailySendLimit || JOB_APPLICATION_DAILY_SEND_LIMIT, JOB_APPLICATION_DAILY_SEND_LIMIT);
+    const remainingToday = Math.max(0, effectiveDailySendLimit - sendsToday);
     const maxPerRun = Math.max(1, Number.parseInt(process.env.JOB_AGENT_EMAIL_AUTO_SEND_MAX_PER_RUN, 10) || 10);
     const take = Math.min(remainingToday, maxPerRun);
     if (take <= 0) {
@@ -3025,7 +3207,7 @@ async function runEmailAutoSendIfDue(io) {
       sentCount,
       skippedCount,
       errors,
-      dailySendLimit: setting.dailySendLimit,
+      dailySendLimit: effectiveDailySendLimit,
       sendsToday,
       message: `Auto-sent ${sentCount} email(s).`,
     };

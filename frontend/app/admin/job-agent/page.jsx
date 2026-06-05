@@ -77,7 +77,7 @@ const emailContentTestJobs = {
     title: "Autonomous Systems AI Engineer",
     company: "Sample Robotics Lab",
     location: "Hybrid",
-    description: "We are hiring an AI research engineer for GPS-denied UAV navigation, autonomous drones, sensor fusion, VIO, UWB TDOA, EKF, robotics, Python, C++20, embedded systems, and real-time computation.",
+    description: "We are hiring an AI research engineer for GPS-denied UAV navigation, autonomous drones, sensor fusion, VIO, UWB TDOA, EKF, robotics, machine learning, deep learning, computer vision, NLP fundamentals, data and feature engineering, model evaluation, Python, C++20, embedded systems, and real-time AI computation.",
   },
   cyber: {
     label: "Cyber Security",
@@ -101,6 +101,7 @@ const actionLabels = {
   "sources-sync": "Syncing approved sources",
   "company-source-add": "Adding company source",
   "profile-notes": "Saving profile notes",
+  "cv-upload": "Uploading Job Agent CV",
   "email-settings": "Saving email settings",
   "email-test": "Sending test email",
   "ai-settings": "Saving AI settings",
@@ -306,6 +307,7 @@ export default function AdminJobAgentPage() {
     events: { loading: true, error: "", data: [] },
   });
   const [cvNotesForm, setCvNotesForm] = useState({ extraNotes: "", targetRoles: "", preferredCountries: "", resumeUrl: "", resumeFileName: "" });
+  const [cvUploadFile, setCvUploadFile] = useState(null);
   const [emailForm, setEmailForm] = useState({
     fromName: "",
     fromEmail: "",
@@ -894,6 +896,38 @@ export default function AdminJobAgentPage() {
     }, ["profile"]);
   }
 
+  function uploadAgentCv() {
+    if (!cvUploadFile) {
+      toast.error("Choose a CV file first.");
+      return;
+    }
+
+    doAction("cv-upload", async () => {
+      const formData = new FormData();
+      formData.append("cv", cvUploadFile);
+      const response = await fetch(buildPublicApiUrl("/api/admin/job-agent/profile-context/cv"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        localStorage.removeItem("portfolio_admin_token");
+        localStorage.removeItem("portfolio_admin_user");
+        router.replace("/login/admin");
+        throw new Error("Admin session expired.");
+      }
+      if (!response.ok) throw new Error(data.message || "Failed to upload Job Agent CV.");
+      setCvUploadFile(null);
+      setCvNotesForm((current) => ({
+        ...current,
+        resumeUrl: data.cvProfile?.resumeUrl || "",
+        resumeFileName: data.cvProfile?.resumeFileName || "",
+      }));
+      toast.success(data.message || "Job Agent CV uploaded.");
+    }, ["profile", "drafts", "overview"]);
+  }
+
   function addDescription(job) {
     const description = window.prompt("Paste the manual job description:", "");
     if (!description) return;
@@ -1458,6 +1492,16 @@ export default function AdminJobAgentPage() {
                 </div>
                 <div className="space-y-3 rounded-[1rem] border border-white/10 bg-white/[0.03] p-4">
                   <h2 className="font-semibold text-white">Optional CV Notes</h2>
+                  <div className="rounded-[0.9rem] border border-[#6fd8ff]/20 bg-[#07111d] p-3">
+                    <p className="text-sm font-semibold text-white">Agent CV</p>
+                    <p className="mt-1 text-sm text-[#9fb1c7]">{cvNotesForm.resumeFileName || "No Job Agent CV uploaded yet."}</p>
+                    {cvNotesForm.resumeUrl ? <a href={buildPublicApiUrl(cvNotesForm.resumeUrl)} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm text-[#9fdcff]">Open current CV</a> : null}
+                    <div className="mt-3 grid gap-2">
+                      <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => setCvUploadFile(event.target.files?.[0] || null)} className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none" />
+                      <button onClick={uploadAgentCv} type="button" disabled={!cvUploadFile || working === "cv-upload"} className="inline-flex w-fit items-center gap-2 rounded-full border border-[#6fd8ff]/30 px-4 py-2 text-sm font-semibold text-[#dff7ff] disabled:opacity-50">Upload / Replace CV</button>
+                    </div>
+                    <p className="mt-2 text-xs text-[#8ea7c2]">Replacing CV deletes the previous Job Agent CV and updates unsent drafts to attach the new file.</p>
+                  </div>
                   <FieldLabel label="Extra notes"><textarea value={cvNotesForm.extraNotes} onChange={(event) => setCvNotesForm((current) => ({ ...current, extraNotes: event.target.value }))} rows={5} placeholder="Optional notes" className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" /></FieldLabel>
                   <FieldLabel label="Target roles"><textarea value={cvNotesForm.targetRoles} onChange={(event) => setCvNotesForm((current) => ({ ...current, targetRoles: event.target.value }))} rows={3} placeholder="One per line" className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" /></FieldLabel>
                   <FieldLabel label="Preferred countries"><textarea value={cvNotesForm.preferredCountries} onChange={(event) => setCvNotesForm((current) => ({ ...current, preferredCountries: event.target.value }))} rows={3} placeholder="One per line" className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" /></FieldLabel>

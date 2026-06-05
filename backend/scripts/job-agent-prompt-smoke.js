@@ -62,7 +62,9 @@ async function main() {
   assert(joined.includes("Hello"), "Prompt missing fallback greeting rule.");
   assert(joined.includes("90-140 words") || joined.includes("90–140 words"), "Prompt missing recruiter email word range.");
   assert(joined.includes("No markdown"), "Prompt missing no-markdown rule.");
-  assert(joined.includes("No bullet points"), "Prompt missing no-bullet-points rule.");
+  assert(joined.includes("No markdown tables"), "Prompt missing no-markdown-tables rule.");
+  assert(joined.includes("Do not mention missing skills"), "Prompt missing missing-skills exclusion rule.");
+  assert(joined.includes("Select ONLY ONE role category"), "Prompt missing role-category selection rule.");
   assert(joined.includes("No emojis"), "Prompt missing no-emojis rule.");
   assert(joined.includes("Application for"), "Prompt missing subject format.");
   assert(
