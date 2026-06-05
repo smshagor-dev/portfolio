@@ -47,7 +47,31 @@ export function buildPublicAssetUrl(pathname) {
     return "";
   }
 
-  if (/^https?:\/\//i.test(normalizedPathname) || normalizedPathname.startsWith("data:")) {
+  if (normalizedPathname.startsWith("data:")) {
+    return normalizedPathname;
+  }
+
+  if (/^https?:\/\//i.test(normalizedPathname)) {
+    const appOrigin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : getOrigin(configuredAppUrl);
+    const backendOrigin = getOrigin(configuredPublicBackendUrl);
+
+    try {
+      const assetUrl = new URL(normalizedPathname);
+      if (
+        backendOrigin &&
+        assetUrl.origin === backendOrigin &&
+        shouldUseAppProxy(assetUrl.pathname)
+      ) {
+        const proxiedPath = `${assetUrl.pathname}${assetUrl.search}${assetUrl.hash}`;
+        return appOrigin ? `${appOrigin}${proxiedPath}` : proxiedPath;
+      }
+    } catch (_error) {
+      return normalizedPathname;
+    }
+
     return normalizedPathname;
   }
 
