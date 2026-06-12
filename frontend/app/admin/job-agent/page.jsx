@@ -106,8 +106,18 @@ const actionLabels = {
   "email-test": "Sending test email",
   "ai-settings": "Saving AI settings",
   "approve-all-drafts": "Approving all email-ready drafts",
-  "collect-draft-emails": "Collecting recruiter emails",
+  "collect-draft-emails": "Running public contact discovery",
 };
+
+const pageShellClass = "mx-auto w-full max-w-[1680px] space-y-5 px-0 pb-8 sm:space-y-6";
+const surfaceClass = "rounded-xl border border-white/10 bg-[#08111d]/90 p-4 shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:p-5";
+const elevatedSurfaceClass = "rounded-xl border border-white/10 bg-[linear-gradient(180deg,rgba(15,26,42,0.96),rgba(8,17,29,0.94))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.3)] sm:p-6";
+const softPanelClass = "rounded-lg border border-white/10 bg-white/[0.035] p-4";
+const inputClass = "min-h-11 rounded-lg border border-white/10 bg-white/[0.045] px-3 text-sm text-white outline-none transition placeholder:text-[#61758c] focus:border-[#6fd8ff]/60 focus:bg-white/[0.07]";
+const textareaClass = "rounded-lg border border-white/10 bg-white/[0.045] px-3 py-3 text-sm text-white outline-none transition placeholder:text-[#61758c] focus:border-[#6fd8ff]/60 focus:bg-white/[0.07]";
+const selectClass = "min-h-11 rounded-lg border border-white/10 bg-[#0b1524] px-3 text-sm text-white outline-none transition focus:border-[#6fd8ff]/60";
+const ghostButtonClass = "inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-sm font-semibold text-[#dce8f6] transition hover:border-white/20 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50";
+const accentButtonClass = "inline-flex items-center justify-center gap-2 rounded-lg border border-[#6fd8ff]/30 bg-[#6fd8ff]/10 px-4 py-3 text-sm font-semibold text-[#dff7ff] transition hover:border-[#6fd8ff]/50 hover:bg-[#6fd8ff]/15 disabled:cursor-not-allowed disabled:opacity-50";
 
 function formatDate(value) {
   if (!value) return "Not available";
@@ -127,13 +137,13 @@ function statusPill(value) {
 
 function ModuleState({ loading, error, empty, children, emptyText = "No records found." }) {
   if (loading) {
-    return <div className="rounded-[1rem] border border-white/10 bg-white/[0.03] p-5 text-sm text-[#9fb1c7]">Loading...</div>;
+    return <div className="rounded-lg border border-white/10 bg-white/[0.035] p-5 text-sm text-[#9fb1c7]">Loading...</div>;
   }
   if (error) {
-    return <div className="rounded-[1rem] border border-rose-400/25 bg-rose-400/10 p-5 text-sm text-rose-100">{error}</div>;
+    return <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 p-5 text-sm text-rose-100">{error}</div>;
   }
   if (empty) {
-    return <div className="rounded-[1rem] border border-dashed border-white/10 bg-white/[0.03] p-5 text-sm text-[#9fb1c7]">{emptyText}</div>;
+    return <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.035] p-5 text-sm text-[#9fb1c7]">{emptyText}</div>;
   }
   return children;
 }
@@ -145,7 +155,7 @@ function StatCard({ label, value, tone = "default" }) {
       ? "border-rose-400/20 bg-rose-400/10"
       : "border-white/10 bg-white/[0.04]";
   return (
-    <div className={`rounded-[1rem] border p-4 ${toneClass}`}>
+    <div className={`rounded-lg border p-4 transition hover:border-white/20 ${toneClass}`}>
       <p className="text-xs uppercase tracking-[0.16em] text-[#8ea7c2]">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
     </div>
@@ -171,7 +181,7 @@ function StatusBadge({ status }) {
 
 function CheckLine({ label, ok }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-sm">
       <span className="text-[#9fb1c7]">{label}</span>
       <span className={ok ? "text-emerald-200" : "text-rose-200"}>{ok ? "Configured" : "Missing"}</span>
     </div>
@@ -186,7 +196,7 @@ function OverviewStatusCard({ title, status, message, children }) {
       ? "border-rose-400/20"
       : "border-white/10";
   return (
-    <article className={`rounded-[1.2rem] border ${borderClass} bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.025))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.18)]`}>
+    <article className={`rounded-xl border ${borderClass} bg-[linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.025))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.18)]`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-white">{title}</h2>
@@ -209,11 +219,11 @@ function CheckboxGroup({ label, options, values, onChange }) {
     onChange(selected.includes(option) ? selected.filter((item) => item !== option) : [...selected, option]);
   }
   return (
-    <div className="rounded-[1rem] border border-white/10 bg-white/[0.03] p-4">
+    <div className={softPanelClass}>
       <p className="text-sm font-semibold text-white">{label}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {options.map((option) => (
-          <button key={option} type="button" onClick={() => toggle(option)} className={`rounded-full border px-3 py-2 text-xs ${selected.includes(option) ? "border-[#6fd8ff]/60 bg-[#16304a] text-white" : "border-white/10 text-[#bfd0e2]"}`}>
+          <button key={option} type="button" onClick={() => toggle(option)} className={`rounded-lg border px-3 py-2 text-xs transition ${selected.includes(option) ? "border-[#6fd8ff]/60 bg-[#16304a] text-white" : "border-white/10 bg-white/[0.025] text-[#bfd0e2] hover:border-white/20"}`}>
             {option}
           </button>
         ))}
@@ -225,7 +235,7 @@ function CheckboxGroup({ label, options, values, onChange }) {
 function FieldLabel({ label, children, className = "" }) {
   return (
     <label className={`grid gap-2 text-sm ${className}`}>
-      <span className="font-semibold text-[#cfe4f7]">{label}</span>
+      <span className="font-semibold text-[#d7e7f8]">{label}</span>
       {children}
     </label>
   );
@@ -311,6 +321,7 @@ export default function AdminJobAgentPage() {
   const [emailForm, setEmailForm] = useState({
     fromName: "",
     fromEmail: "",
+    smtpHost: "smtp.gmail.com",
     smtpUsername: "",
     smtpPassword: "",
     smtpPort: 465,
@@ -484,6 +495,7 @@ export default function AdminJobAgentPage() {
           ...current,
           fromName: payload?.fromName || "",
           fromEmail: payload?.fromEmail || "",
+          smtpHost: payload?.smtpHost || "smtp.gmail.com",
           smtpUsername: payload?.smtpUsername || "",
           smtpPassword: "",
           smtpPort: payload?.smtpPort || 465,
@@ -672,6 +684,10 @@ export default function AdminJobAgentPage() {
       working.startsWith("company-delete-") ? "Deleting company source" :
       working.startsWith("manual-import-") ? "Saving manual job" :
       working.startsWith("description-") ? "Saving job description" :
+      working.startsWith("contact-discovery-") ? "Running contact discovery" :
+      working.startsWith("contact-revalidate-") ? "Revalidating contact" :
+      working.startsWith("contact-approve-") ? "Approving contact" :
+      working.startsWith("contact-reject-") ? "Rejecting contact" :
       working.startsWith("match-") ? "Matching job" :
       working.startsWith("draft-") ? "Generating email draft" :
       working.startsWith("delete-") ? "Deleting job" :
@@ -954,6 +970,50 @@ export default function AdminJobAgentPage() {
     }, ["jobs", "matches", "drafts", "overview"]);
   }
 
+  function runContactDiscovery(job) {
+    doAction(`contact-discovery-${job.id}`, async () => {
+      const data = await adminRequest(`/api/admin/job-agent/jobs/${job.id}/contact-discovery`, { method: "POST", body: "{}" });
+      toast.success(data.message || "Contact discovery finished.");
+    }, ["jobs", "drafts", "overview"]);
+  }
+
+  function revalidateContact(job) {
+    if (!job.foundContactId) {
+      toast.error("No contact found for this job.");
+      return;
+    }
+    doAction(`contact-revalidate-${job.foundContactId}`, async () => {
+      const data = await adminRequest(`/api/admin/job-agent/contacts/${job.foundContactId}/revalidate`, { method: "POST", body: "{}" });
+      toast.success(data.message || "Contact revalidated.");
+    }, ["jobs", "drafts"]);
+  }
+
+  function approveContact(job) {
+    if (!job.foundContactId) {
+      toast.error("No contact found for this job.");
+      return;
+    }
+    doAction(`contact-approve-${job.foundContactId}`, async () => {
+      const data = await adminRequest(`/api/admin/job-agent/contacts/${job.foundContactId}/approve`, { method: "POST", body: "{}" });
+      toast.success(data.message || "Contact approved.");
+    }, ["jobs", "drafts"]);
+  }
+
+  function rejectContact(job) {
+    if (!job.foundContactId) {
+      toast.error("No contact found for this job.");
+      return;
+    }
+    const reason = window.prompt("Reject contact reason:", "Not a recruiter or valid hiring contact.");
+    doAction(`contact-reject-${job.foundContactId}`, async () => {
+      const data = await adminRequest(`/api/admin/job-agent/contacts/${job.foundContactId}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      toast.success(data.message || "Contact rejected.");
+    }, ["jobs", "drafts"]);
+  }
+
   function deleteJob(job) {
     if (!window.confirm(`Delete ${job.title}?`)) return;
     doAction(`delete-${job.id}`, async () => {
@@ -969,6 +1029,7 @@ export default function AdminJobAgentPage() {
         body: JSON.stringify({
           fromName: emailForm.fromName,
           fromEmail: emailForm.fromEmail,
+          smtpHost: emailForm.smtpHost,
           smtpUsername: emailForm.smtpUsername,
           smtpPassword: emailForm.smtpPassword,
           smtpPort: Number(emailForm.smtpPort),
@@ -1097,10 +1158,7 @@ export default function AdminJobAgentPage() {
   function collectDraftEmails() {
     doAction("collect-draft-emails", async () => {
       const data = await adminRequest("/api/admin/job-agent/drafts/collect-emails", { method: "POST", body: "{}" });
-      toast.success(data.message || "Email collection finished.");
-      if (!data.externalProviderConfigured) {
-        toast.info("Add HUNTER_API_KEY in backend .env for company-domain email lookup.");
-      }
+      toast.success(data.message || "Contact discovery finished.");
     }, ["drafts", "overview"]);
   }
 
@@ -1142,15 +1200,15 @@ export default function AdminJobAgentPage() {
 
   return (
     <AdminFixedSidebarShell title="Job Agent" description="One workspace for compliant job alerts, matching, drafts, sending, and tracking.">
-      <div className="space-y-5">
-        <section className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(15,26,42,0.94),rgba(11,20,34,0.92))] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+      <div className={pageShellClass}>
+        <section className={elevatedSurfaceClass}>
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-[#78d7ff]">Safe Application Workspace</p>
-              <h1 className="mt-2 text-3xl font-semibold text-white">AI Job Application Agent</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-7 text-[#9fb1c7]">This agent reads job-alert emails only. It does not scrape LinkedIn.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#78d7ff]">Safe Application Workspace</p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">AI Job Application Agent</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#9fb1c7]">A controlled admin console for job alerts, public contact discovery, AI matching, draft approval, SMTP sending, and tracking.</p>
             </div>
-            <button onClick={refreshAll} disabled={Boolean(working)} className="inline-flex items-center gap-2 rounded-full border border-[#6fd8ff]/30 px-4 py-3 text-sm font-semibold text-[#dff7ff] disabled:opacity-60" type="button">
+            <button onClick={refreshAll} disabled={Boolean(working)} className={accentButtonClass} type="button">
               {working === "refresh-all" ? <LoadingDot /> : <FiRefreshCw size={15} />} {working === "refresh-all" ? "Refreshing..." : "Refresh All"}
             </button>
           </div>
@@ -1171,7 +1229,15 @@ export default function AdminJobAgentPage() {
               </span>
             ) : null}
           </div>
-          <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+          <div className="mt-5 sm:hidden">
+            <label className="grid gap-2 text-sm">
+              <span className="font-semibold text-[#d7e7f8]">Agent section</span>
+              <select value={activeTab} onChange={(event) => setActiveTab(event.target.value)} className={`${selectClass} w-full`}>
+                {tabs.map((tab) => <option key={tab.id} value={tab.id}>{tab.label}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="mt-5 hidden gap-2 overflow-x-auto pb-1 sm:flex">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -1179,7 +1245,7 @@ export default function AdminJobAgentPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm transition ${activeTab === tab.id ? "border-[#6fd8ff]/60 bg-[#16304a] text-white" : "border-white/10 bg-white/[0.03] text-[#bfd0e2]"}`}
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-lg border px-4 py-2 text-sm transition ${activeTab === tab.id ? "border-[#6fd8ff]/60 bg-[#16304a] text-white" : "border-white/10 bg-white/[0.03] text-[#bfd0e2] hover:border-white/20 hover:bg-white/[0.06]"}`}
                 >
                   <Icon size={15} /> {tab.label}
                 </button>
@@ -1274,7 +1340,7 @@ export default function AdminJobAgentPage() {
         )}
 
         {activeTab === "gmail" && (
-          <section className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+          <section className={surfaceClass}>
             <ModuleState loading={state.gmail.loading} error={state.gmail.error} empty={!gmail}>
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -1301,7 +1367,7 @@ export default function AdminJobAgentPage() {
         {activeTab === "sources" && (
           <section className="space-y-5">
             <ModuleState loading={state.sources.loading} error={state.sources.error} empty={!sourcesData}>
-              <div className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+              <div className={surfaceClass}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <h2 className="text-xl font-semibold text-white">Search Preferences</h2>
@@ -1319,19 +1385,19 @@ export default function AdminJobAgentPage() {
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-3">
                   <FieldLabel label="Custom keywords">
-                    <textarea value={searchForm.customKeywordsJson} onChange={(event) => setSearchForm((current) => ({ ...current, customKeywordsJson: event.target.value }))} rows={3} placeholder="One per line" className="rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" />
+                    <textarea value={searchForm.customKeywordsJson} onChange={(event) => setSearchForm((current) => ({ ...current, customKeywordsJson: event.target.value }))} rows={3} placeholder="One per line" className={textareaClass} />
                   </FieldLabel>
                   <FieldLabel label="Max jobs per sync">
-                    <input type="number" value={searchForm.maxJobsPerSync} onChange={(event) => setSearchForm((current) => ({ ...current, maxJobsPerSync: event.target.value }))} placeholder="25" className="h-12 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" />
+                    <input type="number" value={searchForm.maxJobsPerSync} onChange={(event) => setSearchForm((current) => ({ ...current, maxJobsPerSync: event.target.value }))} placeholder="25" className={inputClass} />
                   </FieldLabel>
                   <FieldLabel label="Minimum match score to draft">
-                    <input type="number" value={searchForm.minimumMatchScoreToDraft} onChange={(event) => setSearchForm((current) => ({ ...current, minimumMatchScoreToDraft: event.target.value }))} placeholder="60" className="h-12 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" />
+                    <input type="number" value={searchForm.minimumMatchScoreToDraft} onChange={(event) => setSearchForm((current) => ({ ...current, minimumMatchScoreToDraft: event.target.value }))} placeholder="60" className={inputClass} />
                   </FieldLabel>
                   <label className="flex h-12 items-center justify-between rounded-[0.9rem] border border-white/10 px-3 text-sm text-white md:mt-7">Auto draft only, never send<input type="checkbox" checked={searchForm.autoDraftEnabled} onChange={(event) => setSearchForm((current) => ({ ...current, autoDraftEnabled: event.target.checked }))} /></label>
                 </div>
               </div>
 
-              <div className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+              <div className={surfaceClass}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <h2 className="text-xl font-semibold text-white">Company Career Site Import</h2>
@@ -1341,10 +1407,10 @@ export default function AdminJobAgentPage() {
                   <button onClick={addCompanySource} disabled={working === "company-source-add"} className="rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-4 py-3 text-sm font-semibold text-[#07111d] disabled:opacity-60">Add Company Source</button>
                 </div>
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  <FieldLabel label="Company or website name"><input value={companySourceForm.companyName} onChange={(event) => setCompanySourceForm((current) => ({ ...current, companyName: event.target.value }))} placeholder="Company name" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                  <FieldLabel label="Official careers/jobs URL"><input value={companySourceForm.careersUrl} onChange={(event) => setCompanySourceForm((current) => ({ ...current, careersUrl: event.target.value }))} placeholder="https://..." className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                  <FieldLabel label="Region"><input value={companySourceForm.region} onChange={(event) => setCompanySourceForm((current) => ({ ...current, region: event.target.value }))} placeholder="Europe" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                  <FieldLabel label="Notes"><input value={companySourceForm.notes} onChange={(event) => setCompanySourceForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Optional notes" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
+                  <FieldLabel label="Company or website name"><input value={companySourceForm.companyName} onChange={(event) => setCompanySourceForm((current) => ({ ...current, companyName: event.target.value }))} placeholder="Company name" className={inputClass} /></FieldLabel>
+                  <FieldLabel label="Official careers/jobs URL"><input value={companySourceForm.careersUrl} onChange={(event) => setCompanySourceForm((current) => ({ ...current, careersUrl: event.target.value }))} placeholder="https://..." className={inputClass} /></FieldLabel>
+                  <FieldLabel label="Region"><input value={companySourceForm.region} onChange={(event) => setCompanySourceForm((current) => ({ ...current, region: event.target.value }))} placeholder="Europe" className={inputClass} /></FieldLabel>
+                  <FieldLabel label="Notes"><input value={companySourceForm.notes} onChange={(event) => setCompanySourceForm((current) => ({ ...current, notes: event.target.value }))} placeholder="Optional notes" className={inputClass} /></FieldLabel>
                 </div>
                 <button type="button" onClick={() => setShowCompanyAdvanced((value) => !value)} className="mt-4 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white">
                   {showCompanyAdvanced ? "Hide advanced detection" : "Advanced: force type / selectors"}
@@ -1358,7 +1424,7 @@ export default function AdminJobAgentPage() {
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
                       {Object.keys(companySourceForm.selectorConfigJson || {}).map((field) => (
                         <FieldLabel key={field} label={field.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase())}>
-                          <input value={companySourceForm.selectorConfigJson[field] || ""} onChange={(event) => setCompanySourceForm((current) => ({ ...current, selectorConfigJson: { ...(current.selectorConfigJson || {}), [field]: event.target.value } }))} placeholder={field} className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" />
+                          <input value={companySourceForm.selectorConfigJson[field] || ""} onChange={(event) => setCompanySourceForm((current) => ({ ...current, selectorConfigJson: { ...(current.selectorConfigJson || {}), [field]: event.target.value } }))} placeholder={field} className={inputClass} />
                         </FieldLabel>
                       ))}
                     </div>
@@ -1398,7 +1464,7 @@ export default function AdminJobAgentPage() {
                 </div>
               </div>
 
-              <div className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+              <div className={surfaceClass}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <h2 className="text-xl font-semibold text-white">Approved Job Sources</h2>
@@ -1431,7 +1497,7 @@ export default function AdminJobAgentPage() {
                 </div>
               </div>
 
-              <div className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+              <div className={surfaceClass}>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <h2 className="text-xl font-semibold text-white">Manual Fallback</h2>
@@ -1447,14 +1513,14 @@ export default function AdminJobAgentPage() {
                     <div className="grid gap-3 md:grid-cols-2">
                       {["title", "company", "location", "sourceUrl", "jobType", "workMode", "region", "experienceLevel", "recruiterName", "recruiterEmail", "sourceName"].map((field) => (
                         <FieldLabel key={field} label={field.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase())}>
-                          <input value={manualImportForm[field] || ""} onChange={(event) => setManualImportForm((current) => ({ ...current, [field]: event.target.value }))} placeholder={field} className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" />
+                          <input value={manualImportForm[field] || ""} onChange={(event) => setManualImportForm((current) => ({ ...current, [field]: event.target.value }))} placeholder={field} className={inputClass} />
                         </FieldLabel>
                       ))}
                     </div>
                     <label className="mt-3 flex w-fit items-center gap-2 rounded-[0.9rem] border border-white/10 px-3 py-2 text-sm text-white"><input type="checkbox" checked={manualImportForm.recruiterEmailConfirmed} onChange={(event) => setManualImportForm((current) => ({ ...current, recruiterEmailConfirmed: event.target.checked }))} />I confirm this recruiter email is official/valid.</label>
                     {!manualJobHasEmail() ? <p className="mt-2 text-sm text-rose-200">Manual job import requires a valid HR/recruiter email.</p> : null}
                     <FieldLabel label="Job description" className="mt-3">
-                      <textarea value={manualImportForm.description} onChange={(event) => setManualImportForm((current) => ({ ...current, description: event.target.value }))} rows={7} placeholder="Job description" className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" />
+                      <textarea value={manualImportForm.description} onChange={(event) => setManualImportForm((current) => ({ ...current, description: event.target.value }))} rows={7} placeholder="Job description" className={`${textareaClass} w-full`} />
                     </FieldLabel>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button onClick={() => manualImport("save")} disabled={!manualJobHasEmail() || !manualImportForm.recruiterEmailConfirmed} className="rounded-full border border-white/10 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Save job</button>
@@ -1469,7 +1535,7 @@ export default function AdminJobAgentPage() {
         )}
 
         {activeTab === "profile" && (
-          <section className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+          <section className={surfaceClass}>
             <ModuleState loading={state.profile.loading} error={state.profile.error} empty={!profile}>
               <div className="grid gap-3 md:grid-cols-4">
                 <StatCard label="Skills" value={profile.skills?.length || 0} />
@@ -1502,9 +1568,9 @@ export default function AdminJobAgentPage() {
                     </div>
                     <p className="mt-2 text-xs text-[#8ea7c2]">Replacing CV deletes the previous Job Agent CV and updates unsent drafts to attach the new file.</p>
                   </div>
-                  <FieldLabel label="Extra notes"><textarea value={cvNotesForm.extraNotes} onChange={(event) => setCvNotesForm((current) => ({ ...current, extraNotes: event.target.value }))} rows={5} placeholder="Optional notes" className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" /></FieldLabel>
-                  <FieldLabel label="Target roles"><textarea value={cvNotesForm.targetRoles} onChange={(event) => setCvNotesForm((current) => ({ ...current, targetRoles: event.target.value }))} rows={3} placeholder="One per line" className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" /></FieldLabel>
-                  <FieldLabel label="Preferred countries"><textarea value={cvNotesForm.preferredCountries} onChange={(event) => setCvNotesForm((current) => ({ ...current, preferredCountries: event.target.value }))} rows={3} placeholder="One per line" className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" /></FieldLabel>
+                  <FieldLabel label="Extra notes"><textarea value={cvNotesForm.extraNotes} onChange={(event) => setCvNotesForm((current) => ({ ...current, extraNotes: event.target.value }))} rows={5} placeholder="Optional notes" className={`${textareaClass} w-full`} /></FieldLabel>
+                  <FieldLabel label="Target roles"><textarea value={cvNotesForm.targetRoles} onChange={(event) => setCvNotesForm((current) => ({ ...current, targetRoles: event.target.value }))} rows={3} placeholder="One per line" className={`${textareaClass} w-full`} /></FieldLabel>
+                  <FieldLabel label="Preferred countries"><textarea value={cvNotesForm.preferredCountries} onChange={(event) => setCvNotesForm((current) => ({ ...current, preferredCountries: event.target.value }))} rows={3} placeholder="One per line" className={`${textareaClass} w-full`} /></FieldLabel>
                   <button onClick={saveCvNotes} type="button" className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-4 py-3 text-sm font-semibold text-[#07111d]"><FiSave size={15} /> Save Profile Notes</button>
                 </div>
               </div>
@@ -1513,7 +1579,7 @@ export default function AdminJobAgentPage() {
         )}
 
         {activeTab === "jobs" && (
-          <section className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+          <section className={surfaceClass}>
             <ModuleState loading={state.jobs.loading} error={state.jobs.error} empty={jobs.length === 0}>
               <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                 <div>
@@ -1525,19 +1591,69 @@ export default function AdminJobAgentPage() {
                   <p className="mt-1 text-[#9fb1c7]">Page {jobsPagination.page} of {jobsPagination.totalPages} - {jobsPagination.total} recent job(s)</p>
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1100px] text-left text-sm">
-                  <thead className="text-xs uppercase tracking-[0.14em] text-[#8ea7c2]"><tr><th className="p-3">Job</th><th className="p-3">Source</th><th className="p-3">Description</th><th className="p-3">Score</th><th className="p-3">Status</th><th className="p-3">Created</th><th className="p-3">Actions</th></tr></thead>
+              <div className="grid gap-3 xl:hidden">
+                {jobs.map((job) => (
+                  <article key={job.id} className="rounded-lg border border-white/10 bg-white/[0.035] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold leading-6 text-white">{job.title}</h3>
+                        <p className="mt-1 text-sm text-[#9fb1c7]">{job.company} - {job.location || "Unknown"}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] ${statusPill(job.contactDiscoveryStatus)}`}>{job.contactDiscoveryStatus || "pending"}</span>
+                    </div>
+                    {job.sourceSubject ? <p className="mt-3 text-xs leading-5 text-[#8ea7c2]">Subject: {job.sourceSubject}</p> : null}
+                    <div className="mt-4 grid gap-2 text-sm">
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-[#07111d]/70 px-3 py-2">
+                        <span className="text-[#8ea7c2]">Source</span>
+                        <span className="text-right text-[#dce8f6]">{job.sourcePlatform || job.source || "Unknown"}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-[#07111d]/70 px-3 py-2">
+                        <span className="text-[#8ea7c2]">Contact</span>
+                        <span className="text-right text-[#dce8f6]">{job.foundContactEmail || "None"}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-[#07111d]/70 px-3 py-2">
+                        <span className="text-[#8ea7c2]">Score</span>
+                        <span className="text-right text-[#dce8f6]">{job.matchScore ?? "None"}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-[#07111d]/70 px-3 py-2">
+                        <span className="text-[#8ea7c2]">Send</span>
+                        <span className="text-right text-[#dce8f6]">{job.draftSendStatus || "pending"}</span>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {job.applyUrl ? <a className={ghostButtonClass} href={job.applyUrl} target="_blank" rel="noreferrer">Apply</a> : null}
+                      {job.companyUrl ? <a className={ghostButtonClass} href={job.companyUrl} target="_blank" rel="noreferrer">Company</a> : null}
+                      <button onClick={() => runContactDiscovery(job)} className={accentButtonClass}>Contact Discovery</button>
+                      <button onClick={() => matchJob(job)} className={ghostButtonClass}>Match</button>
+                      <button onClick={() => generateDraft(job)} className={ghostButtonClass}>Draft</button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button onClick={() => addDescription(job)} className={ghostButtonClass}>Description</button>
+                      <button onClick={() => approveContact(job)} disabled={!job.foundContactId} className="inline-flex items-center justify-center rounded-lg border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-100 disabled:opacity-40">Approve</button>
+                      <button onClick={() => rejectContact(job)} disabled={!job.foundContactId} className="inline-flex items-center justify-center rounded-lg border border-rose-300/20 bg-rose-400/10 px-3 py-2 text-sm font-semibold text-rose-100 disabled:opacity-40">Reject</button>
+                    </div>
+                    {job.contactDiscoveryError || job.draftSkipReason || job.draftErrorMessage ? (
+                      <p className="mt-3 rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">{job.contactDiscoveryError || job.draftSkipReason || job.draftErrorMessage}</p>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto rounded-lg border border-white/10 xl:block">
+                <table className="w-full min-w-[1650px] text-left text-sm">
+                  <thead className="bg-white/[0.035] text-xs uppercase tracking-[0.14em] text-[#8ea7c2]"><tr><th className="p-3">Job</th><th className="p-3">Source</th><th className="p-3">Apply</th><th className="p-3">Contact Discovery</th><th className="p-3">Contact</th><th className="p-3">Send</th><th className="p-3">Description</th><th className="p-3">Score</th><th className="p-3">Created</th><th className="p-3">Actions</th></tr></thead>
                   <tbody>
                     {jobs.map((job) => (
                       <tr key={job.id} className="border-t border-white/10 text-[#dce8f6]">
-                        <td className="p-3"><p className="font-semibold text-white">{job.title}</p><p>{job.company} - {job.location || "Unknown"}</p>{job.emailSubject ? <p className="mt-1 text-xs text-[#8ea7c2]">Email: {job.emailSubject}</p> : null}{job.sourceUrl ? <a className="text-[#8fdcff]" href={job.sourceUrl} target="_blank">Source URL</a> : null}</td>
-                        <td className="p-3"><span className={`rounded-full border px-3 py-1 text-xs ${job.sourceType === "gmail" ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200" : "border-white/10 bg-white/[0.04] text-[#cfe4f7]"}`}>{job.source}</span></td>
+                        <td className="p-3"><p className="font-semibold text-white">{job.title}</p><p>{job.company} - {job.location || "Unknown"}</p>{job.sourceSubject ? <p className="mt-1 text-xs text-[#8ea7c2]">Subject: {job.sourceSubject}</p> : null}</td>
+                        <td className="p-3"><span className={`rounded-full border px-3 py-1 text-xs ${job.sourceType === "gmail" ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200" : "border-white/10 bg-white/[0.04] text-[#cfe4f7]"}`}>{job.sourcePlatform || job.source}</span><p className="mt-2 text-xs text-[#8ea7c2]">{job.sourceEmail || "No source email"}</p></td>
+                        <td className="p-3"><div className="grid gap-1">{job.applyUrl ? <a className="text-[#8fdcff]" href={job.applyUrl} target="_blank">Apply URL</a> : <span>None</span>}{job.companyUrl ? <a className="text-[#8fdcff]" href={job.companyUrl} target="_blank">Company URL</a> : <span className="text-[#8ea7c2]">No company URL</span>}</div></td>
+                        <td className="p-3"><span className={`rounded-full border px-3 py-1 text-xs ${statusPill(job.contactDiscoveryStatus)}`}>{job.contactDiscoveryStatus || "pending"}</span>{job.contactDiscoveryError ? <p className="mt-2 max-w-[220px] text-xs text-rose-100">{job.contactDiscoveryError}</p> : null}</td>
+                        <td className="p-3"><p className="font-semibold text-white">{job.foundContactEmail || "None"}</p><p className="mt-1 text-xs text-[#9fb1c7]">Confidence: {job.contactConfidenceScore ?? "None"}</p><p className="mt-1 text-xs text-[#9fb1c7]">Validation: {job.contactValidationStatus || "None"}</p><p className="mt-1 text-xs text-[#9fb1c7]">Approval: {job.contactEmailStatus || "None"}</p></td>
+                        <td className="p-3"><p>{job.draftSendStatus || "pending"}</p>{job.draftSkipReason ? <p className="mt-1 max-w-[220px] text-xs text-amber-100">{job.draftSkipReason}</p> : null}{job.draftErrorMessage ? <p className="mt-1 max-w-[220px] text-xs text-rose-100">{job.draftErrorMessage}</p> : null}</td>
                         <td className="p-3">{job.descriptionStatus}</td>
                         <td className="p-3">{job.matchScore ?? "None"}</td>
-                        <td className="p-3">{job.status}</td>
                         <td className="p-3"><p>{formatDate(job.createdAt)}</p>{job.receivedAt ? <p className="mt-1 text-xs text-[#8ea7c2]">Received: {formatDate(job.receivedAt)}</p> : null}</td>
-                        <td className="p-3"><div className="flex flex-wrap gap-2"><button onClick={() => addDescription(job)} className="rounded-full border border-white/10 px-3 py-2">Add description</button><button onClick={() => matchJob(job)} className="rounded-full border border-white/10 px-3 py-2">Match</button><button onClick={() => generateDraft(job)} className="rounded-full border border-white/10 px-3 py-2">Generate draft</button><button onClick={() => deleteJob(job)} className="rounded-full border border-rose-300/20 px-3 py-2 text-rose-100"><FiTrash2 /></button></div></td>
+                        <td className="p-3"><div className="flex flex-wrap gap-2"><button onClick={() => runContactDiscovery(job)} className="rounded-full border border-[#6fd8ff]/30 px-3 py-2 text-[#dff7ff]">Run Contact Discovery</button><button onClick={() => revalidateContact(job)} disabled={!job.foundContactId} className="rounded-full border border-white/10 px-3 py-2 disabled:opacity-40">Revalidate Contact</button><button onClick={() => approveContact(job)} disabled={!job.foundContactId} className="rounded-full border border-emerald-300/20 px-3 py-2 text-emerald-100 disabled:opacity-40">Approve Contact</button><button onClick={() => rejectContact(job)} disabled={!job.foundContactId} className="rounded-full border border-rose-300/20 px-3 py-2 text-rose-100 disabled:opacity-40">Reject Contact</button><button onClick={() => addDescription(job)} className="rounded-full border border-white/10 px-3 py-2">Add description</button><button onClick={() => matchJob(job)} className="rounded-full border border-white/10 px-3 py-2">Match</button><button onClick={() => generateDraft(job)} className="rounded-full border border-white/10 px-3 py-2">Generate draft</button><button onClick={() => deleteJob(job)} className="rounded-full border border-rose-300/20 px-3 py-2 text-rose-100"><FiTrash2 /></button></div></td>
                       </tr>
                     ))}
                   </tbody>
@@ -1557,7 +1673,7 @@ export default function AdminJobAgentPage() {
         )}
 
         {activeTab === "matches" && (
-          <section className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+          <section className={surfaceClass}>
             <ModuleState loading={state.matches.loading} error={state.matches.error} empty={matches.length === 0}>
               <div className="grid gap-3">
                 {matches.map((match) => (
@@ -1575,16 +1691,16 @@ export default function AdminJobAgentPage() {
         )}
 
         {activeTab === "drafts" && (
-          <section className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+          <section className={surfaceClass}>
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-white">Email-ready Drafts</h2>
-                <p className="mt-1 text-sm text-[#9fb1c7]">Only drafts with a collected HR/recruiter email are shown here. Click Collect Emails to scan job content and optional provider data.</p>
+                <p className="mt-1 text-sm text-[#9fb1c7]">Only drafts with approved contact emails can be sent. Contact discovery checks public company pages only; Gmail alerts are job sources, not recruiter contacts.</p>
                 {!ai.requireAdminApproval ? <p className="mt-1 text-sm text-emerald-200">Admin approval is off. Send will go directly.</p> : null}
                 <p className="mt-1 text-sm text-[#dff7ff]">Auto-send is active: {ai.requireAdminApproval ? "approved drafts will send automatically." : "email-ready drafts will send automatically."}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={collectDraftEmails} disabled={working === "collect-draft-emails"} className="rounded-full border border-[#6fd8ff]/30 px-4 py-3 text-sm font-semibold text-[#dff7ff] disabled:opacity-50">Collect Emails</button>
+                <button onClick={collectDraftEmails} disabled={working === "collect-draft-emails"} className="rounded-full border border-[#6fd8ff]/30 px-4 py-3 text-sm font-semibold text-[#dff7ff] disabled:opacity-50">Run Contact Discovery</button>
                 <button onClick={approveAllDrafts} disabled={!readyDrafts.length || working === "approve-all-drafts"} className="rounded-full border border-emerald-300/20 px-4 py-3 text-sm font-semibold text-emerald-100 disabled:opacity-50">Approve All</button>
               </div>
             </div>
@@ -1603,7 +1719,7 @@ export default function AdminJobAgentPage() {
                   return (
                   <article key={draft.id} className="rounded-[1rem] border border-white/10 bg-white/[0.03] p-4">
                     <div className="flex flex-col gap-3 xl:flex-row xl:justify-between">
-                      <div><h3 className="font-semibold text-white">{draft.subject}</h3><p className="mt-1 text-sm text-[#9fb1c7]">{draft.jobTitle} - {draft.company}</p><p className="mt-1 text-sm text-[#dff7ff]">HR email: {draft.hrEmail || draft.recipientEmail}</p><p className="mt-1 text-xs text-[#8ea7c2]">Email source: {draft.hrEmailSource || "job content"} / Verified: {draft.hrEmailVerified ? "Yes" : "No"}</p></div>
+                      <div><h3 className="font-semibold text-white">{draft.subject}</h3><p className="mt-1 text-sm text-[#9fb1c7]">{draft.jobTitle} - {draft.company}</p><p className="mt-1 text-sm text-[#dff7ff]">Contact email: {draft.hrEmail || draft.recipientEmail || "None"}</p><p className="mt-1 text-xs text-[#8ea7c2]">Source: {draft.hrEmailSource || "none"} / Approved: {draft.hrEmailVerified ? "Yes" : "No"} / Confidence: {draft.contactConfidenceScore ?? "None"}</p><p className="mt-1 text-xs text-[#8ea7c2]">Validation: {draft.contactValidationStatus || "None"} / Contact status: {draft.contactEmailStatus || "None"}</p></div>
                       <span className={`h-fit rounded-full border px-3 py-1 text-xs font-semibold ${statusPill(draft.status)}`}>{draft.status}</span>
                     </div>
                     <div className="mt-4 grid gap-2 text-sm md:grid-cols-5"><p>Sent: {formatDate(draft.sentAt)}</p><p>Opened: {formatDate(draft.openedAt)}</p><p>Opens: {draft.openCount || 0}</p><p>Clicked: {formatDate(draft.clickedAt)}</p><p>Clicks: {draft.clickCount || 0}</p></div>
@@ -1612,6 +1728,11 @@ export default function AdminJobAgentPage() {
                       <p>CV attached: {draft.cvAttached ? "true" : "false"}</p>
                       <p>Cover letter PDF: {draft.coverLetterPdfAttached ? "true" : "false"}</p>
                       <p>AI: {draft.aiProvider || "Not set"} {draft.aiModel || ""}</p>
+                    </div>
+                    <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
+                      <p>Send status: {draft.sendStatus || "pending"}</p>
+                      <p className="text-amber-100">Skip: {draft.skipReason || "None"}</p>
+                      <p className="text-rose-100">Error: {draft.errorMessage || "None"}</p>
                     </div>
                     {isSentDraft ? (
                       <div className="mt-4 grid gap-3">
@@ -1647,10 +1768,10 @@ export default function AdminJobAgentPage() {
               {draftEditor ? (
                 <div className="mt-5 rounded-[1rem] border border-[#6fd8ff]/30 bg-[#07111d] p-4">
                   <h3 className="font-semibold text-white">Edit Draft</h3>
-                  <FieldLabel label="Recipient email" className="mt-3"><input value={draftEditor.toEmail || draftEditor.hrEmail || draftEditor.recipientEmail || ""} onChange={(event) => setDraftEditor((current) => ({ ...current, recipientEmail: event.target.value, hrEmail: event.target.value, toEmail: event.target.value }))} className="h-11 w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" placeholder="Recipient email" /></FieldLabel>
-                  <FieldLabel label="Subject" className="mt-3"><input value={draftEditor.subject || ""} onChange={(event) => setDraftEditor((current) => ({ ...current, subject: event.target.value }))} className="h-11 w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" placeholder="Subject" /></FieldLabel>
-                  <FieldLabel label="Email body" className="mt-3"><textarea value={draftEditor.body || ""} onChange={(event) => setDraftEditor((current) => ({ ...current, body: event.target.value }))} rows={9} className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" /></FieldLabel>
-                  <FieldLabel label="Cover letter text" className="mt-3"><textarea value={draftEditor.coverLetterText || ""} onChange={(event) => setDraftEditor((current) => ({ ...current, coverLetterText: event.target.value }))} rows={9} className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" placeholder="Cover letter text" /></FieldLabel>
+                  <FieldLabel label="Recipient email" className="mt-3"><input value={draftEditor.toEmail || draftEditor.hrEmail || draftEditor.recipientEmail || ""} onChange={(event) => setDraftEditor((current) => ({ ...current, recipientEmail: event.target.value, hrEmail: event.target.value, toEmail: event.target.value }))} className={`${inputClass} w-full`} placeholder="Recipient email" /></FieldLabel>
+                  <FieldLabel label="Subject" className="mt-3"><input value={draftEditor.subject || ""} onChange={(event) => setDraftEditor((current) => ({ ...current, subject: event.target.value }))} className={`${inputClass} w-full`} placeholder="Subject" /></FieldLabel>
+                  <FieldLabel label="Email body" className="mt-3"><textarea value={draftEditor.body || ""} onChange={(event) => setDraftEditor((current) => ({ ...current, body: event.target.value }))} rows={9} className={`${textareaClass} w-full`} /></FieldLabel>
+                  <FieldLabel label="Cover letter text" className="mt-3"><textarea value={draftEditor.coverLetterText || ""} onChange={(event) => setDraftEditor((current) => ({ ...current, coverLetterText: event.target.value }))} rows={9} className={`${textareaClass} w-full`} placeholder="Cover letter text" /></FieldLabel>
                   <div className="mt-3 flex gap-2"><button onClick={saveDraft} className="rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-4 py-2 font-semibold text-[#07111d]">Save</button><button onClick={() => setDraftEditor(null)} className="rounded-full border border-white/10 px-4 py-2 text-white">Cancel</button></div>
                 </div>
               ) : null}
@@ -1659,7 +1780,7 @@ export default function AdminJobAgentPage() {
         )}
 
         {activeTab === "ai" && (
-          <section className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+          <section className={surfaceClass}>
             <ModuleState loading={state.ai.loading} error={state.ai.error} empty={!ai}>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -1679,18 +1800,18 @@ export default function AdminJobAgentPage() {
                 <div className="rounded-[1rem] border border-white/10 bg-white/[0.03] p-4"><p className="text-sm font-semibold text-white">OpenAI</p><p className="mt-1 text-sm text-[#9fb1c7]">Premium quality</p><p className="mt-3 text-sm text-[#dff7ff]">{keyStatus(ai.openaiKeyConfigured)}</p></div>
               </div>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <FieldLabel label="AI provider"><select value={aiForm.aiProvider} onChange={(event) => setAiProvider(event.target.value)} className="h-11 rounded-[0.9rem] border border-white/10 bg-[#0b1524] px-3 text-sm text-white outline-none">{Object.entries(providerLabels).map(([provider, label]) => <option key={provider} value={provider}>{label}</option>)}</select></FieldLabel>
-                <FieldLabel label="AI model"><select value={aiForm.aiModel || recommendedModels[aiForm.aiProvider] || ""} onChange={(event) => setAiForm((current) => ({ ...current, aiModel: event.target.value }))} className="h-11 rounded-[0.9rem] border border-white/10 bg-[#0b1524] px-3 text-sm text-white outline-none">{selectedProviderModels.map((model) => <option key={model} value={model}>{model}{recommendedModels[aiForm.aiProvider] === model ? " \u2014 recommended" : ""}</option>)}</select></FieldLabel>
-                <FieldLabel label="DeepSeek API key"><input type="password" value={aiForm.deepseekApiKey} onChange={(event) => setAiForm((current) => ({ ...current, deepseekApiKey: event.target.value }))} placeholder={ai.deepseekKeyConfigured ? "DeepSeek key saved. Enter to replace." : "DeepSeek API key"} className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                <FieldLabel label="Gemini API key"><input type="password" value={aiForm.geminiApiKey} onChange={(event) => setAiForm((current) => ({ ...current, geminiApiKey: event.target.value }))} placeholder={ai.geminiKeyConfigured ? "Gemini key saved. Enter to replace." : "Gemini API key"} className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                <FieldLabel label="OpenAI API key"><input type="password" value={aiForm.openaiApiKey} onChange={(event) => setAiForm((current) => ({ ...current, openaiApiKey: event.target.value }))} placeholder={ai.openaiKeyConfigured ? "OpenAI key saved. Enter to replace." : "OpenAI API key"} className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                <FieldLabel label="Tone"><input value={aiForm.tone} onChange={(event) => setAiForm((current) => ({ ...current, tone: event.target.value }))} placeholder="professional-natural" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                <FieldLabel label="Max email words"><input type="number" min="40" value={aiForm.maxEmailWords} onChange={(event) => setAiForm((current) => ({ ...current, maxEmailWords: event.target.value }))} placeholder="160" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                <FieldLabel label="Max cover letter words"><input type="number" min="120" value={aiForm.maxCoverLetterWords} onChange={(event) => setAiForm((current) => ({ ...current, maxCoverLetterWords: event.target.value }))} placeholder="450" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
+                <FieldLabel label="AI provider"><select value={aiForm.aiProvider} onChange={(event) => setAiProvider(event.target.value)} className={selectClass}>{Object.entries(providerLabels).map(([provider, label]) => <option key={provider} value={provider}>{label}</option>)}</select></FieldLabel>
+                <FieldLabel label="AI model"><select value={aiForm.aiModel || recommendedModels[aiForm.aiProvider] || ""} onChange={(event) => setAiForm((current) => ({ ...current, aiModel: event.target.value }))} className={selectClass}>{selectedProviderModels.map((model) => <option key={model} value={model}>{model}{recommendedModels[aiForm.aiProvider] === model ? " \u2014 recommended" : ""}</option>)}</select></FieldLabel>
+                <FieldLabel label="DeepSeek API key"><input type="password" value={aiForm.deepseekApiKey} onChange={(event) => setAiForm((current) => ({ ...current, deepseekApiKey: event.target.value }))} placeholder={ai.deepseekKeyConfigured ? "DeepSeek key saved. Enter to replace." : "DeepSeek API key"} className={inputClass} /></FieldLabel>
+                <FieldLabel label="Gemini API key"><input type="password" value={aiForm.geminiApiKey} onChange={(event) => setAiForm((current) => ({ ...current, geminiApiKey: event.target.value }))} placeholder={ai.geminiKeyConfigured ? "Gemini key saved. Enter to replace." : "Gemini API key"} className={inputClass} /></FieldLabel>
+                <FieldLabel label="OpenAI API key"><input type="password" value={aiForm.openaiApiKey} onChange={(event) => setAiForm((current) => ({ ...current, openaiApiKey: event.target.value }))} placeholder={ai.openaiKeyConfigured ? "OpenAI key saved. Enter to replace." : "OpenAI API key"} className={inputClass} /></FieldLabel>
+                <FieldLabel label="Tone"><input value={aiForm.tone} onChange={(event) => setAiForm((current) => ({ ...current, tone: event.target.value }))} placeholder="professional-natural" className={inputClass} /></FieldLabel>
+                <FieldLabel label="Max email words"><input type="number" min="40" value={aiForm.maxEmailWords} onChange={(event) => setAiForm((current) => ({ ...current, maxEmailWords: event.target.value }))} placeholder="160" className={inputClass} /></FieldLabel>
+                <FieldLabel label="Max cover letter words"><input type="number" min="120" value={aiForm.maxCoverLetterWords} onChange={(event) => setAiForm((current) => ({ ...current, maxCoverLetterWords: event.target.value }))} placeholder="450" className={inputClass} /></FieldLabel>
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <label className="flex justify-between gap-3 rounded-[0.9rem] border border-white/10 p-3 text-white">Fallback enabled<input type="checkbox" checked={aiForm.fallbackEnabled} onChange={(event) => setAiForm((current) => ({ ...current, fallbackEnabled: event.target.checked }))} /></label>
-                <FieldLabel label="Fallback provider"><select value={aiForm.fallbackProvider} onChange={(event) => setAiForm((current) => ({ ...current, fallbackProvider: event.target.value }))} className="h-12 rounded-[0.9rem] border border-white/10 bg-[#0b1524] px-3 text-sm text-white outline-none"><option value="">No fallback provider</option>{Object.entries(providerLabels).map(([provider, label]) => <option key={provider} value={provider}>{label}</option>)}</select></FieldLabel>
+                <FieldLabel label="Fallback provider"><select value={aiForm.fallbackProvider} onChange={(event) => setAiForm((current) => ({ ...current, fallbackProvider: event.target.value }))} className={selectClass}><option value="">No fallback provider</option>{Object.entries(providerLabels).map(([provider, label]) => <option key={provider} value={provider}>{label}</option>)}</select></FieldLabel>
                 <label className="flex justify-between gap-3 rounded-[0.9rem] border border-white/10 p-3 text-white">Require admin approval<input type="checkbox" checked={aiForm.requireAdminApproval} onChange={(event) => setAiForm((current) => ({ ...current, requireAdminApproval: event.target.checked }))} /></label>
                 <label className="flex justify-between gap-3 rounded-[0.9rem] border border-white/10 p-3 text-white">Attach CV<input type="checkbox" checked={aiForm.attachCv} onChange={(event) => setAiForm((current) => ({ ...current, attachCv: event.target.checked }))} /></label>
                 <label className="flex justify-between gap-3 rounded-[0.9rem] border border-white/10 p-3 text-white">Attach cover letter PDF<input type="checkbox" checked={aiForm.attachCoverLetterPdf} onChange={(event) => setAiForm((current) => ({ ...current, attachCoverLetterPdf: event.target.checked }))} /></label>
@@ -1700,9 +1821,9 @@ export default function AdminJobAgentPage() {
               {ai.allowPromptOverride ? (
                 <div className="mt-4 grid gap-4 rounded-[1rem] border border-amber-300/20 bg-amber-300/10 p-4">
                   <p className="text-sm text-amber-100">Prompt override is enabled by environment configuration. Leave these blank to use the dynamic prompt engine.</p>
-                  <FieldLabel label="System prompt override"><textarea value={aiForm.systemPrompt} onChange={(event) => setAiForm((current) => ({ ...current, systemPrompt: event.target.value }))} rows={5} placeholder="Optional system prompt override" className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" /></FieldLabel>
-                  <FieldLabel label="Recruiter email prompt override"><textarea value={aiForm.recruiterEmailPrompt} onChange={(event) => setAiForm((current) => ({ ...current, recruiterEmailPrompt: event.target.value }))} rows={5} placeholder="Optional recruiter email prompt override" className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" /></FieldLabel>
-                  <FieldLabel label="Cover letter prompt override"><textarea value={aiForm.coverLetterPrompt} onChange={(event) => setAiForm((current) => ({ ...current, coverLetterPrompt: event.target.value }))} rows={5} placeholder="Optional cover letter prompt override" className="w-full rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 py-3 text-sm text-white outline-none" /></FieldLabel>
+                  <FieldLabel label="System prompt override"><textarea value={aiForm.systemPrompt} onChange={(event) => setAiForm((current) => ({ ...current, systemPrompt: event.target.value }))} rows={5} placeholder="Optional system prompt override" className={`${textareaClass} w-full`} /></FieldLabel>
+                  <FieldLabel label="Recruiter email prompt override"><textarea value={aiForm.recruiterEmailPrompt} onChange={(event) => setAiForm((current) => ({ ...current, recruiterEmailPrompt: event.target.value }))} rows={5} placeholder="Optional recruiter email prompt override" className={`${textareaClass} w-full`} /></FieldLabel>
+                  <FieldLabel label="Cover letter prompt override"><textarea value={aiForm.coverLetterPrompt} onChange={(event) => setAiForm((current) => ({ ...current, coverLetterPrompt: event.target.value }))} rows={5} placeholder="Optional cover letter prompt override" className={`${textareaClass} w-full`} /></FieldLabel>
                 </div>
               ) : null}
               {showGeneratedPromptPreview ? (
@@ -1731,21 +1852,22 @@ export default function AdminJobAgentPage() {
         )}
 
         {activeTab === "email" && (
-          <section className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+          <section className={surfaceClass}>
             <ModuleState loading={state.email.loading} error={state.email.error} empty={!email}>
               <h2 className="text-xl font-semibold text-white">Email Settings</h2>
-              <p className="mt-2 text-sm text-[#9fb1c7]">Gmail app password required, normal password will not work. Open tracking can be blocked by email clients and should be used responsibly.</p>
+              <p className="mt-2 text-sm text-[#9fb1c7]">SMTP app password or provider password is required. Gmail requires an app password; normal account password will not work.</p>
               <p className="mt-2 text-sm text-[#dce8f6]">Password configured: {email.passwordConfigured ? "true" : "false"}</p>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <FieldLabel label="From name"><input value={emailForm.fromName} onChange={(event) => setEmailForm((current) => ({ ...current, fromName: event.target.value }))} placeholder="From name" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                <FieldLabel label="From Gmail email"><input value={emailForm.fromEmail} onChange={(event) => setEmailForm((current) => ({ ...current, fromEmail: event.target.value }))} placeholder="Gmail email" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                <FieldLabel label="Gmail SMTP username"><input value={emailForm.smtpUsername} onChange={(event) => setEmailForm((current) => ({ ...current, smtpUsername: event.target.value }))} placeholder="Gmail SMTP username" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                <FieldLabel label="Gmail app password"><input type="password" value={emailForm.smtpPassword} onChange={(event) => setEmailForm((current) => ({ ...current, smtpPassword: event.target.value }))} placeholder={email.passwordConfigured ? "App password saved. Enter to replace." : "Gmail app password"} className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
-                <FieldLabel label="SMTP port"><select value={emailForm.smtpPort} onChange={(event) => setEmailForm((current) => ({ ...current, smtpPort: Number(event.target.value) }))} className="h-11 rounded-[0.9rem] border border-white/10 bg-[#0b1524] px-3 text-sm text-white outline-none"><option value={465}>465 / secure true</option><option value={587}>587 / secure false</option></select></FieldLabel>
-                <FieldLabel label="Daily send limit"><input type="number" min="1" value={emailForm.dailySendLimit} onChange={(event) => setEmailForm((current) => ({ ...current, dailySendLimit: event.target.value }))} placeholder="Daily limit" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel>
+                <FieldLabel label="From name"><input value={emailForm.fromName} onChange={(event) => setEmailForm((current) => ({ ...current, fromName: event.target.value }))} placeholder="From name" className={inputClass} /></FieldLabel>
+                <FieldLabel label="From email"><input value={emailForm.fromEmail} onChange={(event) => setEmailForm((current) => ({ ...current, fromEmail: event.target.value }))} placeholder="Sender email" className={inputClass} /></FieldLabel>
+                <FieldLabel label="SMTP host"><input value={emailForm.smtpHost} onChange={(event) => setEmailForm((current) => ({ ...current, smtpHost: event.target.value }))} placeholder="smtp.gmail.com" className={inputClass} /></FieldLabel>
+                <FieldLabel label="SMTP username"><input value={emailForm.smtpUsername} onChange={(event) => setEmailForm((current) => ({ ...current, smtpUsername: event.target.value }))} placeholder="SMTP username" className={inputClass} /></FieldLabel>
+                <FieldLabel label="SMTP password"><input type="password" value={emailForm.smtpPassword} onChange={(event) => setEmailForm((current) => ({ ...current, smtpPassword: event.target.value }))} placeholder={email.passwordConfigured ? "Password saved. Enter to replace." : "SMTP password"} className={inputClass} /></FieldLabel>
+                <FieldLabel label="SMTP port"><select value={emailForm.smtpPort} onChange={(event) => setEmailForm((current) => ({ ...current, smtpPort: Number(event.target.value) }))} className={selectClass}><option value={465}>465 / secure true</option><option value={587}>587 / secure false</option></select></FieldLabel>
+                <FieldLabel label="Daily send limit"><input type="number" min="1" value={emailForm.dailySendLimit} onChange={(event) => setEmailForm((current) => ({ ...current, dailySendLimit: event.target.value }))} placeholder="Daily limit" className={inputClass} /></FieldLabel>
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-3"><label className="flex justify-between rounded-[0.9rem] border border-white/10 p-3 text-white">Enabled<input type="checkbox" checked={emailForm.isEnabled} onChange={(event) => setEmailForm((current) => ({ ...current, isEnabled: event.target.checked }))} /></label><label className="flex justify-between rounded-[0.9rem] border border-white/10 p-3 text-white">Open tracking<input type="checkbox" checked={emailForm.openTrackingEnabled} onChange={(event) => setEmailForm((current) => ({ ...current, openTrackingEnabled: event.target.checked }))} /></label><label className="flex justify-between rounded-[0.9rem] border border-white/10 p-3 text-white">Click tracking<input type="checkbox" checked={emailForm.clickTrackingEnabled} onChange={(event) => setEmailForm((current) => ({ ...current, clickTrackingEnabled: event.target.checked }))} /></label></div>
-              <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]"><FieldLabel label="Test email recipient"><input value={emailForm.testToEmail} onChange={(event) => setEmailForm((current) => ({ ...current, testToEmail: event.target.value }))} placeholder="Test email recipient" className="h-11 rounded-[0.9rem] border border-white/10 bg-white/[0.04] px-3 text-sm text-white outline-none" /></FieldLabel><button onClick={saveEmailSettings} className="mt-7 rounded-full border border-[#6fd8ff]/30 px-4 py-3 font-semibold text-[#dff7ff]">Save Email Settings</button><button onClick={sendTestEmail} className="mt-7 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-4 py-3 font-semibold text-[#07111d]">Send Test Email</button></div>
+              <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]"><FieldLabel label="Test email recipient"><input value={emailForm.testToEmail} onChange={(event) => setEmailForm((current) => ({ ...current, testToEmail: event.target.value }))} placeholder="Test email recipient" className={inputClass} /></FieldLabel><button onClick={saveEmailSettings} className="mt-7 rounded-full border border-[#6fd8ff]/30 px-4 py-3 font-semibold text-[#dff7ff]">Save Email Settings</button><button onClick={sendTestEmail} className="mt-7 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-4 py-3 font-semibold text-[#07111d]">Send Test Email</button></div>
               <div className="mt-5 rounded-[1rem] border border-white/10 bg-white/[0.03] p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
@@ -1779,7 +1901,7 @@ export default function AdminJobAgentPage() {
         )}
 
         {activeTab === "events" && (
-          <section className="rounded-[1.4rem] border border-white/10 bg-[#08111d]/80 p-5">
+          <section className={surfaceClass}>
             <ModuleState loading={state.events.loading} error={state.events.error} empty={events.length === 0}>
               <p className="mb-4 text-sm text-[#9fb1c7]">Raw IP addresses are never shown. IP stored as hash.</p>
               <div className="overflow-x-auto">

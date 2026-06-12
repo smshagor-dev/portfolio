@@ -263,6 +263,46 @@ This supports:
 - Admin-facing contact assistance
 - Provider/model configuration through database settings
 
+## Job Agent Safety Model
+
+The Job Agent separates job discovery from contact discovery:
+
+- Gmail, LinkedIn, Indeed, and Glassdoor alerts are **job discovery only**.
+- Gmail alert senders and alert-body emails are never treated as recruiter contacts.
+- LinkedIn is never scraped and is never used as a recruiter-email source.
+- Recruiter/company contacts are discovered separately from public company websites only, such as homepage, `/contact`, `/about`, `/careers`, and `/jobs`.
+- Sending uses SMTP. A draft is sent only when the contact is valid/approved, the draft is approved when required, daily limits allow it, and duplicate-send checks pass.
+- Skipped or failed sends store an exact `skipReason` or `errorMessage` on the draft.
+
+Backend SMTP variables can be provided through admin settings or environment:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=your-sender@gmail.com
+SMTP_PASS=your-app-password
+FROM_EMAIL=your-sender@gmail.com
+FROM_NAME=Job Agent
+```
+
+Useful Job Agent commands from `backend/`:
+
+```bash
+npm run db:migrate
+npm run db:generate
+npm run smoke:job-agent-email
+npm run dev
+```
+
+Debugging checklist:
+
+- No contact found: confirm the job has a non-platform `companyUrl` or public company career URL.
+- Invalid recipient: check contact `validationStatus`, `contactEmailStatus`, `confidenceScore`, and `errorMessage`.
+- SMTP missing: set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `FROM_EMAIL`, or save SMTP settings in admin.
+- Daily limit reached: check `JOB_AGENT_APPLICATION_MAX_SENDS_PER_DAY` and recent `SENT` events.
+- Duplicate send blocked: one recipient address can receive only one Job Agent application email.
+
 ## Uploads and Static Files
 
 - Backend uploads are served from `/uploads`

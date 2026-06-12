@@ -20,6 +20,15 @@ const {
   serializeJobAgentAiSetting,
 } = require("../services/job-agent-ai");
 const { generateCoverLetterPdf } = require("../services/job-agent-pdf");
+const { discoverContactsForJob, getUrlDomain, isPublicCompanyUrl } = require("../services/job-agent-contact-discovery");
+const {
+  extractEmails: extractValidatedEmails,
+  isNoReplyEmail,
+  isPlatformDomain,
+  isValidEmailFormat,
+  normalizeEmail: normalizeValidatedEmail,
+  validateRecruiterEmail,
+} = require("../services/job-agent-email-validation");
 const {
   GMAIL_SCOPES,
   SAFE_JOB_ALERT_QUERIES,
@@ -37,7 +46,6 @@ const jobAgentCvUploadDirectory = path.resolve(process.cwd(), "public", "uploads
 const GMAIL_AUTO_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const APPROVED_SOURCES_AUTO_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const EMAIL_AUTO_SEND_INTERVAL_MS = Math.max(60 * 1000, Number.parseInt(process.env.JOB_AGENT_EMAIL_AUTO_SEND_INTERVAL_MS, 10) || 10 * 60 * 1000);
-const HUNTER_DAILY_CALL_LIMIT = Math.max(0, Number.parseInt(process.env.JOB_AGENT_HUNTER_MAX_CALLS_PER_DAY, 10) || 1);
 const JOB_APPLICATION_DAILY_SEND_LIMIT = Math.max(1, Number.parseInt(process.env.JOB_AGENT_APPLICATION_MAX_SENDS_PER_DAY, 10) || 1);
 let gmailAutoSyncRunning = false;
 let approvedSourcesAutoSyncRunning = false;
@@ -194,7 +202,6 @@ function serializeSettings(settings) {
     gmailConnected: Boolean(settings.gmailRefreshToken),
     gmailSafeQueries: SAFE_JOB_ALERT_QUERIES,
     approvedApiSources: quotaState.sources,
-    hunterQuota: quotaState.quotas.hunter || { date: todayKey(), count: 0, limit: HUNTER_DAILY_CALL_LIMIT },
     dailySendLimit: Math.min(settings.dailySendLimit || JOB_APPLICATION_DAILY_SEND_LIMIT, JOB_APPLICATION_DAILY_SEND_LIMIT),
   };
 }
@@ -256,6 +263,35 @@ function extractFirstUrl(text) {
 
 function extractEmails(text) {
   return Array.from(new Set(String(text || "").match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || []));
+}
+
+function extractUrls(text) {
+  return Array.from(new Set(String(text || "").match(/https?:\/\/[^\s"'<>]+/gi) || []))
+    .map((url) => url.replace(/[),.]+$/, ""))
+    .filter(Boolean);
+}
+
+function classifyJobAlertUrl(url) {
+  const normalized = normalizeString(url);
+  const lowered = normalized.toLowerCase();
+  const domain = getUrlDomain(normalized);
+  if (/unsubscribe|email-preferences|preferences|optout|opt-out/.test(lowered)) return "unsubscribeUrl";
+  if (/utm_|trk|tracking|click|redirect|lnkd\.in|mailchi|sendgrid|mandrill/.test(lowered)) return "trackingUrl";
+  if (isPlatformDomain(domain)) return "applyUrl";
+  if (isPublicCompanyUrl(normalized)) return "companyUrl";
+  return "unknownUrl";
+}
+
+function classifyJobAlertUrls(text) {
+  const urls = extractUrls(text);
+  const classified = urls.map((url) => ({ url, type: classifyJobAlertUrl(url) }));
+  const applyUrl = classified.find((item) => item.type === "applyUrl")?.url || "";
+  const companyUrl = classified.find((item) => item.type === "companyUrl")?.url || "";
+  return {
+    urls: classified,
+    applyUrl: applyUrl || companyUrl || "",
+    companyUrl,
+  };
 }
 
 function extractJobFromEmail(message) {
@@ -471,6 +507,9 @@ async function upsertMatchAndDraft(jobPost) {
           approvedBy: "",
           rejectionReason: "",
           status: "DRAFT",
+          sendStatus: "pending",
+          skipReason: "",
+          errorMessage: "",
         },
       });
 
@@ -522,10 +561,14 @@ async function createManualJob(body) {
   const jobPost = await prisma.jobPost.create({
     data: {
       sourceType: "manual",
+      sourcePlatform: "manual",
       title,
       company,
       location: normalizeString(body.location),
       sourceUrl,
+      applyUrl: sourceUrl,
+      companyUrl: isPublicCompanyUrl(sourceUrl) ? sourceUrl : "",
+      extractedUrls: sourceUrl ? [{ url: sourceUrl, type: isPublicCompanyUrl(sourceUrl) ? "companyUrl" : "applyUrl" }] : [],
       description,
       rawContent: description,
       sourceName: "Manual Import",
@@ -533,6 +576,8 @@ async function createManualJob(body) {
       descriptionStatus: "READY",
       searchKeywordMatched: keywordResult.matchedKeywords.slice(0, 5).join(", "),
       status: "new",
+      contactDiscoveryStatus: "pending",
+      contactDiscoveryError: "",
     },
   });
 
@@ -751,10 +796,14 @@ async function createImportedJob(job) {
   return prisma.jobPost.create({
     data: {
       sourceType: normalizeString(job.sourceType || job.importMethod || "MANUAL").toLowerCase(),
+      sourcePlatform: normalizeString(job.sourceType || job.importMethod || "MANUAL").toLowerCase(),
       title: job.title,
       company: job.company,
       location: job.location || "",
       sourceUrl: job.sourceUrl || "",
+      applyUrl: job.applyUrl || job.sourceUrl || "",
+      companyUrl: job.companyUrl || (isPublicCompanyUrl(job.sourceUrl) ? job.sourceUrl : ""),
+      extractedUrls: job.extractedUrls || (job.sourceUrl ? [{ url: job.sourceUrl, type: "applyUrl" }] : []),
       description: job.description || "",
       rawContent: job.rawContent || job.description || "",
       jobType: job.jobType || "",
@@ -766,26 +815,29 @@ async function createImportedJob(job) {
       descriptionStatus: job.descriptionStatus || (job.description ? "READY" : "DESCRIPTION_REQUIRED"),
       searchKeywordMatched: job.searchKeywordMatched || "",
       status: job.description ? "new" : "DESCRIPTION_REQUIRED",
+      contactDiscoveryStatus: "pending",
+      contactDiscoveryError: "",
     },
   });
 }
 
 function serializeEmailSetting(setting) {
+  const envPasswordConfigured = Boolean(normalizeString(process.env.SMTP_PASS));
   return {
     id: setting?.id || 1,
     adminId: setting?.adminId || null,
-    fromName: setting?.fromName || "",
-    fromEmail: setting?.fromEmail || "",
-    smtpHost: setting?.smtpHost || "smtp.gmail.com",
-    smtpPort: setting?.smtpPort || 465,
+    fromName: setting?.fromName || normalizeString(process.env.FROM_NAME),
+    fromEmail: setting?.fromEmail || normalizeEmail(process.env.FROM_EMAIL),
+    smtpHost: setting?.smtpHost || normalizeString(process.env.SMTP_HOST) || "smtp.gmail.com",
+    smtpPort: setting?.smtpPort || Number.parseInt(process.env.SMTP_PORT, 10) || 465,
     smtpSecure: typeof setting?.smtpSecure === "boolean" ? setting.smtpSecure : true,
-    smtpUsername: setting?.smtpUsername || "",
+    smtpUsername: setting?.smtpUsername || normalizeEmail(process.env.SMTP_USER),
     dailySendLimit: Math.min(setting?.dailySendLimit || JOB_APPLICATION_DAILY_SEND_LIMIT, JOB_APPLICATION_DAILY_SEND_LIMIT),
     isEnabled: Boolean(setting?.isEnabled),
     openTrackingEnabled: Boolean(setting?.openTrackingEnabled),
     clickTrackingEnabled: Boolean(setting?.clickTrackingEnabled),
-    hasPassword: Boolean(setting?.smtpPasswordEncrypted),
-    passwordConfigured: Boolean(setting?.smtpPasswordEncrypted),
+    hasPassword: Boolean(setting?.smtpPasswordEncrypted || envPasswordConfigured),
+    passwordConfigured: Boolean(setting?.smtpPasswordEncrypted || envPasswordConfigured),
     createdAt: setting?.createdAt || null,
     updatedAt: setting?.updatedAt || null,
   };
@@ -794,6 +846,7 @@ function serializeEmailSetting(setting) {
 function serializeJob(job) {
   const match = job?.matches?.[0] || null;
   const draft = job?.emailDrafts?.[0] || null;
+  const contact = job?.recruiterContacts?.[0] || draft?.recruiterContact || null;
   return {
     id: job.id,
     title: job.title,
@@ -801,7 +854,13 @@ function serializeJob(job) {
     location: job.location,
     source: job.source?.name || job.sourceType,
     sourceType: job.sourceType,
+    sourceEmail: job.sourceEmail,
+    sourceSubject: job.sourceSubject || job.emailSubject,
+    sourcePlatform: job.sourcePlatform || job.sourceType,
     sourceUrl: job.sourceUrl,
+    applyUrl: job.applyUrl || job.sourceUrl,
+    companyUrl: job.companyUrl,
+    extractedUrls: job.extractedUrls || [],
     jobType: job.jobType,
     workMode: job.workMode,
     region: job.region,
@@ -813,6 +872,18 @@ function serializeJob(job) {
     emailSubject: job.emailSubject,
     matchScore: match?.score ?? null,
     status: job.status,
+    contactDiscoveryStatus: job.contactDiscoveryStatus,
+    contactDiscoveryError: job.contactDiscoveryError,
+    lastContactDiscoveryAt: job.lastContactDiscoveryAt,
+    foundContactEmail: contact?.email || "",
+    foundContactId: contact?.id || null,
+    contactConfidenceScore: contact?.confidenceScore ?? null,
+    contactValidationStatus: contact?.validationStatus || "",
+    contactEmailStatus: contact?.contactEmailStatus || "",
+    contactSourceUrl: contact?.sourceUrl || "",
+    draftSendStatus: draft?.sendStatus || "",
+    draftSkipReason: draft?.skipReason || "",
+    draftErrorMessage: draft?.errorMessage || "",
     createdAt: job.createdAt,
     receivedAt: job.receivedAt,
     latestMatch: match,
@@ -828,7 +899,11 @@ function serializeDraft(draft) {
     recipientEmail: draft.toEmail,
     hrEmail: draft.toEmail || draft.recruiterContact?.email || "",
     hrEmailSource: draft.recruiterContact?.source || "",
-    hrEmailVerified: Boolean(draft.recruiterContact?.verified || draft.toEmail),
+    hrEmailVerified: Boolean(draft.recruiterContact?.contactEmailStatus === "approved" || draft.recruiterContact?.validationStatus === "approved"),
+    contactConfidenceScore: draft.recruiterContact?.confidenceScore ?? null,
+    contactValidationStatus: draft.recruiterContact?.validationStatus || "",
+    contactEmailStatus: draft.recruiterContact?.contactEmailStatus || "",
+    contactSourceUrl: draft.recruiterContact?.sourceUrl || "",
     subject: draft.subject,
     body: draft.body,
     aiProvider: draft.aiProvider,
@@ -855,6 +930,10 @@ function serializeDraft(draft) {
     openCount: draft.openCount,
     clickedAt: draft.clickedAt,
     clickCount: draft.clickCount,
+    sendStatus: draft.sendStatus,
+    skipReason: draft.skipReason,
+    errorMessage: draft.errorMessage,
+    lastSendAttemptAt: draft.lastSendAttemptAt,
     createdAt: draft.createdAt,
     updatedAt: draft.updatedAt,
   };
@@ -923,37 +1002,18 @@ async function getEmailSetting() {
 }
 
 function normalizeEmail(value) {
-  return normalizeString(value).toLowerCase();
+  return normalizeValidatedEmail(value);
 }
 
 function isUsableRecruiterEmail(email) {
   const normalized = normalizeEmail(email);
-  if (!normalized) return false;
-  return !/(^|[._-])(noreply|no-reply|donotreply|do-not-reply|unsubscribe|notification|notifications|alert|alerts|support)([._-]|@)/i.test(normalized);
+  if (!normalized || !isValidEmailFormat(normalized)) return false;
+  if (isNoReplyEmail(normalized)) return false;
+  return !isPlatformDomain(normalized.split("@")[1] || "");
 }
 
 function extractCandidateRecruiterEmails(...values) {
-  return Array.from(new Set(values.flatMap((value) => extractEmails(value)).map(normalizeEmail))).filter(isUsableRecruiterEmail);
-}
-
-function getDomainFromUrl(value) {
-  try {
-    const url = new URL(normalizeString(value));
-    return url.hostname.replace(/^www\./i, "").toLowerCase();
-  } catch (_error) {
-    return "";
-  }
-}
-
-function recruiterEmailRank(email) {
-  const normalized = normalizeEmail(email);
-  if (/^(recruiting|recruiter|talent|careers|jobs|hr|people|hiring)@/i.test(normalized)) return 0;
-  if (/(recruit|talent|career|hiring|people|hr)/i.test(normalized)) return 1;
-  return 2;
-}
-
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return Array.from(new Set(values.flatMap((value) => extractValidatedEmails(value)).map(normalizeEmail))).filter(isUsableRecruiterEmail);
 }
 
 function getInternalQuotaState(settings) {
@@ -970,92 +1030,17 @@ function getInternalQuotaState(settings) {
   };
 }
 
-async function reserveHunterDailyCall() {
-  if (HUNTER_DAILY_CALL_LIMIT <= 0) {
-    return false;
-  }
-
-  const settings = await getSettings();
-  const state = getInternalQuotaState(settings);
-  const date = todayKey();
-  const hunter = state.quotas.hunter || {};
-  const nextCount = hunter.date === date ? Number(hunter.count || 0) + 1 : 1;
-
-  if (nextCount > HUNTER_DAILY_CALL_LIMIT) {
-    return false;
-  }
-
-  await prisma.jobAgentSettings.update({
-    where: { id: settings.id },
-    data: {
-      approvedApiSources: {
-        sources: state.sources,
-        quotas: {
-          ...state.quotas,
-          hunter: {
-            date,
-            count: nextCount,
-            limit: HUNTER_DAILY_CALL_LIMIT,
-          },
-        },
-      },
-    },
-  });
-
-  return true;
-}
-
-async function lookupHunterRecruiterEmails(domain) {
-  const apiKey = normalizeString(process.env.HUNTER_API_KEY || process.env.HUNTER_IO_API_KEY);
-  const normalizedDomain = normalizeString(domain).toLowerCase();
-  if (!apiKey || !normalizedDomain || typeof fetch !== "function") {
-    return [];
-  }
-
-  const quotaReserved = await reserveHunterDailyCall();
-  if (!quotaReserved) {
-    console.log(`Hunter lookup skipped: daily limit ${HUNTER_DAILY_CALL_LIMIT} reached.`);
-    return [];
-  }
-
-  const url = new URL("https://api.hunter.io/v2/domain-search");
-  url.searchParams.set("domain", normalizedDomain);
-  url.searchParams.set("api_key", apiKey);
-  url.searchParams.set("limit", "10");
-
-  const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
-  if (!response.ok) {
-    throw new Error(`Hunter email lookup failed with status ${response.status}.`);
-  }
-
-  const payload = await response.json().catch(() => ({}));
-  const emails = Array.isArray(payload?.data?.emails) ? payload.data.emails : [];
-  return emails
-    .map((item) => ({
-      email: normalizeEmail(item?.value),
-      source: "hunter",
-      confidence: Number(item?.confidence || 0),
-      publicContext: `Hunter domain-search result for ${normalizedDomain}.`,
-    }))
-    .filter((item) => isUsableRecruiterEmail(item.email))
-    .sort((a, b) => recruiterEmailRank(a.email) - recruiterEmailRank(b.email) || b.confidence - a.confidence);
-}
-
-async function lookupExternalRecruiterEmailsForJob(job) {
-  const domain = getDomainFromUrl(job?.sourceUrl);
-  if (!domain) {
-    return [];
-  }
-
-  return lookupHunterRecruiterEmails(domain).catch((error) => {
-    console.error("Recruiter email lookup failed:", error.message);
-    return [];
-  });
-}
-
 async function ensureRecruiterContactForEmail(jobPostId, email, source = "extracted", publicContext = "Extracted from job content.") {
   const normalizedEmail = normalizeEmail(email);
   if (!jobPostId || !isUsableRecruiterEmail(normalizedEmail)) {
+    return null;
+  }
+
+  const job = await prisma.jobPost.findUnique({ where: { id: jobPostId } });
+  const companyDomain = getUrlDomain(job?.companyUrl) || getUrlDomain(job?.applyUrl) || "";
+  const manualApproved = ["manual", "admin"].includes(source);
+  const validation = validateRecruiterEmail(normalizedEmail, { companyDomain });
+  if (!manualApproved && !validation.accepted) {
     return null;
   }
 
@@ -1064,10 +1049,18 @@ async function ensureRecruiterContactForEmail(jobPostId, email, source = "extrac
   });
 
   if (existing) {
-    if (!existing.verified) {
+    if (manualApproved && existing.validationStatus !== "approved") {
       return prisma.recruiterContact.update({
         where: { id: existing.id },
-        data: { verified: true, verification: existing.verification || "content_extracted" },
+        data: {
+          validationStatus: "approved",
+          contactEmailStatus: "approved",
+          confidenceScore: Math.max(existing.confidenceScore || 0, 90),
+          verified: true,
+          verification: "manual",
+          lastVerifiedAt: new Date(),
+          errorMessage: "",
+        },
       });
     }
     return existing;
@@ -1078,9 +1071,26 @@ async function ensureRecruiterContactForEmail(jobPostId, email, source = "extrac
       jobPostId,
       email: normalizedEmail,
       name: "",
+      companyName: job?.company || "",
+      companyDomain,
       source,
-      verification: "content_extracted",
-      verified: true,
+      sourceUrl: job?.companyUrl || job?.applyUrl || job?.sourceUrl || "",
+      discoveryMethod: manualApproved ? "manual_admin_entry" : "content_candidate",
+      validationStatus: manualApproved ? "approved" : "needs_review",
+      contactEmailStatus: manualApproved ? "approved" : "pending",
+      confidenceScore: manualApproved ? 90 : validation.confidenceScore,
+      isRecruiter: validation.isRecruiter,
+      isHiringManager: validation.isHiringManager,
+      evidence: {
+        source,
+        publicContext,
+        validation,
+        note: manualApproved ? "Manually approved by admin." : "Unverified content candidate.",
+      },
+      lastVerifiedAt: manualApproved ? new Date() : null,
+      errorMessage: "",
+      verification: manualApproved ? "manual" : "needs_review",
+      verified: manualApproved,
       publicContext,
     },
   });
@@ -1091,23 +1101,21 @@ async function ensureDraftRecipientEmail(draft, { externalLookup = false } = {})
     return draft;
   }
 
-  const directEmail = normalizeEmail(draft.toEmail || draft.recruiterContact?.email);
-  if (isUsableRecruiterEmail(directEmail)) {
-    const contact = draft.recruiterContact || await ensureRecruiterContactForEmail(draft.jobPostId, directEmail, "draft", "Existing draft recipient.");
-    if (!draft.toEmail || draft.recruiterContactId !== contact?.id) {
-      return prisma.jobEmailDraft.update({
-        where: { id: draft.id },
-        data: { toEmail: directEmail, recruiterContactId: contact?.id || draft.recruiterContactId, status: "READY" },
-        include: { jobPost: true, recruiterContact: true },
+  const approvedStatuses = ["approved", "valid"];
+  const existingContact = draft.recruiterContact?.contactEmailStatus === "approved" || draft.recruiterContact?.validationStatus === "approved"
+    ? draft.recruiterContact
+    : await prisma.recruiterContact.findFirst({
+        where: {
+          jobPostId: draft.jobPostId,
+          email: draft.toEmail ? normalizeEmail(draft.toEmail) : undefined,
+          OR: [
+            { validationStatus: { in: approvedStatuses } },
+            { contactEmailStatus: "approved" },
+          ],
+        },
+        orderBy: [{ confidenceScore: "desc" }, { createdAt: "desc" }],
       });
-    }
-    return draft;
-  }
 
-  const existingContact = await prisma.recruiterContact.findFirst({
-    where: { jobPostId: draft.jobPostId, verified: true },
-    orderBy: { createdAt: "desc" },
-  });
   if (existingContact?.email && isUsableRecruiterEmail(existingContact.email)) {
     return prisma.jobEmailDraft.update({
       where: { id: draft.id },
@@ -1116,46 +1124,31 @@ async function ensureDraftRecipientEmail(draft, { externalLookup = false } = {})
     });
   }
 
-  const job = draft.jobPost || await prisma.jobPost.findUnique({ where: { id: draft.jobPostId } });
-  const [email] = extractCandidateRecruiterEmails(
-    job?.description,
-    job?.rawContent,
-    job?.emailSubject,
-    draft.body,
-    draft.coverLetterText,
-  );
-  if (!email) {
-    if (!externalLookup) {
-      return draft;
+  if (externalLookup) {
+    const job = draft.jobPost || await prisma.jobPost.findUnique({ where: { id: draft.jobPostId } });
+    if (job) {
+      await discoverContactsForJob(prisma, job);
+      const discovered = await prisma.recruiterContact.findFirst({
+        where: {
+          jobPostId: draft.jobPostId,
+          OR: [
+            { validationStatus: { in: approvedStatuses } },
+            { contactEmailStatus: "approved" },
+          ],
+        },
+        orderBy: [{ confidenceScore: "desc" }, { createdAt: "desc" }],
+      });
+      if (discovered?.email && isUsableRecruiterEmail(discovered.email)) {
+        return prisma.jobEmailDraft.update({
+          where: { id: draft.id },
+          data: { toEmail: normalizeEmail(discovered.email), recruiterContactId: discovered.id, status: "READY" },
+          include: { jobPost: true, recruiterContact: true },
+        });
+      }
     }
-
-    const [externalEmail] = await lookupExternalRecruiterEmailsForJob(job);
-    if (!externalEmail?.email) {
-      return draft;
-    }
-
-    const contact = await ensureRecruiterContactForEmail(draft.jobPostId, externalEmail.email, externalEmail.source, externalEmail.publicContext);
-    if (!contact) {
-      return draft;
-    }
-
-    return prisma.jobEmailDraft.update({
-      where: { id: draft.id },
-      data: { toEmail: externalEmail.email, recruiterContactId: contact.id, status: "READY" },
-      include: { jobPost: true, recruiterContact: true },
-    });
   }
 
-  const contact = await ensureRecruiterContactForEmail(draft.jobPostId, email, "content_extracted", "Extracted from job description, job alert, or draft content.");
-  if (!contact) {
-    return draft;
-  }
-
-  return prisma.jobEmailDraft.update({
-    where: { id: draft.id },
-    data: { toEmail: email, recruiterContactId: contact.id, status: "READY" },
-    include: { jobPost: true, recruiterContact: true },
-  });
+  return draft;
 }
 
 function isAllowedGmailSmtp(port, secure) {
@@ -1166,17 +1159,13 @@ function normalizeEmailSettingPayload(body, existing = null) {
   const smtpPort = Number.parseInt(body?.smtpPort, 10) || existing?.smtpPort || 465;
   const smtpSecure =
     typeof body?.smtpSecure === "boolean" ? body.smtpSecure : smtpPort === 465;
-  const smtpHost = normalizeString(body?.smtpHost || existing?.smtpHost || "smtp.gmail.com").toLowerCase();
+  const smtpHost = normalizeString(body?.smtpHost || existing?.smtpHost || process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
   const smtpUsername = normalizeEmail(body?.smtpUsername || body?.fromEmail || existing?.smtpUsername);
   const fromEmail = normalizeEmail(body?.fromEmail || existing?.fromEmail);
   const allowFromEmailAlias =
     String(process.env.JOB_AGENT_ALLOW_SMTP_FROM_ALIAS || "").trim().toLowerCase() === "true";
 
-  if (smtpHost !== "smtp.gmail.com") {
-    throw new Error("Job Agent email must use Gmail SMTP host smtp.gmail.com.");
-  }
-
-  if (!isAllowedGmailSmtp(smtpPort, smtpSecure)) {
+  if (smtpHost === "smtp.gmail.com" && !isAllowedGmailSmtp(smtpPort, smtpSecure)) {
     throw new Error("Gmail SMTP must use port 465 with secure true or port 587 with secure false.");
   }
 
@@ -1184,14 +1173,14 @@ function normalizeEmailSettingPayload(body, existing = null) {
     throw new Error("From email and Gmail username are required.");
   }
 
-  if (!allowFromEmailAlias && fromEmail !== smtpUsername) {
+  if (smtpHost === "smtp.gmail.com" && !allowFromEmailAlias && fromEmail !== smtpUsername) {
     throw new Error("From email must match Gmail SMTP username.");
   }
 
   return {
     fromName: normalizeString(body?.fromName ?? existing?.fromName),
     fromEmail,
-    smtpHost: "smtp.gmail.com",
+    smtpHost,
     smtpPort,
     smtpSecure,
     smtpUsername,
@@ -1216,9 +1205,21 @@ function validateEmailSettingForSend(setting) {
     throw new Error("Job Agent email sending is disabled.");
   }
 
-  const normalized = normalizeEmailSettingPayload(setting, setting);
-  if (!setting.smtpPasswordEncrypted) {
-    throw new Error("Gmail app password is required.");
+  const normalized = normalizeEmailSettingPayload({
+    fromName: setting.fromName || process.env.FROM_NAME,
+    fromEmail: setting.fromEmail || process.env.FROM_EMAIL,
+    smtpHost: setting.smtpHost || process.env.SMTP_HOST,
+    smtpPort: setting.smtpPort || process.env.SMTP_PORT,
+    smtpSecure: typeof setting.smtpSecure === "boolean" ? setting.smtpSecure : String(process.env.SMTP_SECURE || "").toLowerCase() === "true",
+    smtpUsername: setting.smtpUsername || process.env.SMTP_USER,
+    dailySendLimit: setting.dailySendLimit,
+    isEnabled: setting.isEnabled,
+    openTrackingEnabled: setting.openTrackingEnabled,
+    clickTrackingEnabled: setting.clickTrackingEnabled,
+  }, setting);
+  const passwordConfigured = Boolean(setting.smtpPasswordEncrypted || normalizeString(process.env.SMTP_PASS));
+  if (!normalized.smtpHost || !normalized.smtpPort || !normalized.smtpUsername || !passwordConfigured || !normalized.fromEmail) {
+    throw new Error("SMTP is not configured. Please set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, FROM_EMAIL.");
   }
 
   return normalized;
@@ -1335,7 +1336,7 @@ async function countSentToday() {
 
 async function sendDraftEmail(draft, setting, request, aiSettings = null) {
   const normalized = validateEmailSettingForSend(setting);
-  const appPassword = decryptText(setting.smtpPasswordEncrypted);
+  const appPassword = setting.smtpPasswordEncrypted ? decryptText(setting.smtpPasswordEncrypted) : normalizeString(process.env.SMTP_PASS);
   const transporter = nodemailer.createTransport({
     host: normalized.smtpHost,
     port: normalized.smtpPort,
@@ -1425,8 +1426,9 @@ router.get("/overview", requireAdmin, async (_request, response) => {
     const activeAiKeyConfigured = keyConfigured(aiSetting, serializedAiSetting.aiProvider);
     const gmailOAuthConfigured = gmailClientIdConfigured && gmailClientSecretConfigured;
     const gmailConnected = Boolean(settings.gmailRefreshToken);
-    const smtpPasswordConfigured = Boolean(emailSetting.smtpPasswordEncrypted);
-    const smtpReady = Boolean(emailSetting.isEnabled && emailSetting.fromEmail && emailSetting.smtpUsername && smtpPasswordConfigured);
+    const serializedEmailSetting = serializeEmailSetting(emailSetting);
+    const smtpPasswordConfigured = Boolean(serializedEmailSetting.passwordConfigured);
+    const smtpReady = Boolean(emailSetting.isEnabled && serializedEmailSetting.fromEmail && serializedEmailSetting.smtpUsername && smtpPasswordConfigured);
     const effectiveDailySendLimit = Math.min(emailSetting.dailySendLimit || JOB_APPLICATION_DAILY_SEND_LIMIT, JOB_APPLICATION_DAILY_SEND_LIMIT);
 
     return response.json({
@@ -1462,11 +1464,11 @@ router.get("/overview", requireAdmin, async (_request, response) => {
         },
         smtp: {
           isEnabled: Boolean(emailSetting.isEnabled),
-          fromEmail: emailSetting.fromEmail,
-          smtpUsername: emailSetting.smtpUsername,
-          smtpHost: emailSetting.smtpHost,
-          smtpPort: emailSetting.smtpPort,
-          smtpSecure: Boolean(emailSetting.smtpSecure),
+          fromEmail: serializedEmailSetting.fromEmail,
+          smtpUsername: serializedEmailSetting.smtpUsername,
+          smtpHost: serializedEmailSetting.smtpHost,
+          smtpPort: serializedEmailSetting.smtpPort,
+          smtpSecure: Boolean(serializedEmailSetting.smtpSecure),
           passwordConfigured: smtpPasswordConfigured,
           dailySendLimit: effectiveDailySendLimit,
           ready: smtpReady,
@@ -1548,7 +1550,8 @@ router.get("/jobs", requireAdmin, async (request, response) => {
       include: {
         source: true,
         matches: { orderBy: { createdAt: "desc" }, take: 1 },
-        emailDrafts: { orderBy: { createdAt: "desc" }, take: 1 },
+        emailDrafts: { orderBy: { createdAt: "desc" }, take: 1, include: { recruiterContact: true } },
+        recruiterContacts: { orderBy: [{ confidenceScore: "desc" }, { createdAt: "desc" }], take: 1 },
       },
     });
 
@@ -1940,9 +1943,9 @@ router.post("/email/test", requireAdmin, async (request, response) => {
     const setting = await getEmailSetting();
     const toEmail = normalizeEmail(request.body?.toEmail || setting.fromEmail);
 
-    if (request.body?.mock === true || !setting.smtpPasswordEncrypted) {
+    if (request.body?.mock === true) {
       return response.json({
-        message: "Mock Job Agent test email passed. Add a Gmail app password to send a real test.",
+        message: "Mock Job Agent test email passed. Configure SMTP to send a real test.",
         mocked: true,
         setting: serializeEmailSetting(setting),
       });
@@ -1972,7 +1975,13 @@ async function markDraftSendFailed(draftId, request = null, message = "") {
 
   const failedDraft = await prisma.jobEmailDraft.update({
     where: { id: draftId },
-    data: { status: "FAILED" },
+    data: {
+      status: "FAILED",
+      sendStatus: "failed",
+      errorMessage: normalizeString(message),
+      skipReason: "",
+      lastSendAttemptAt: new Date(),
+    },
   }).catch(() => null);
 
   if (failedDraft) {
@@ -1991,6 +2000,37 @@ async function markDraftSendFailed(draftId, request = null, message = "") {
   }
 
   return failedDraft;
+}
+
+async function markDraftSendSkipped(draftId, request = null, message = "") {
+  if (!draftId) return null;
+
+  const skippedDraft = await prisma.jobEmailDraft.update({
+    where: { id: draftId },
+    data: {
+      sendStatus: "skipped",
+      skipReason: normalizeString(message),
+      errorMessage: "",
+      lastSendAttemptAt: new Date(),
+    },
+  }).catch(() => null);
+
+  if (skippedDraft) {
+    await prisma.jobAgentEmailEvent.create({
+      data: {
+        draftId: skippedDraft.id,
+        jobPostId: skippedDraft.jobPostId,
+        recipientEmail: skippedDraft.toEmail,
+        eventType: "SKIPPED",
+        trackingId: skippedDraft.trackingId,
+        url: normalizeString(message).slice(0, 500),
+        userAgent: normalizeString(request?.headers?.["user-agent"] || "job-agent-auto-send"),
+        ipHash: "",
+      },
+    }).catch(() => null);
+  }
+
+  return skippedDraft;
 }
 
 async function hasSentJobEmailToRecipient(email, excludeDraftId = null) {
@@ -2032,33 +2072,58 @@ async function sendDraftById(draftId, { request = null, toEmail: requestedToEmai
     throw error;
   }
 
+  await prisma.jobEmailDraft.update({
+    where: { id: draft.id },
+    data: { lastSendAttemptAt: new Date(), skipReason: "", errorMessage: "" },
+  });
+
   if (["SENT", "OPENED", "CLICKED"].includes(String(draft.status || "").toUpperCase())) {
     const error = new Error("This draft was already sent.");
     error.statusCode = 409;
     error.skipFailureMark = true;
+    error.sendSkipped = true;
     throw error;
   }
 
   const toEmail = normalizeEmail(requestedToEmail || draft.toEmail || draft.recruiterContact?.email);
-  if (!toEmail) {
-    const error = new Error("A verified recipient email is required.");
+  if (!toEmail || !isUsableRecruiterEmail(toEmail)) {
+    const error = new Error("A valid approved recipient email is required.");
     error.statusCode = 400;
+    error.skipFailureMark = true;
+    error.sendSkipped = true;
     throw error;
   }
 
   const contact =
-    draft.recruiterContact ||
+    (draft.recruiterContact?.email && normalizeEmail(draft.recruiterContact.email) === toEmail ? draft.recruiterContact : null) ||
     (await prisma.recruiterContact.findFirst({
       where: {
         jobPostId: draft.jobPostId,
         email: toEmail,
-        verified: true,
+        OR: [
+          { validationStatus: { in: ["approved", "valid"] } },
+          { contactEmailStatus: "approved" },
+        ],
       },
+      orderBy: [{ confidenceScore: "desc" }, { createdAt: "desc" }],
     }));
 
-  if (!contact?.verified) {
-    const error = new Error("Recipient must be a verified email manually provided or found in a job email/public company contact text.");
+  if (!contact) {
+    const error = new Error("Recipient must be an approved validated contact discovered from public company pages or manually approved by admin.");
     error.statusCode = 400;
+    error.skipFailureMark = true;
+    error.sendSkipped = true;
+    throw error;
+  }
+
+  const contactValidation = validateRecruiterEmail(toEmail, {
+    companyDomain: contact.companyDomain || getUrlDomain(draft.jobPost?.companyUrl) || getUrlDomain(draft.jobPost?.applyUrl),
+  });
+  if (!contactValidation.accepted && contact.contactEmailStatus !== "approved") {
+    const error = new Error(`Recipient validation failed: ${contactValidation.reasons.join(", ") || "invalid recipient"}.`);
+    error.statusCode = 400;
+    error.skipFailureMark = true;
+    error.sendSkipped = true;
     throw error;
   }
 
@@ -2066,6 +2131,7 @@ async function sendDraftById(draftId, { request = null, toEmail: requestedToEmai
     const error = new Error(`Already sent one job email to ${toEmail}. Duplicate sends are blocked.`);
     error.statusCode = 409;
     error.skipFailureMark = true;
+    error.sendSkipped = true;
     throw error;
   }
 
@@ -2075,6 +2141,8 @@ async function sendDraftById(draftId, { request = null, toEmail: requestedToEmai
   if (aiSettings.requireAdminApproval && draft.approvalStatus !== "APPROVED") {
     const error = new Error("Admin approval required before sending.");
     error.statusCode = 403;
+    error.skipFailureMark = true;
+    error.sendSkipped = true;
     throw error;
   }
 
@@ -2085,6 +2153,8 @@ async function sendDraftById(draftId, { request = null, toEmail: requestedToEmai
   if (sendsToday >= effectiveDailySendLimit) {
     const error = new Error("Daily job email sending limit reached.");
     error.statusCode = 429;
+    error.skipFailureMark = true;
+    error.sendSkipped = true;
     throw error;
   }
 
@@ -2107,6 +2177,7 @@ async function sendDraftById(draftId, { request = null, toEmail: requestedToEmai
     const error = new Error(`Already sent one job email to ${toEmail}. Duplicate sends are blocked.`);
     error.statusCode = 409;
     error.skipFailureMark = true;
+    error.sendSkipped = true;
     throw error;
   }
 
@@ -2117,6 +2188,10 @@ async function sendDraftById(draftId, { request = null, toEmail: requestedToEmai
     where: { id: draft.id },
     data: {
       status: "SENT",
+      sendStatus: "sent",
+      skipReason: "",
+      errorMessage: "",
+      lastSendAttemptAt: sentAt,
       sentAt,
       providerMessageId: normalizeString(sent.messageId),
     },
@@ -2149,7 +2224,9 @@ async function sendJobEmailDraft(request, response, draftId) {
     return response.json({ message: "Draft sent with Job Agent Gmail SMTP.", draft: finalDraft });
   } catch (error) {
     console.error("Failed to send Job Agent draft:", error.message);
-    if (!error.skipFailureMark) {
+    if (error.sendSkipped) {
+      await markDraftSendSkipped(draftId, request, error.message);
+    } else if (!error.skipFailureMark) {
       await markDraftSendFailed(draftId, request, error.message);
     }
     return response.status(error.statusCode || 500).json({ message: error.message || "Failed to send draft." });
@@ -2219,7 +2296,9 @@ async function runGmailJobAlertSync({ request = null, maxResults = 10, triggered
       const message = await gmail.users.messages.get({ userId: "me", id: item.id, format: "full" });
       const extracted = parseGmailJobAlert(message.data);
       const messageText = getMessageText(message.data);
-      const recruiterEmails = extractCandidateRecruiterEmails(messageText);
+      const fromEmail = extractEmails(getMessageHeader(message.data, "from"))[0] || "";
+      const classifiedUrls = classifyJobAlertUrls(messageText);
+      const rawEmailCandidates = extractValidatedEmails(messageText);
       const duplicateByMessageId = extracted.externalId
         ? await prisma.jobPost.findFirst({
             where: {
@@ -2240,26 +2319,34 @@ async function runGmailJobAlertSync({ request = null, maxResults = 10, triggered
           source: { connect: { id: source.id } },
           sourceType: "gmail",
           externalId: extracted.externalId,
+          sourceEmail: normalizeEmail(fromEmail),
+          sourceSubject: extracted.emailSubject,
+          sourcePlatform: extracted.source,
           emailSubject: extracted.emailSubject,
           title: extracted.title,
           company: extracted.company,
           location: extracted.location,
           sourceUrl: extracted.sourceUrl,
+          applyUrl: classifiedUrls.applyUrl || extracted.sourceUrl,
+          companyUrl: classifiedUrls.companyUrl,
+          extractedUrls: classifiedUrls.urls,
           description: "",
-          rawContent: messageText,
+          rawContent: [
+            messageText,
+            "",
+            "Raw email candidates from alert body (not verified recruiter contacts):",
+            rawEmailCandidates.join(", "),
+          ].join("\n").slice(0, 20000),
           sourceName: "Gmail Job Alerts",
           importMethod: "EMAIL_ALERT",
           descriptionStatus: "DESCRIPTION_REQUIRED",
           receivedAt: extracted.receivedAt,
           status: "DESCRIPTION_REQUIRED",
+          contactDiscoveryStatus: "pending",
+          contactDiscoveryError: "",
         },
       });
 
-      for (const email of recruiterEmails) {
-        await ensureRecruiterContactForEmail(jobPost.id, email, "gmail_job_alert", "Extracted from Gmail job alert content.");
-      }
-
-      await upsertMatchAndDraft(jobPost);
       imported.push(jobPost.id);
     }
   }
@@ -2878,6 +2965,133 @@ router.post("/jobs/:id/match", requireAdmin, async (request, response) => {
   }
 });
 
+router.post("/jobs/:id/contact-discovery", requireAdmin, async (request, response) => {
+  try {
+    const id = Number.parseInt(request.params.id, 10);
+    const job = await prisma.jobPost.findUnique({ where: { id } });
+    if (!job) {
+      return response.status(404).json({ message: "Job was not found." });
+    }
+
+    const result = await discoverContactsForJob(prisma, job);
+    return response.json({
+      message: result.contacts.length
+        ? `Found ${result.contacts.length} validated public company contact(s).`
+        : result.errorMessage || "No valid public company contact found.",
+      ...result,
+    });
+  } catch (error) {
+    const id = Number.parseInt(request.params.id, 10);
+    if (id) {
+      await prisma.jobPost.update({
+        where: { id },
+        data: {
+          contactDiscoveryStatus: "failed",
+          contactDiscoveryError: error.message || "Contact discovery failed.",
+          lastContactDiscoveryAt: new Date(),
+        },
+      }).catch(() => null);
+    }
+    return response.status(500).json({ message: error.message || "Failed to run contact discovery." });
+  }
+});
+
+router.post("/contacts/:id/revalidate", requireAdmin, async (request, response) => {
+  try {
+    const id = Number.parseInt(request.params.id, 10);
+    const contact = await prisma.recruiterContact.findUnique({ where: { id }, include: { jobPost: true } });
+    if (!contact) {
+      return response.status(404).json({ message: "Contact was not found." });
+    }
+
+    const validation = validateRecruiterEmail(contact.email, {
+      companyDomain: contact.companyDomain || getUrlDomain(contact.jobPost?.companyUrl) || getUrlDomain(contact.jobPost?.applyUrl),
+    });
+    const updated = await prisma.recruiterContact.update({
+      where: { id },
+      data: {
+        validationStatus: validation.accepted ? "valid" : "rejected",
+        contactEmailStatus: validation.accepted ? contact.contactEmailStatus || "pending" : "rejected",
+        confidenceScore: validation.confidenceScore,
+        isRecruiter: validation.isRecruiter,
+        isHiringManager: validation.isHiringManager,
+        evidence: { ...(contact.evidence || {}), validation },
+        errorMessage: validation.accepted ? "" : validation.reasons.join(", "),
+        lastVerifiedAt: new Date(),
+      },
+    });
+
+    return response.json({ message: "Contact revalidated.", contact: updated });
+  } catch (error) {
+    return response.status(400).json({ message: error.message || "Failed to revalidate contact." });
+  }
+});
+
+router.post("/contacts/:id/approve", requireAdmin, async (request, response) => {
+  try {
+    const id = Number.parseInt(request.params.id, 10);
+    const contact = await prisma.recruiterContact.findUnique({ where: { id }, include: { jobPost: true } });
+    if (!contact) {
+      return response.status(404).json({ message: "Contact was not found." });
+    }
+
+    if (!isUsableRecruiterEmail(contact.email)) {
+      return response.status(400).json({ message: "Cannot approve no-reply, platform, or invalid recipient email." });
+    }
+
+    const updated = await prisma.recruiterContact.update({
+      where: { id },
+      data: {
+        validationStatus: "approved",
+        contactEmailStatus: "approved",
+        confidenceScore: Math.max(contact.confidenceScore || 0, 85),
+        verified: true,
+        verification: "admin_approved",
+        lastVerifiedAt: new Date(),
+        errorMessage: "",
+        evidence: {
+          ...(contact.evidence || {}),
+          adminApprovedBy: normalizeString(request.admin?.email || request.admin?.sub || "admin"),
+          adminApprovedAt: new Date().toISOString(),
+          note: normalizeString(request.body?.note),
+        },
+      },
+    });
+
+    await prisma.jobEmailDraft.updateMany({
+      where: { jobPostId: updated.jobPostId, status: { in: ["DRAFT", "READY"] } },
+      data: { toEmail: updated.email, recruiterContactId: updated.id, status: "READY" },
+    });
+
+    return response.json({ message: "Contact approved for sending.", contact: updated });
+  } catch (error) {
+    return response.status(400).json({ message: error.message || "Failed to approve contact." });
+  }
+});
+
+router.post("/contacts/:id/reject", requireAdmin, async (request, response) => {
+  try {
+    const id = Number.parseInt(request.params.id, 10);
+    const contact = await prisma.recruiterContact.update({
+      where: { id },
+      data: {
+        validationStatus: "rejected",
+        contactEmailStatus: "rejected",
+        verified: false,
+        errorMessage: normalizeString(request.body?.reason) || "Rejected by admin.",
+        lastVerifiedAt: new Date(),
+      },
+    });
+    await prisma.jobEmailDraft.updateMany({
+      where: { recruiterContactId: id, status: { in: ["DRAFT", "READY"] } },
+      data: { toEmail: "", recruiterContactId: null, status: "DRAFT" },
+    });
+    return response.json({ message: "Contact rejected.", contact });
+  } catch (error) {
+    return response.status(400).json({ message: error.message || "Failed to reject contact." });
+  }
+});
+
 router.put("/drafts/:id", requireAdmin, async (request, response) => {
   try {
     const id = Number.parseInt(request.params.id, 10);
@@ -2918,34 +3132,43 @@ router.put("/drafts/:id", requireAdmin, async (request, response) => {
 
 router.post("/drafts/collect-emails", requireAdmin, async (_request, response) => {
   try {
-    const foundDrafts = await prisma.jobEmailDraft.findMany({
-      where: { status: { in: ["DRAFT", "READY"] } },
+    const jobsNeedingContacts = await prisma.jobPost.findMany({
+      where: {
+        contactDiscoveryStatus: { in: ["pending", "not_found", "failed"] },
+      },
       orderBy: { createdAt: "desc" },
-      include: { jobPost: true, recruiterContact: true },
-      take: 100,
+      take: 25,
     });
     let collectedCount = 0;
     let emailReadyCount = 0;
+    const errors = [];
 
-    for (const draft of foundDrafts) {
-      const beforeEmail = normalizeEmail(draft.toEmail || draft.recruiterContact?.email);
-      const updatedDraft = await ensureDraftRecipientEmail(draft, { externalLookup: true });
-      const afterEmail = normalizeEmail(updatedDraft.toEmail || updatedDraft.recruiterContact?.email);
-      if (isUsableRecruiterEmail(afterEmail)) {
-        emailReadyCount += 1;
+    for (const job of jobsNeedingContacts) {
+      try {
+        const result = await discoverContactsForJob(prisma, job);
+        collectedCount += result.contacts.length;
+      } catch (error) {
+        errors.push({ jobPostId: job.id, message: error.message });
       }
-      if (!isUsableRecruiterEmail(beforeEmail) && isUsableRecruiterEmail(afterEmail)) {
-        collectedCount += 1;
-      }
+    }
+
+    const readyDrafts = await prisma.jobEmailDraft.findMany({
+      where: { status: { in: ["DRAFT", "READY"] } },
+      include: { jobPost: true, recruiterContact: true },
+      take: 100,
+    });
+    for (const draft of readyDrafts) {
+      const updatedDraft = await ensureDraftRecipientEmail(draft);
+      if (isUsableRecruiterEmail(updatedDraft.toEmail || updatedDraft.recruiterContact?.email)) emailReadyCount += 1;
     }
 
     return response.json({
       message: collectedCount
-        ? `Collected ${collectedCount} recruiter email(s).`
-        : "No new recruiter emails found.",
+        ? `Discovered ${collectedCount} public company contact(s).`
+        : "No new public company contacts found.",
       collectedCount,
       emailReadyCount,
-      externalProviderConfigured: Boolean(normalizeString(process.env.HUNTER_API_KEY || process.env.HUNTER_IO_API_KEY)),
+      errors,
     });
   } catch (error) {
     return response.status(500).json({ message: error.message || "Failed to collect recruiter emails." });
@@ -3181,9 +3404,13 @@ async function runEmailAutoSendIfDue(io) {
         sendsToday += 1;
       } catch (error) {
         if (error.statusCode === 429) {
+          await markDraftSendSkipped(updatedDraft.id, null, error.message);
           break;
         }
         if (error.skipFailureMark) {
+          if (error.sendSkipped) {
+            await markDraftSendSkipped(updatedDraft.id, null, error.message);
+          }
           skippedCount += 1;
           continue;
         }

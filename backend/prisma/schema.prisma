@@ -585,11 +585,17 @@ model JobPost {
   source            JobSource?         @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   sourceType        String
   externalId        String?
+  sourceEmail       String             @default("")
+  sourceSubject     String             @default("")
+  sourcePlatform    String             @default("")
   emailSubject      String             @default("")
   title             String
   company           String
   location          String             @default("")
   sourceUrl         String             @db.Text
+  applyUrl          String             @db.Text
+  companyUrl        String             @db.Text
+  extractedUrls     Json               @default("[]")
   jobType           String             @default("")
   workMode          String             @default("")
   region            String             @default("")
@@ -604,6 +610,9 @@ model JobPost {
   matches           JobMatch[]
   emailDrafts       JobEmailDraft[]
   status            String             @default("new")
+  contactDiscoveryStatus String         @default("pending")
+  contactDiscoveryError  String         @db.Text
+  lastContactDiscoveryAt DateTime?
   receivedAt        DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -706,7 +715,19 @@ model RecruiterContact {
   emailDrafts      JobEmailDraft[]
   name            String   @default("")
   email           String
+  companyName     String   @default("")
+  companyDomain   String   @default("")
   source          String
+  sourceUrl       String   @db.Text
+  discoveryMethod String   @default("")
+  validationStatus String  @default("pending")
+  contactEmailStatus String @default("pending")
+  confidenceScore Int      @default(0)
+  isRecruiter     Boolean  @default(false)
+  isHiringManager Boolean  @default(false)
+  evidence        Json     @default("{}")
+  lastVerifiedAt  DateTime?
+  errorMessage    String   @db.Text
   verification    String   @default("manual")
   verified        Boolean  @default(false)
   publicContext   String   @db.Text
@@ -748,6 +769,10 @@ model JobEmailDraft {
   clickedAt           DateTime?
   clickCount          Int                @default(0)
   providerMessageId   String             @default("")
+  sendStatus          String             @default("pending")
+  skipReason          String             @db.Text
+  errorMessage        String             @db.Text
+  lastSendAttemptAt   DateTime?
   events              JobAgentEmailEvent[]
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
