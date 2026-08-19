@@ -2,29 +2,33 @@
   min-width: 0;
 }
 
-@media (max-width: 1279px) {
-  .researchRoute :global(div:has(> #research-publication-form)) {
-    display: flex;
-    flex-direction: column;
-    max-height: 92dvh;
-  }
+.researchRoute :global(div:has(> #research-publication-form)) {
+  display: flex;
+  flex-direction: column;
+  max-height: 92dvh;
+}
 
+.researchRoute :global(#research-publication-form) {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.researchRoute :global(#research-publication-form) > div {
+  min-width: 0;
+  overflow: visible;
+  padding-right: 0;
+}
+
+@media (max-width: 1279px) {
   .researchRoute :global(#research-publication-form) {
     display: block;
-    flex: 1 1 auto;
-    min-height: 0;
-    max-height: none;
-    overflow-x: hidden;
-    overflow-y: auto;
-    padding-right: 0.25rem;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .researchRoute :global(#research-publication-form) > div {
-    min-width: 0;
-    overflow: visible;
-    padding-right: 0;
   }
 
   .researchRoute :global(#research-publication-form) > div + div {
