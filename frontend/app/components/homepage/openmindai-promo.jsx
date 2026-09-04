@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 const PROMO_URL = "https://openmindai.org";
 const DISMISS_KEY = "openmindai_promo_dismissed";
 const POPUP_DELAY_MS = 5000;
+const CTA_LABEL = "Explore my Open Mind AI";
 
 export default function OpenMindAIPromo() {
   const [showPopup, setShowPopup] = useState(false);
@@ -75,13 +76,13 @@ export default function OpenMindAIPromo() {
               />
             </div>
             <div className="flex flex-col gap-4 border-t border-[#20354c] bg-[#0b1624] px-5 py-5 sm:flex-row sm:items-center sm:justify-between md:px-7">
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-semibold text-white">OpenMindAI — local AI built around privacy and offline use.</p>
                 <p className="mt-1 text-xs leading-6 text-[#8ea7be]">Explore desktop and mobile experiences, local models, chat, coding and document workflows.</p>
               </div>
-              <span className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-sm font-semibold text-[#06101b] transition group-hover:opacity-90">
-                Visit openmindai.org
-                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.9" aria-hidden="true">
+              <span className="inline-flex w-full shrink-0 items-center justify-center gap-3 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-center text-sm font-semibold text-[#06101b] transition group-hover:opacity-90 sm:w-auto sm:px-6">
+                <span>{CTA_LABEL}</span>
+                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current" strokeWidth="1.9" aria-hidden="true">
                   <path d="M7 17 17 7" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M9 7h8v8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -127,7 +128,7 @@ export default function OpenMindAIPromo() {
             </a>
 
             <div className="flex flex-col gap-4 border-t border-[#20384f] bg-[linear-gradient(180deg,#0d1928,#09131f)] p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
-              <div className="pr-3">
+              <div className="min-w-0 pr-0 sm:pr-3">
                 <p className="text-lg font-semibold text-white">Discover OpenMindAI</p>
                 <p className="mt-1 text-sm leading-6 text-[#9bb0c4]">Run AI locally with a privacy-first, offline-ready experience for desktop and mobile.</p>
               </div>
@@ -135,10 +136,10 @@ export default function OpenMindAIPromo() {
                 href={PROMO_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-6 py-3 text-sm font-semibold text-[#06101b] transition hover:opacity-90"
+                className="inline-flex w-full shrink-0 items-center justify-center gap-3 rounded-full bg-[linear-gradient(135deg,#6cc8ff,#7cf0b7)] px-5 py-3 text-center text-sm font-semibold text-[#06101b] transition hover:opacity-90 sm:w-auto sm:px-6"
               >
-                Open OpenMindAI
-                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="1.9" aria-hidden="true">
+                <span>{CTA_LABEL}</span>
+                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-none stroke-current" strokeWidth="1.9" aria-hidden="true">
                   <path d="M7 17 17 7" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M9 7h8v8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
