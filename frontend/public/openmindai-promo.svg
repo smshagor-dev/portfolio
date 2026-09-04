@@ -60,9 +60,9 @@
     </g>
 
     <g transform="translate(0 382)">
-      <rect width="244" height="54" rx="27" fill="url(#accent)"/>
-      <text x="28" y="34" fill="#06111d" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="18" font-weight="800">Explore openmindai.org</text>
-      <path d="M206 20h15v15M220 21l-17 17" fill="none" stroke="#06111d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect width="320" height="54" rx="27" fill="url(#accent)"/>
+      <text x="28" y="34" fill="#06111d" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="18" font-weight="800">Explore my Open Mind AI</text>
+      <path d="M278 20h15v15M292 21l-17 17" fill="none" stroke="#06111d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
   </g>
 
