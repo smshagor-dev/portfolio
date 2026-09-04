@@ -18,7 +18,22 @@ function DoiLabel({ doi }) {
   );
 }
 
-export default function ResearchCard({ publication, compact = false, priority = false }) {
+export default function ResearchCard({ publication, compact = false, priority = false, titleOnly = false }) {
+  if (titleOnly) {
+    return (
+      <article className={`group h-full overflow-hidden border border-[#24364f] bg-[linear-gradient(180deg,rgba(16,28,46,0.98),rgba(8,16,28,0.99))] shadow-[0_18px_45px_rgba(0,0,0,0.18)] transition duration-300 hover:-translate-y-1 hover:border-[#456b91] ${compact ? "rounded-[1.4rem]" : "rounded-[1.75rem]"}`}>
+        <Link
+          href={`/research/${publication.slug}`}
+          className={`flex h-full items-center ${compact ? "min-h-28 p-5" : "min-h-36 p-6 sm:p-7"}`}
+        >
+          <h3 className={`font-semibold leading-snug text-white transition group-hover:text-[#9de2ff] ${compact ? "text-lg" : "text-xl sm:text-[1.35rem]"}`}>
+            {publication.title}
+          </h3>
+        </Link>
+      </article>
+    );
+  }
+
   const hasThumbnail = Boolean(publication?.thumbnailImage);
   const imageHeight = compact ? "h-36" : "h-52";
 
