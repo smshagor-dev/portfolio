@@ -55,8 +55,8 @@ export default function ResearchList({ response }) {
             </p>
           </div>
         ) : (
-          publications.map((publication) => (
-            <ResearchCard key={publication.id} publication={publication} titleOnly />
+          publications.map((publication, index) => (
+            <ResearchCard key={publication.id} publication={publication} priority={index < 3} />
           ))
         )}
       </section>

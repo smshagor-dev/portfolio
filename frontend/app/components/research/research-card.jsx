@@ -18,22 +18,7 @@ function DoiLabel({ doi }) {
   );
 }
 
-export default function ResearchCard({ publication, compact = false, priority = false, titleOnly = false }) {
-  if (titleOnly) {
-    return (
-      <article className={`group h-full overflow-hidden border border-[#24364f] bg-[linear-gradient(180deg,rgba(16,28,46,0.98),rgba(8,16,28,0.99))] shadow-[0_18px_45px_rgba(0,0,0,0.18)] transition duration-300 hover:-translate-y-1 hover:border-[#456b91] ${compact ? "rounded-[1.4rem]" : "rounded-[1.75rem]"}`}>
-        <Link
-          href={`/research/${publication.slug}`}
-          className={`flex h-full items-center ${compact ? "min-h-28 p-5" : "min-h-36 p-6 sm:p-7"}`}
-        >
-          <h3 className={`font-semibold leading-snug text-white transition group-hover:text-[#9de2ff] ${compact ? "text-lg" : "text-xl sm:text-[1.35rem]"}`}>
-            {publication.title}
-          </h3>
-        </Link>
-      </article>
-    );
-  }
-
+export default function ResearchCard({ publication, compact = false, priority = false }) {
   const hasThumbnail = Boolean(publication?.thumbnailImage);
   const imageHeight = compact ? "h-36" : "h-52";
 
@@ -84,15 +69,17 @@ export default function ResearchCard({ publication, compact = false, priority = 
           <span className="min-w-0 truncate">{publication.publisherName}</span>
         </div>
 
-        <Link href={`/research/${publication.slug}`} className="mt-3 block">
-          <h3 className={`font-semibold leading-snug text-white transition group-hover:text-[#9de2ff] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] ${compact ? "text-lg" : "text-xl sm:text-[1.35rem]"}`}>
+        <Link href={`/research/${publication.slug}`} className="mt-3 block min-w-0">
+          <h3 className={`overflow-hidden break-words font-semibold leading-snug text-white transition group-hover:text-[#9de2ff] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] [overflow-wrap:anywhere] ${compact ? "min-h-[4.65rem] max-h-[4.65rem] text-lg" : "min-h-[5.6rem] max-h-[5.6rem] text-xl sm:text-[1.35rem]"}`}>
             {publication.title}
           </h3>
         </Link>
 
-        <p className={`mt-3 overflow-hidden leading-7 text-[#b7c7d7] [display:-webkit-box] [-webkit-box-orient:vertical] ${compact ? "text-sm [-webkit-line-clamp:3]" : "text-sm [-webkit-line-clamp:5]"}`}>
-          {publication.shortSummary || "Abstract metadata is not available for this publication yet."}
-        </p>
+        <div className="mt-4 border-t border-[#1d2d42] pt-4">
+          <p className={`overflow-hidden leading-7 text-[#b7c7d7] [display:-webkit-box] [-webkit-box-orient:vertical] ${compact ? "text-sm [-webkit-line-clamp:3]" : "text-sm [-webkit-line-clamp:5]"}`}>
+            {publication.shortSummary || "Abstract metadata is not available for this publication yet."}
+          </p>
+        </div>
 
         {!compact ? (
           <div className="mt-4 min-w-0">
