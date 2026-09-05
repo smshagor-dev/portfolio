@@ -45,7 +45,7 @@ function splitPlainResearchContent(value) {
   return sections;
 }
 
-export default function ResearchContent({ content }) {
+export default function ResearchContent({ content, excludeSections = [] }) {
   const normalized = String(content || "").trim();
 
   if (!normalized) {
@@ -61,7 +61,18 @@ export default function ResearchContent({ content }) {
     );
   }
 
-  const sections = splitPlainResearchContent(normalized);
+  const excluded = new Set(
+    (Array.isArray(excludeSections) ? excludeSections : [])
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const sections = splitPlainResearchContent(normalized).filter(
+    (section) => !excluded.has(String(section.title || "").trim().toLowerCase()),
+  );
+
+  if (!sections.length) {
+    return null;
+  }
 
   return (
     <div className="space-y-8">
