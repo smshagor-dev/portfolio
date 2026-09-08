@@ -188,6 +188,13 @@ export async function getServiceDetailData(slug) {
   return fetchFromBackend(`/api/site/services/${encodeURIComponent(slug)}`);
 }
 
+export async function getLinkedInPosts() {
+  return fetchFromBackend("/api/site/linkedin-posts", {
+    revalidate: 300,
+    tags: ["linkedin-posts"],
+  });
+}
+
 export async function getResearchPublications(query = {}) {
   const searchParams = new URLSearchParams();
 

@@ -29,6 +29,7 @@ const adminTabs = [
   { id: "hero", label: "Hero", icon: HiOutlineSparkles, href: "/admin/hero" },
   { id: "services", label: "Services", icon: HiOutlineViewGrid, href: "/admin/services" },
   { id: "research", label: "Research", icon: FiBookOpen, href: "/admin/research" },
+  { id: "linkedin-posts", label: "LinkedIn Posts", icon: HiOutlineUsers, href: "/admin/linkedin-posts" },
   { id: "artical", label: "Artical", icon: FiBookOpen, href: "/admin/artical" },
   { id: "artical-categories", label: "Artical Categories", icon: FiBookOpen, href: "/admin/artical-categories" },
   { id: "projects", label: "Projects", icon: FiFolder, href: "/admin/projects" },
