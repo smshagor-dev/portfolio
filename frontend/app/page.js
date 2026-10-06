@@ -3,12 +3,12 @@ import AdCodeSlot from "./components/ad-code-slot";
 import Blog from "./components/homepage/blog";
 import FaqSection from "./components/homepage/faq";
 import HomeClientSections from "./components/homepage/home-client-sections";
-import LinkedInPostsSection from "./components/homepage/linkedin-posts";
+import LinkedInProfileSection from "./components/homepage/linkedin-profile";
 import OpenMindAIPromo from "./components/homepage/openmindai-promo";
 import OpenMindStudioPromo from "./components/homepage/openmindstudio-promo";
 import ResearchSection from "./components/homepage/research";
 import Skills from "./components/homepage/skills";
-import { getHomePageData, getLinkedInPosts, getResearchPublications } from "@/lib/api";
+import { getHomePageData, getResearchPublications } from "@/lib/api";
 
 function SectionSkeleton({ className = "" }) {
   return (
@@ -49,7 +49,7 @@ const ContactSection = dynamic(() => import("./components/homepage/contact"), {
 export const revalidate = 300;
 
 export default async function Home() {
-  const [homeData, latestResearchResponse, linkedInResponse] = await Promise.all([
+  const [homeData, latestResearchResponse] = await Promise.all([
     getHomePageData().catch((error) => {
       console.error("Failed to load homepage data in app/page.js:", error.message);
       return null;
@@ -57,7 +57,6 @@ export default async function Home() {
     getResearchPublications({
       limit: 6,
     }).catch(() => ({ data: [] })),
-    getLinkedInPosts().catch(() => ({ data: [] })),
   ]);
   const {
     profile = null,
@@ -78,7 +77,6 @@ export default async function Home() {
   } = homeData || {};
   const betweenSectionsAdCode = siteSettings?.adsenseBetweenSectionsCode;
   const latestResearchPublications = Array.isArray(latestResearchResponse?.data) ? latestResearchResponse.data : [];
-  const linkedInPosts = Array.isArray(linkedInResponse?.data) ? linkedInResponse.data : [];
 
   if (!homeData) {
     return (
@@ -120,7 +118,7 @@ export default async function Home() {
       <ResearchSection publications={latestResearchPublications} />
       <OpenMindAIPromo />
       <OpenMindStudioPromo />
-      <LinkedInPostsSection posts={linkedInPosts} />
+      <LinkedInProfileSection />
       <AdCodeSlot code={betweenSectionsAdCode} className="mt-8" />
       <ContactSection profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />
       <AdCodeSlot code={betweenSectionsAdCode} className="mt-8" />
@@ -128,4 +126,5 @@ export default async function Home() {
     </div>
   );
 }
+
 
