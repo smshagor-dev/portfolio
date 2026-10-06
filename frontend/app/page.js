@@ -5,6 +5,7 @@ import FaqSection from "./components/homepage/faq";
 import HomeClientSections from "./components/homepage/home-client-sections";
 import LinkedInPostsSection from "./components/homepage/linkedin-posts";
 import OpenMindAIPromo from "./components/homepage/openmindai-promo";
+import OpenMindStudioPromo from "./components/homepage/openmindstudio-promo";
 import ResearchSection from "./components/homepage/research";
 import Skills from "./components/homepage/skills";
 import { getHomePageData, getLinkedInPosts, getResearchPublications } from "@/lib/api";
@@ -118,6 +119,7 @@ export default async function Home() {
       <AdCodeSlot code={betweenSectionsAdCode} className="mt-8" />
       <ResearchSection publications={latestResearchPublications} />
       <OpenMindAIPromo />
+      <OpenMindStudioPromo />
       <LinkedInPostsSection posts={linkedInPosts} />
       <AdCodeSlot code={betweenSectionsAdCode} className="mt-8" />
       <ContactSection profile={profile} settings={siteSettings} emergencyContacts={emergencyContacts} />
@@ -126,3 +128,4 @@ export default async function Home() {
     </div>
   );
 }
+
