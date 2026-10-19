@@ -36,6 +36,8 @@ export default async function sitemap() {
     "/blog",
     "/artical",
     "/research",
+    "/founder/openmindai",
+    "/founder/openmind-studio",
   ].map((path) => ({
     url: normalizeUrl(baseUrl, path),
     lastModified: now,

@@ -4,6 +4,7 @@ import ServicesSection from "./services";
 import HowIWorkSection from "./how-i-work";
 import PricingSection from "./pricing";
 import Projects from "./projects";
+import FounderProjects from "./founder-projects";
 
 export default function HomeClientSections({
   profile,
@@ -21,6 +22,7 @@ export default function HomeClientSections({
       <HowIWorkSection />
       <PricingSection pricings={pricings} />
       <Projects projects={projects} />
+      <FounderProjects />
     </>
   );
 }
