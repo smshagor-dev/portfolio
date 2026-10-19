@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { getHomePageData } from "@/lib/api";
 import SectionHeading from "../components/homepage/section-heading";
 import ProjectCatalog from "./project-catalog";
+import FounderProjects from "../components/homepage/founder-projects";
 import { sortProjectsByRecency } from "@/lib/projects";
 import { buildPageMetadata } from "@/lib/site-metadata";
 
@@ -50,6 +51,7 @@ export default async function PortfolioPage() {
         </div>
       </section>
       <ProjectCatalog projects={sortedProjects} />
+      <FounderProjects />
     </div>
   );
 }
