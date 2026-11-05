@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import { FiCopy, FiEdit2, FiExternalLink, FiImage, FiPlus, FiSave, FiTrash2, FiUpload, FiX } from "react-icons/fi";
 import AdminFixedSidebarShell from "@/app/components/admin/admin-fixed-sidebar-shell";
 import { founderProjects as defaults } from "@/lib/founder-projects";
+import { defaultFounderSection } from "@/lib/founder-section";
 import { buildPublicApiUrl, buildPublicAssetUrl } from "@/lib/public-backend-url";
 
 const input = "w-full rounded-xl border border-[#354a65] bg-[#0a1423] px-4 py-3 text-sm text-white outline-none placeholder:text-[#70849b] focus:border-[#80d5ff]";
@@ -101,6 +102,8 @@ export default function AdminFounderProjectsPage() {
   const router = useRouter();
   const fileInput = useRef(null);
   const [token, setToken] = useState("");
+  const [section, setSection] = useState(defaultFounderSection);
+  const [savingSection, setSavingSection] = useState(false);
   const [projects, setProjects] = useState([]);
   const [initialized, setInitialized] = useState(false);
   const [form, setForm] = useState(blankProject(1));
@@ -139,6 +142,7 @@ export default function AdminFounderProjectsPage() {
       const configured = response.initialized === true;
       setInitialized(configured);
       setProjects((configured ? response.data : defaults).map(normalize));
+      setSection({ ...defaultFounderSection, ...(response.section || {}) });
     } catch (exception) {
       setError(exception.message);
       toast.error(exception.message);
@@ -215,6 +219,19 @@ export default function AdminFounderProjectsPage() {
     } catch (exception) { toast.error(exception.message); }
     finally { setSaving(false); }
   }
+  async function saveSection(event) {
+    event.preventDefault();
+    setSavingSection(true);
+    try {
+      await request("/api/admin/founder-section", {
+        method: "PUT", body: JSON.stringify(section),
+      });
+      toast.success("Founded & Engineered section updated.");
+      router.refresh();
+    } catch (exception) { toast.error(exception.message); }
+    finally { setSavingSection(false); }
+  }
+
   async function upload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -253,6 +270,35 @@ export default function AdminFounderProjectsPage() {
         </div>
       </section>
       {loading && <div className={panel}>Loading founder projects…</div>}
+      {!loading && !error && <form onSubmit={saveSection} className={panel + " space-y-5"}>
+        <div>
+          <h3 className="text-lg font-semibold">Section heading & description</h3>
+          <p className="mt-2 text-sm text-[#92aac2]">These settings control the introduction and badge above all product cards.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <TextField required title="Eyebrow label" value={section.eyebrow}
+            onChange={(v) => setSection((old) => ({ ...old, eyebrow:v }))} />
+          <TextField title="Founder badge" value={section.badge}
+            onChange={(v) => setSection((old) => ({ ...old, badge:v }))} />
+          <div className="md:col-span-2">
+            <TextField required title="Section headline" value={section.title}
+              onChange={(v) => setSection((old) => ({ ...old, title:v }))} />
+          </div>
+          <div className="md:col-span-2">
+            <TextField required multiline title="Section description" value={section.description}
+              onChange={(v) => setSection((old) => ({ ...old, description:v }))} />
+          </div>
+          <div className="md:col-span-2">
+            <TextField title="Footer note" value={section.footer}
+              onChange={(v) => setSection((old) => ({ ...old, footer:v }))} />
+          </div>
+        </div>
+        <button type="submit" disabled={savingSection}
+          className="inline-flex items-center gap-2 rounded-xl border border-[#5f8caf] px-5 py-3 text-sm text-[#b5e5ff] disabled:opacity-50">
+          <FiSave /> {savingSection ? "Saving…" : "Save section settings"}
+        </button>
+      </form>}
+
       {error && <div role="alert" className="rounded-xl border border-red-500/50 p-5 text-red-200">
         <p>{error}</p><button type="button" onClick={() => reload()} className="mt-2 underline">Retry</button>
       </div>}
