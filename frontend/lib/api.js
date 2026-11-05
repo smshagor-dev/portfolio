@@ -72,7 +72,8 @@ function toPublicAssetUrl(value) {
     return value;
   }
 
-  return `${getBackendUrl()}${normalizedValue}`;
+  // Let Next.js proxy /uploads/* to the configured FTP media host.
+  return normalizedValue;
 }
 
 function mapBackendAssets(value) {
