@@ -44,7 +44,7 @@ const ContactSection = dynamic(() => import("./components/homepage/contact"), {
   loading: () => <SectionSkeleton />,
 });
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 export default async function Home() {
   const [homeData, latestResearchResponse] = await Promise.all([

@@ -132,14 +132,14 @@ async function fetchFromBackend(pathname, options = {}) {
 
 export async function getHomePageData() {
   return fetchFromBackend("/api/site/home", {
-    revalidate: 300,
+    revalidate: 60,
     tags: ["home-page"],
   });
 }
 
 export async function getSiteSettings() {
   return fetchFromBackend("/api/site/settings", {
-    revalidate: 300,
+    revalidate: 60,
     tags: ["site-settings"],
   });
 }
