@@ -38,7 +38,15 @@ export default function AdminLoginPage() {
           "Content-Type": "application/json",
           "Accept": "application/json",
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          email: form.email.trim(),
+          password: form.password,
+          // Do not send an empty 2FA value. Laravel's TrimStrings and
+          // ConvertEmptyStringsToNull would convert it to null.
+          ...(form.twoFactorCode.trim()
+            ? { twoFactorCode: form.twoFactorCode.trim() }
+            : {}),
+        }),
       });
 
       const contentType = response.headers.get("content-type") || "";

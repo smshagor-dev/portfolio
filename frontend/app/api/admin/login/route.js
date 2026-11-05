@@ -43,6 +43,10 @@ export async function POST(request) {
         credentials.email.length > 255 || credentials.password.length > 4096) {
       return json({ message: "Valid email and password are required." }, 422);
     }
+    if (credentials.twoFactorCode != null &&
+        typeof credentials.twoFactorCode !== "string") {
+      return json({ message: "The two factor code must be a string." }, 422);
+    }
   } catch {
     return json({ message: "Invalid login JSON payload." }, 400);
   }
@@ -61,9 +65,11 @@ export async function POST(request) {
       body: JSON.stringify({
         email: credentials.email,
         password: credentials.password,
-        twoFactorCode: typeof credentials.twoFactorCode === "string"
-          ? credentials.twoFactorCode
-          : "",
+        // Omit missing/blank 2FA entirely; don't send "" or null.
+        ...(typeof credentials.twoFactorCode === "string" &&
+            credentials.twoFactorCode.trim()
+          ? { twoFactorCode: credentials.twoFactorCode.trim() }
+          : {}),
       }),
     });
   } catch {
