@@ -4,6 +4,8 @@ import { ArrowRight, ExternalLink, Layers3, Sparkles } from "lucide-react";
 import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 
 export default function FounderProjects({ projects = [] }) {
+  if (!projects.length) return null;
+
   return (
     <section id="founder-projects" aria-labelledby="founder-projects-heading" className="my-12 lg:my-20">
       <div className="relative overflow-hidden rounded-[2rem] border border-[#293a53] bg-[radial-gradient(circle_at_12%_0%,rgba(94,154,250,0.15),transparent_35%),linear-gradient(180deg,#101827,#090f1a)] px-4 py-8 text-white shadow-[0_26px_80px_rgba(0,0,0,0.27)] sm:px-6 lg:px-8 lg:py-10">
@@ -16,7 +18,7 @@ export default function FounderProjects({ projects = [] }) {
               Products I'm building, from the first idea to the engineering details.
             </h2>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-[#abbdd2] sm:text-base">
-              Two independent products. One goal: practical software that makes AI and development tools more accessible.
+              {projects.length === 1 ? "One founder-led product." : `${projects.length} founder-led products.`} Practical software that makes AI and development tools more accessible.
             </p>
           </div>
           <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#35506a] bg-[#172438] px-4 py-2 text-xs text-[#c4d8ea]">
