@@ -1,10 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ExternalLink, Layers3, Sparkles } from "lucide-react";
-import { founderProjects } from "@/lib/founder-projects";
 import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 
-export default function FounderProjects() {
+export default function FounderProjects({ projects = [] }) {
   return (
     <section id="founder-projects" aria-labelledby="founder-projects-heading" className="my-12 lg:my-20">
       <div className="relative overflow-hidden rounded-[2rem] border border-[#293a53] bg-[radial-gradient(circle_at_12%_0%,rgba(94,154,250,0.15),transparent_35%),linear-gradient(180deg,#101827,#090f1a)] px-4 py-8 text-white shadow-[0_26px_80px_rgba(0,0,0,0.27)] sm:px-6 lg:px-8 lg:py-10">
@@ -25,7 +24,7 @@ export default function FounderProjects() {
           </span>
         </div>
         <div className="grid gap-6 lg:grid-cols-2">
-          {founderProjects.map((project) => (
+          {projects.map((project) => (
             <article key={project.slug} className="group flex min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-[#2b3a51] bg-[#111b2b] transition duration-300 hover:-translate-y-1 hover:border-[#79bfff] hover:shadow-[0_22px_55px_rgba(0,0,0,0.24)]">
               <Link href={`/founder/${project.slug}`} aria-label={`Explore ${project.name} development journey`} className="block">
                 <div className="relative aspect-[1.86] overflow-hidden bg-[#090e16]">
