@@ -224,3 +224,7 @@ export async function getFeaturedResearchPublications() {
 export async function getResearchPublicationDetail(slug) {
   return fetchFromBackend(`/api/research-publications/${encodeURIComponent(slug)}`);
 }
+
+export async function getFounderProjects() {
+  return fetchFromBackend("/api/site/founder-projects", { revalidate: 0 });
+}
