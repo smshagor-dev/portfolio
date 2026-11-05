@@ -3,6 +3,23 @@ const path = require("path");
 const backendUrl = process.env.BACKEND_URL || "http://127.0.0.1:5000";
 const publicBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 
+// Public media are hosted by the old FTP web server, not by Laravel.
+// This is an HTTP(S) URL only; FTP credentials stay on the backend.
+const publicUploadsUrl = process.env.UPLOAD_STORAGE_PUBLIC_BASE_URL || "";
+function getHttpOrigin(value) {
+  if (!value) return "";
+  const url = new URL(value);
+  if (!["https:", "http:"].includes(url.protocol)) {
+    throw new Error("UPLOAD_STORAGE_PUBLIC_BASE_URL must be an HTTP(S) URL.");
+  }
+  return url.origin;
+}
+const uploadsOrigin = getHttpOrigin(publicUploadsUrl);
+const frontendOrigin = getHttpOrigin(process.env.NEXT_PUBLIC_APP_URL || "");
+if (uploadsOrigin && frontendOrigin && uploadsOrigin === frontendOrigin) {
+  throw new Error("The FTP public media origin cannot be the frontend itself.");
+}
+
 function toRemotePattern(value) {
   try {
     const parsedUrl = new URL(value);
@@ -17,7 +34,7 @@ function toRemotePattern(value) {
   }
 }
 
-const backendImagePatterns = [toRemotePattern(backendUrl), toRemotePattern(publicBackendUrl)].filter(Boolean);
+const backendImagePatterns = [toRemotePattern(backendUrl), toRemotePattern(publicBackendUrl), toRemotePattern(uploadsOrigin)].filter(Boolean);
  
 module.exports = {
   poweredByHeader: false,
@@ -78,7 +95,7 @@ module.exports = {
       },
       {
         source: "/uploads/:path*",
-        destination: `${backendUrl}/uploads/:path*`,
+        destination: `${uploadsOrigin || backendUrl}/uploads/:path*`,
       },
       {
         source: "/:verificationFile([^/]+\\.[^/]+)",
