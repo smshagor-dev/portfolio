@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import {
   FiBell,
@@ -15,9 +14,8 @@ import {
   FiUser,
   FiX,
 } from "react-icons/fi";
-import { buildPublicApiUrl, getSocketServerUrl } from "@/lib/public-backend-url";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
-const socketServerUrl = getSocketServerUrl();
 
 function adminFetch(input, init = {}) {
   return fetch(input, {
@@ -69,6 +67,28 @@ function getNotificationIcon(notification, size = 18) {
   }
 
   return notification.type === "MESSAGE" ? <FiMail size={size} /> : <FiMessageSquare size={size} />;
+}
+
+// Normalize the Laravel AdminNotification paginator and legacy grouped records.
+function normalizeNotifications(payload) {
+  const raw = Array.isArray(payload?.notifications)
+    ? payload.notifications
+    : Array.isArray(payload?.notifications?.data)
+      ? payload.notifications.data
+      : [];
+  return raw.map((item) => item.groupId ? item : {
+    ...item,
+    groupId: String(item.id),
+    type: item.type === "NEW_MESSAGE" ? "MESSAGE" : "REPLY",
+    conversationId: item.conversationId || item.messageId || null,
+    messageCount: 1,
+    unreadCount: item.isRead ? 0 : 1,
+    latestCreatedAt: item.createdAt,
+    latestMessagePreview: item.preview || item.body || "",
+    subject: item.title || item.subject || "Message",
+    senderName: item.visitorName || item.senderName || "",
+    email: item.visitorEmail || item.email || "",
+  });
 }
 
 function sortNotificationsByLatest(items) {
@@ -311,7 +331,6 @@ export default function AdminNotificationCenter({
   const triggerRef = useRef(null);
   const dropdownRef = useRef(null);
   const popupIdsRef = useRef(new Set());
-  const notificationsRef = useRef([]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((item) => Number(item.unreadCount || 0) > 0),
@@ -321,10 +340,6 @@ export default function AdminNotificationCenter({
   useEffect(() => {
     setPortalReady(true);
   }, []);
-
-  useEffect(() => {
-    notificationsRef.current = notifications;
-  }, [notifications]);
 
   const syncDropdownPosition = useCallback(() => {
     const rect = triggerRef.current?.getBoundingClientRect?.();
@@ -384,7 +399,7 @@ export default function AdminNotificationCenter({
         throw new Error(data.message || "Failed to load unread count.");
       }
 
-      setUnreadCount(Number(data.count || 0));
+      setUnreadCount(Number(data.unreadCount ?? data.count ?? 0));
     } catch (_error) {
       // Keep current count on background failure.
     }
@@ -413,7 +428,7 @@ export default function AdminNotificationCenter({
         throw new Error(data.message || "Failed to load notifications.");
       }
 
-      const nextNotifications = Array.isArray(data.notifications) ? data.notifications : [];
+      const nextNotifications = normalizeNotifications(data);
       setNotifications(sortNotificationsByLatest(nextNotifications));
       refreshUnreadCount(authToken);
     } catch (_error) {
@@ -582,59 +597,68 @@ export default function AdminNotificationCenter({
 
   useEffect(() => {
     if (!token) {
+      setNotifications([]);
+      setUnreadCount(0);
       return undefined;
     }
 
-    loadNotifications(token);
-    refreshUnreadCount(token);
-    const interval = window.setInterval(() => {
-      loadNotifications(token, { background: true });
-      refreshUnreadCount(token);
-    }, 30000);
+    let active = true;
+    let busy = false;
+    let previousSnapshot = null;
 
-    return () => window.clearInterval(interval);
-  }, [loadNotifications, refreshUnreadCount, token]);
+    async function pollNotifications() {
+      if (!active || busy || document.hidden) return;
+      busy = true;
+      try {
+        const response = await adminFetch(
+          buildPublicApiUrl("/api/admin/notifications?limit=12&page=1"),
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (!active) return;
 
-  useEffect(() => {
-    if (!token || !socketServerUrl) {
-      return undefined;
-    }
+        const items = normalizeNotifications(payload);
+        const nextSnapshot = new Map(
+          items.filter((item) => item?.groupId)
+            .map((item) => [item.groupId, item]),
+        );
 
-    const socket = io(socketServerUrl, {
-      transports: ["websocket"],
-    });
+        if (previousSnapshot !== null) {
+          for (const item of items) {
+            if (!item?.groupId || Number(item.unreadCount || 0) <= 0) continue;
+            const oldItem = previousSnapshot.get(item.groupId);
+            if (!oldItem ||
+                Number(item.unreadCount || 0) > Number(oldItem.unreadCount || 0) ||
+                item.latestCreatedAt !== oldItem.latestCreatedAt) {
+              showPopup(item);
+            }
+          }
+        }
 
-    function handleIncomingNotification(payload) {
-      const notification = payload?.notification;
-      if (!notification?.groupId) {
-        return;
-      }
-
-      const existingNotification = notificationsRef.current.find((item) => item.groupId === notification.groupId);
-      upsertNotification(notification);
-
-      if (
-        Number(notification.unreadCount || 0) > 0 &&
-        (
-          !existingNotification ||
-          Number(notification.unreadCount || 0) > Number(existingNotification.unreadCount || 0) ||
-          notification.latestCreatedAt !== existingNotification.latestCreatedAt
-        )
-      ) {
+        previousSnapshot = nextSnapshot;
+        setNotifications(sortNotificationsByLatest(items));
         refreshUnreadCount(token);
-        showPopup(notification);
+      } catch (_error) {
+        // Keep existing notifications on temporary network errors.
+      } finally {
+        busy = false;
       }
     }
 
-    socket.on("admin:new-message", handleIncomingNotification);
-    socket.on("admin:message-reply", handleIncomingNotification);
+    pollNotifications();
+    const interval = window.setInterval(pollNotifications, 15000);
+    const onVisibilityChange = () => {
+      if (!document.hidden) pollNotifications();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      socket.off("admin:new-message", handleIncomingNotification);
-      socket.off("admin:message-reply", handleIncomingNotification);
-      socket.disconnect();
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [refreshUnreadCount, showPopup, token, upsertNotification]);
+  }, [refreshUnreadCount, showPopup, token]);
 
   useEffect(() => {
     if (!currentMessageId || !token) {
