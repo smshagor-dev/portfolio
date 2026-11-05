@@ -69,6 +69,28 @@ function getNotificationIcon(notification, size = 18) {
   return notification.type === "MESSAGE" ? <FiMail size={size} /> : <FiMessageSquare size={size} />;
 }
 
+// Normalize the Laravel AdminNotification paginator and legacy grouped records.
+function normalizeNotifications(payload) {
+  const raw = Array.isArray(payload?.notifications)
+    ? payload.notifications
+    : Array.isArray(payload?.notifications?.data)
+      ? payload.notifications.data
+      : [];
+  return raw.map((item) => item.groupId ? item : {
+    ...item,
+    groupId: String(item.id),
+    type: item.type === "NEW_MESSAGE" ? "MESSAGE" : "REPLY",
+    conversationId: item.conversationId || item.messageId || null,
+    messageCount: 1,
+    unreadCount: item.isRead ? 0 : 1,
+    latestCreatedAt: item.createdAt,
+    latestMessagePreview: item.preview || item.body || "",
+    subject: item.title || item.subject || "Message",
+    senderName: item.visitorName || item.senderName || "",
+    email: item.visitorEmail || item.email || "",
+  });
+}
+
 function sortNotificationsByLatest(items) {
   return [...items].sort(
     (left, right) => new Date(right?.latestCreatedAt || 0).getTime() - new Date(left?.latestCreatedAt || 0).getTime(),
@@ -309,7 +331,6 @@ export default function AdminNotificationCenter({
   const triggerRef = useRef(null);
   const dropdownRef = useRef(null);
   const popupIdsRef = useRef(new Set());
-  const notificationsRef = useRef([]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((item) => Number(item.unreadCount || 0) > 0),
@@ -319,10 +340,6 @@ export default function AdminNotificationCenter({
   useEffect(() => {
     setPortalReady(true);
   }, []);
-
-  useEffect(() => {
-    notificationsRef.current = notifications;
-  }, [notifications]);
 
   const syncDropdownPosition = useCallback(() => {
     const rect = triggerRef.current?.getBoundingClientRect?.();
@@ -382,7 +399,7 @@ export default function AdminNotificationCenter({
         throw new Error(data.message || "Failed to load unread count.");
       }
 
-      setUnreadCount(Number(data.count || 0));
+      setUnreadCount(Number(data.unreadCount ?? data.count ?? 0));
     } catch (_error) {
       // Keep current count on background failure.
     }
@@ -411,7 +428,7 @@ export default function AdminNotificationCenter({
         throw new Error(data.message || "Failed to load notifications.");
       }
 
-      const nextNotifications = Array.isArray(data.notifications) ? data.notifications : [];
+      const nextNotifications = normalizeNotifications(data);
       setNotifications(sortNotificationsByLatest(nextNotifications));
       refreshUnreadCount(authToken);
     } catch (_error) {
@@ -601,11 +618,7 @@ export default function AdminNotificationCenter({
         const payload = await response.json();
         if (!active) return;
 
-        const items = Array.isArray(payload.notifications)
-          ? payload.notifications
-          : Array.isArray(payload.notifications?.data)
-            ? payload.notifications.data
-            : [];
+        const items = normalizeNotifications(payload);
         const nextSnapshot = new Map(
           items.filter((item) => item?.groupId)
             .map((item) => [item.groupId, item]),
