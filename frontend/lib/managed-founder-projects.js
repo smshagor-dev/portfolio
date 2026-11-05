@@ -1,5 +1,6 @@
 import { getFounderProjects } from "@/lib/api";
 import { founderProjects } from "@/lib/founder-projects";
+import { defaultFounderSection } from "@/lib/founder-section";
 
 const ARRAY_FIELDS = ["role","focus","context","responsibilities","principles",
   "journey","decisions","delivered","ongoing","stack"];
@@ -20,16 +21,29 @@ export function normalizeFounderProject(project) {
 
 // Null/uninitialized data preserves the existing curated case studies. An
 // explicit [] from the admin intentionally hides the section, not a fallback.
-export async function getManagedFounderProjects() {
+export async function getManagedFounderCatalog() {
   try {
     const response = await getFounderProjects();
-    if (response?.initialized && Array.isArray(response.data)) {
-      return response.data.map(normalizeFounderProject)
-        .filter((project) => project.status !== false)
-        .sort((a,b) => a.sortOrder - b.sortOrder);
+    const section = { ...defaultFounderSection, ...(response.section || {}) };
+    if (response?.initialized === true && Array.isArray(response.data)) {
+      return {
+        section,
+        projects: response.data.map(normalizeFounderProject)
+          .filter((project) => project.status !== false)
+          .sort((a,b) => a.sortOrder - b.sortOrder),
+      };
+    }
+    if (response?.initialized === false) {
+      return { section, projects: founderProjects.map(normalizeFounderProject) };
     }
   } catch (error) {
     console.error("Unable to load managed founder projects:", error.message);
   }
-  return founderProjects.map(normalizeFounderProject);
+  // Do not accidentally republish an explicitly hidden project if the CMS API
+  // becomes unavailable; the admin can restore it after connectivity returns.
+  return { section: defaultFounderSection, projects: [] };
+}
+
+export async function getManagedFounderProjects() {
+  return (await getManagedFounderCatalog()).projects;
 }
