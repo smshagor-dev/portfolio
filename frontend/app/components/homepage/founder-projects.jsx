@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ExternalLink, Layers3, Sparkles } from "lucide-react";
 import { founderProjects } from "@/lib/founder-projects";
+import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 
 export default function FounderProjects() {
   return (
@@ -29,11 +30,12 @@ export default function FounderProjects() {
               <Link href={`/founder/${project.slug}`} aria-label={`Explore ${project.name} development journey`} className="block">
                 <div className="relative aspect-[1.86] overflow-hidden bg-[#090e16]">
                   <Image
-                    src={project.image}
+                    src={buildPublicAssetUrl(project.image)}
                     alt={project.imageAlt}
                     fill
                     sizes="(max-width: 1023px) 100vw, 50vw"
                     className="object-contain transition duration-500 group-hover:scale-[1.015]"
+                    unoptimized
                   />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#0d1522] to-transparent" />
                 </div>

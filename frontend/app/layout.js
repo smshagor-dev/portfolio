@@ -34,7 +34,7 @@ const serifFont = Cormorant_Garamond({
   display: "swap",
 });
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 function buildAbsoluteUrl(baseUrl, assetPath) {
   if (!assetPath) {

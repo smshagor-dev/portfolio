@@ -2,94 +2,111 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { io } from "socket.io-client";
 import { showArticlePublishedNotification } from "@/lib/browser-notifications";
-import { getSocketServerUrl } from "@/lib/public-backend-url";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
-const socketServerUrl = getSocketServerUrl();
+// HTTP polling replaces the Socket.IO channel unavailable on Laravel/cPanel.
+// Only refresh SSR content after a *successful* API response that changed.
+const POLL_INTERVAL_MS = 45000;
 const ARTICLE_NOTIFICATION_STORAGE_KEY = "portfolio:last-article-notification";
 
 function isAdminPath(pathname) {
   return pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/login/admin";
 }
 
+function contentSignature(data) {
+  const snapshot = {
+    profile: data?.profile,
+    siteSettings: data?.siteSettings,
+    services: data?.services,
+    skills: data?.skills,
+    projects: data?.projects,
+    articles: data?.articles,
+    experiences: data?.experiences,
+    educations: data?.educations,
+    achievements: data?.achievements,
+    testimonials: data?.testimonials,
+    faqs: data?.faqs,
+    pricings: data?.pricings,
+    statsCounters: data?.statsCounters,
+  };
+  return JSON.stringify(snapshot);
+}
+
 export default function ContentLiveRefresh() {
   const router = useRouter();
   const pathname = usePathname();
-  const refreshTimeoutRef = useRef(null);
   const lastArticleNotificationRef = useRef("");
 
   useEffect(() => {
-    if (!socketServerUrl || isAdminPath(pathname)) {
+    if (isAdminPath(pathname)) {
       return undefined;
     }
 
-    if (typeof window !== "undefined") {
-      lastArticleNotificationRef.current = window.localStorage.getItem(ARTICLE_NOTIFICATION_STORAGE_KEY) || "";
+    lastArticleNotificationRef.current =
+      window.localStorage.getItem(ARTICLE_NOTIFICATION_STORAGE_KEY) || "";
+
+    let active = true;
+    let inFlight = false;
+    let lastSignature = null;
+    let seenArticleIds = null;
+
+    async function poll() {
+      if (!active || document.hidden || inFlight) return;
+      inFlight = true;
+
+      try {
+        const response = await fetch(buildPublicApiUrl("/api/site/home"), {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!active || !data || typeof data !== "object" || !data.profile) return;
+
+        const signature = contentSignature(data);
+        if (lastSignature !== null && signature !== lastSignature) {
+          router.refresh();
+        }
+        lastSignature = signature;
+
+        const published = (Array.isArray(data.articles) ? data.articles : [])
+          .filter((item) => item?.slug && (item?.status === "published" || !item?.status));
+        const currentIds = new Set(published.map((item) => String(item.id ?? item.slug)));
+
+        if (seenArticleIds !== null) {
+          for (const article of published) {
+            const id = String(article.id ?? article.slug);
+            if (seenArticleIds.has(id) || id === lastArticleNotificationRef.current) continue;
+            lastArticleNotificationRef.current = id;
+            window.localStorage.setItem(ARTICLE_NOTIFICATION_STORAGE_KEY, id);
+            showArticlePublishedNotification({
+              title: article.title,
+              url: "/artical/" + article.slug,
+              tag: "article-published-" + id,
+            });
+            break;
+          }
+        }
+
+        seenArticleIds = currentIds;
+      } catch (_error) {
+        // Background failures are not interpreted as content updates.
+      } finally {
+        inFlight = false;
+      }
     }
 
-    let socket;
-    const connectSocket = () => {
-      socket = io(socketServerUrl, {
-        transports: ["websocket", "polling"],
-      });
-
-      const scheduleRefresh = () => {
-        if (refreshTimeoutRef.current) {
-          window.clearTimeout(refreshTimeoutRef.current);
-        }
-
-        refreshTimeoutRef.current = window.setTimeout(() => {
-          router.refresh();
-        }, 150);
-      };
-
-      socket.on("content:updated", scheduleRefresh);
-      socket.on("article:published", (payload) => {
-        const slug = String(payload?.slug || "").trim();
-        const title = String(payload?.title || "").trim();
-        if (!slug || !title) {
-          return;
-        }
-
-        const notificationKey = String(payload?.articleId || slug);
-        if (lastArticleNotificationRef.current === notificationKey) {
-          return;
-        }
-
-        lastArticleNotificationRef.current = notificationKey;
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(ARTICLE_NOTIFICATION_STORAGE_KEY, notificationKey);
-        }
-
-        showArticlePublishedNotification({
-          title,
-          url: payload?.url || `/artical/${slug}`,
-          tag: `article-published-${notificationKey}`,
-        });
-      });
+    poll();
+    const interval = window.setInterval(poll, POLL_INTERVAL_MS);
+    const onVisibilityChange = () => {
+      if (!document.hidden) poll();
     };
-
-    const socketStartHandle =
-      "requestIdleCallback" in window
-        ? window.requestIdleCallback(connectSocket, { timeout: 4000 })
-        : window.setTimeout(connectSocket, 2000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      if ("cancelIdleCallback" in window && typeof socketStartHandle === "number") {
-        window.cancelIdleCallback(socketStartHandle);
-      } else {
-        window.clearTimeout(socketStartHandle);
-      }
-
-      if (refreshTimeoutRef.current) {
-        window.clearTimeout(refreshTimeoutRef.current);
-        refreshTimeoutRef.current = null;
-      }
-
-      socket?.off("content:updated");
-      socket?.off("article:published");
-      socket?.disconnect();
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [pathname, router]);
 

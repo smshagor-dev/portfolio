@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { io } from "socket.io-client";
 import { FiClock, FiHome, FiImage, FiMessageSquare, FiPaperclip, FiPlus, FiSend, FiUpload, FiX } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { showChatMessageNotification } from "@/lib/browser-notifications";
-import { buildPublicApiUrl, getSocketServerUrl } from "@/lib/public-backend-url";
+import { buildPublicApiUrl } from "@/lib/public-backend-url";
 import { getSocialIconOption } from "@/utils/social-icons";
 
-const socketServerUrl = getSocketServerUrl();
 
 function formatChatTime(value) {
   if (!value) {
@@ -72,7 +70,6 @@ export default function LiveContactTicket({
   const [isCreatingNewTicket, setIsCreatingNewTicket] = useState(false);
   const [isHomeView, setIsHomeView] = useState(false);
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
-  const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isMobileAttachmentMenuOpen, setIsMobileAttachmentMenuOpen] = useState(false);
   const [activeImagePreview, setActiveImagePreview] = useState("");
@@ -194,122 +191,89 @@ export default function LiveContactTicket({
     if (!activeTicketSession?.id || !activeTicketSession?.token) {
       setTicket(null);
       setIsAssistantTyping(false);
-      setIsSocketConnected(false);
       return undefined;
     }
 
-    let isMounted = true;
-    const socket = io(socketServerUrl, {
-      transports: ["websocket", "polling"],
-    });
+    let active = true;
+    let busy = false;
+    let lastMessageIds = null;
+    let initialErrorShown = false;
+    const url = buildPublicApiUrl(
+      "/api/site/contact-ticket/" + activeTicketSession.id +
+      "?token=" + encodeURIComponent(activeTicketSession.token),
+    );
 
-    socket.on("connect", () => {
-      setIsSocketConnected(true);
-      socket.emit("contact:join", {
-        messageId: activeTicketSession.id,
-        token: activeTicketSession.token,
-      });
-    });
+    async function pollTicket() {
+      if (!active || busy || document.hidden) return;
+      busy = true;
 
-    socket.on("disconnect", () => {
-      setIsSocketConnected(false);
-    });
-
-    async function loadTicket() {
       try {
-        const response = await fetch(
-          buildPublicApiUrl(`/api/site/contact-ticket/${activeTicketSession.id}?token=${encodeURIComponent(activeTicketSession.token)}`),
-          { cache: "no-store" },
-        );
+        const response = await fetch(url, { cache: "no-store" });
         const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Failed to load chat.");
+        if (!active) return;
 
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to load chat.");
-        }
+        const incoming = data.ticket || data.data || null;
+        if (!incoming) return;
+        const messages = Array.isArray(incoming.chatMessages) ? incoming.chatMessages : [];
+        const ids = new Set(messages.map((message) => String(message.id)));
 
-        if (isMounted) {
-          setTicket(data.ticket || null);
-          const updatedHistory = [
-            {
-              id: data.ticket?.id || activeTicketSession.id,
-              token: activeTicketSession.token,
-              subject: data.ticket?.subject || "Conversation",
-              createdAt: data.ticket?.createdAt || new Date().toISOString(),
-              name: data.ticket?.name || activeTicketSession.name || "",
-              email: data.ticket?.email || "",
-              status: data.ticket?.status || "not_solved",
-            },
-            ...loadTicketHistory().filter((item) => item?.id !== activeTicketSession.id),
-          ];
-          setTicketHistory(updatedHistory);
-          if (typeof window !== "undefined") {
-            window.localStorage.setItem("portfolio_contact_tickets", JSON.stringify(updatedHistory));
+        if (lastMessageIds !== null) {
+          for (const message of messages) {
+            if (lastMessageIds.has(String(message.id)) || message.senderType === "visitor") continue;
+            setIsAssistantTyping(false);
+            if (!isOpen) setUnreadCount((count) => count + 1);
+            showChatMessageNotification({
+              audience: "visitor",
+              senderName: message.senderName,
+              ticketId: activeTicketSession.id,
+              ticketToken: activeTicketSession.token,
+              message: message.message,
+              websiteTitle,
+              tag: "visitor-reply-" + message.id,
+            });
           }
         }
+
+        lastMessageIds = ids;
+        setTicket(incoming);
+        const updatedHistory = [
+          {
+            id: incoming.id || activeTicketSession.id,
+            token: activeTicketSession.token,
+            subject: incoming.subject || "Conversation",
+            createdAt: incoming.createdAt || new Date().toISOString(),
+            name: incoming.name || activeTicketSession.name || "",
+            email: incoming.email || "",
+            status: incoming.status || "not_solved",
+          },
+          ...loadTicketHistory().filter((item) => item?.id !== activeTicketSession.id),
+        ];
+        setTicketHistory(updatedHistory);
+        window.localStorage.setItem("portfolio_contact_tickets", JSON.stringify(updatedHistory));
       } catch (error) {
-        toast.error(error.message || "Failed to load chat.");
+        if (!initialErrorShown && lastMessageIds === null && active) {
+          initialErrorShown = true;
+          toast.error(error.message || "Failed to load chat.");
+        }
+      } finally {
+        busy = false;
       }
     }
 
-    loadTicket();
-
-    socket.on("contact:message_created", (payload) => {
-      if (Number(payload?.ticketId) !== Number(activeTicketSession.id) || !payload?.message) {
-        return;
-      }
-
-      const isVisitorMessage = payload.message.senderType === "visitor";
-      if (!isVisitorMessage) {
-        setIsAssistantTyping(false);
-      }
-
-      if (!isOpen && !isVisitorMessage) {
-        setUnreadCount((current) => current + 1);
-      }
-
-      if (!isVisitorMessage) {
-        showChatMessageNotification({
-          audience: "visitor",
-          senderName: payload.message.senderName,
-          ticketId: activeTicketSession.id,
-          ticketToken: activeTicketSession.token,
-          message: payload.message.message,
-          websiteTitle,
-          tag: `visitor-reply-${payload.message.id}`,
-        });
-      }
-
-      setTicket((current) => {
-        if (!current) {
-          return current;
-        }
-
-        const existing = (current.chatMessages || []).some((item) => item.id === payload.message.id);
-        if (existing) {
-          return current;
-        }
-
-        return {
-          ...current,
-          chatMessages: [...(current.chatMessages || []), payload.message],
-        };
-      });
-    });
-
-    socket.on("contact:assistant_typing", (payload) => {
-      if (Number(payload?.ticketId) !== Number(activeTicketSession.id)) {
-        return;
-      }
-
-      setIsAssistantTyping(Boolean(payload?.isTyping));
-    });
+    pollTicket();
+    const interval = window.setInterval(pollTicket, isOpen ? 6000 : 18000);
+    const onVisibilityChange = () => {
+      if (!document.hidden) pollTicket();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      isMounted = false;
-      socket.emit("contact:leave", { messageId: activeTicketSession.id });
-      socket.disconnect();
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [activeTicketSession, isOpen, websiteTitle]);
+  }, [activeTicketSession?.id, activeTicketSession?.token, isOpen, websiteTitle]);
 
   useEffect(() => {
     if (!isOpen || !listRef.current) {
@@ -415,14 +379,15 @@ export default function LiveContactTicket({
       }
 
       setTicket((current) => {
-        if (!current || !data.data) {
+        const savedMessage = data.data || data.chatMessage;
+        if (!current || !savedMessage) {
           return current;
         }
 
         const nextMessages = [...(current.chatMessages || [])];
-        const hasVisitorMessage = nextMessages.some((item) => item.id === data.data.id);
+        const hasVisitorMessage = nextMessages.some((item) => item.id === savedMessage.id);
         if (!hasVisitorMessage) {
-          nextMessages.push(data.data);
+          nextMessages.push(savedMessage);
         }
 
         if (data.assistantReply && !nextMessages.some((item) => item.id === data.assistantReply.id)) {
@@ -509,18 +474,19 @@ export default function LiveContactTicket({
         throw new Error(data.message || "Failed to start chat.");
       }
 
+      const ticketData = data.data || (typeof data.ticket === "object" ? data.ticket : null);
       const nextTicket = {
-        id: data.ticket?.id,
-        token: data.ticket?.token,
-        subject: data?.data?.subject || pendingTicketInput.subject,
-        createdAt: data?.data?.createdAt || new Date().toISOString(),
-        name: data?.data?.name || pendingTicketInput.name,
-        email: data?.data?.email || pendingTicketInput.email,
+        id: ticketData?.id,
+        token: data.ticketToken || data.ticket?.token,
+        subject: ticketData?.subject || pendingTicketInput.subject,
+        createdAt: ticketData?.createdAt || new Date().toISOString(),
+        name: ticketData?.name || pendingTicketInput.name,
+        email: ticketData?.email || pendingTicketInput.email,
       };
 
-      syncCreatedTicket(nextTicket, data?.data);
+      syncCreatedTicket(nextTicket, ticketData);
       setActiveTicketSession(nextTicket);
-      setTicket(data?.data || null);
+      setTicket(ticketData || null);
       setIsAssistantTyping(false);
       setDraft("");
       setUnreadCount(0);
