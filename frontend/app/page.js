@@ -7,7 +7,7 @@ import LinkedInProfileSection from "./components/homepage/linkedin-profile";
 import ResearchSection from "./components/homepage/research";
 import Skills from "./components/homepage/skills";
 import { getHomePageData, getResearchPublications } from "@/lib/api";
-import { getManagedFounderProjects } from "@/lib/managed-founder-projects";
+import { getManagedFounderCatalog } from "@/lib/managed-founder-projects";
 
 function SectionSkeleton({ className = "" }) {
   return (
@@ -48,7 +48,7 @@ const ContactSection = dynamic(() => import("./components/homepage/contact"), {
 export const revalidate = 60;
 
 export default async function Home() {
-  const [homeData, latestResearchResponse, managedFounderProjects] = await Promise.all([
+  const [homeData, latestResearchResponse, founderCatalog] = await Promise.all([
     getHomePageData().catch((error) => {
       console.error("Failed to load homepage data in app/page.js:", error.message);
       return null;
@@ -56,7 +56,7 @@ export default async function Home() {
     getResearchPublications({
       limit: 6,
     }).catch(() => ({ data: [] })),
-    getManagedFounderProjects(),
+    getManagedFounderCatalog(),
   ]);
   const {
     profile = null,
@@ -101,7 +101,8 @@ export default async function Home() {
         services={services}
         pricings={pricings}
         projects={projects}
-        founderProjects={managedFounderProjects}
+        founderProjects={founderCatalog.projects}
+        founderSection={founderCatalog.section}
       />
       <AdCodeSlot code={betweenSectionsAdCode} className="mt-8" />
       <Skills skills={skills} />
