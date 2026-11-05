@@ -6,7 +6,8 @@ import {
   ExternalLink, GitBranch, Layers3, ShieldCheck, Target, Wrench,
 } from "lucide-react";
 import { buildPublicAssetUrl } from "@/lib/public-backend-url";
-import { founderProjects, getFounderProject } from "@/lib/founder-projects";
+import { founderProjects } from "@/lib/founder-projects";
+import { getManagedFounderProjects } from "@/lib/managed-founder-projects";
 
 export function generateStaticParams() {
   return founderProjects.map(({ slug }) => ({ slug }));
@@ -14,7 +15,8 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const project = getFounderProject(slug);
+  const projects = await getManagedFounderProjects();
+  const project = projects.find((item) => item.slug === slug);
   if (!project) return { title: "Product not found" };
 
   return {
@@ -59,9 +61,10 @@ function Point({ children, icon: Icon = Check }) {
 
 export default async function FounderProjectPage({ params }) {
   const { slug } = await params;
-  const project = getFounderProject(slug);
+  const projects = await getManagedFounderProjects();
+  const project = projects.find((item) => item.slug === slug);
   if (!project) notFound();
-  const otherProject = founderProjects.find((candidate) => candidate.slug !== slug);
+  const otherProject = projects.find((candidate) => candidate.slug !== slug);
 
   return (
     <main className="py-8 text-white sm:py-10">
