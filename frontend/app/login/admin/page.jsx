@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import { buildPublicApiUrl } from "@/lib/public-backend-url";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -30,13 +29,25 @@ export default function AdminLoginPage() {
 
     try {
       setIsLoading(true);
-      const response = await fetch(buildPublicApiUrl("/api/admin/login"), {
+      // Same-origin Next.js route guarantees JSON even if Laravel or the
+      // hosting proxy returns an HTML error page.
+      const response = await fetch("/api/admin/login", {
         method: "POST",
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
         },
         body: JSON.stringify(form),
       });
+
+      const contentType = response.headers.get("content-type") || "";
+      if (!/[/+]json\b/i.test(contentType)) {
+        throw new Error(
+          "Login endpoint returned HTML or another non-JSON response (HTTP " +
+          response.status + "). Verify the frontend deployment and API routing.",
+        );
+      }
 
       const data = await response.json();
 
@@ -50,6 +61,9 @@ export default function AdminLoginPage() {
         throw new Error(data.message || "Login failed.");
       }
 
+      if (!data?.token || !data?.admin) {
+        throw new Error("The backend did not return a valid admin session.");
+      }
       localStorage.setItem("portfolio_admin_token", data.token);
       localStorage.setItem("portfolio_admin_user", JSON.stringify(data.admin));
       setRequiresTwoFactor(false);
