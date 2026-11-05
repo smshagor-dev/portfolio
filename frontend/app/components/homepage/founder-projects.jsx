@@ -1,31 +1,32 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ExternalLink, Layers3, Sparkles } from "lucide-react";
-import { founderProjects } from "@/lib/founder-projects";
 import { buildPublicAssetUrl } from "@/lib/public-backend-url";
 
-export default function FounderProjects() {
+export default function FounderProjects({ projects = [], section }) {
+  if (!projects.length) return null;
+
   return (
     <section id="founder-projects" aria-labelledby="founder-projects-heading" className="my-12 lg:my-20">
       <div className="relative overflow-hidden rounded-[2rem] border border-[#293a53] bg-[radial-gradient(circle_at_12%_0%,rgba(94,154,250,0.15),transparent_35%),linear-gradient(180deg,#101827,#090f1a)] px-4 py-8 text-white shadow-[0_26px_80px_rgba(0,0,0,0.27)] sm:px-6 lg:px-8 lg:py-10">
         <div className="mb-8 flex flex-col justify-between gap-5 lg:mb-10 lg:flex-row lg:items-end">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[#82d6ff]">
-              Founded & engineered
+              {section?.eyebrow || "Founded & engineered"}
             </p>
             <h2 id="founder-projects-heading" className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
-              Products I'm building, from the first idea to the engineering details.
+              {section?.title || "Products I'm building, from the first idea to the engineering details."}
             </h2>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-[#abbdd2] sm:text-base">
-              Two independent products. One goal: practical software that makes AI and development tools more accessible.
+              {section?.description || "Independent products built to make AI and development tools more accessible."}
             </p>
           </div>
           <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#35506a] bg-[#172438] px-4 py-2 text-xs text-[#c4d8ea]">
-            <Sparkles size={14} className="text-[#9fcfff]" /> Founder & CEO · Lead Software Engineer
+            <Sparkles size={14} className="text-[#9fcfff]" /> {section?.badge || "Founder & CEO · Lead Software Engineer"}
           </span>
         </div>
         <div className="grid gap-6 lg:grid-cols-2">
-          {founderProjects.map((project) => (
+          {projects.map((project) => (
             <article key={project.slug} className="group flex min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-[#2b3a51] bg-[#111b2b] transition duration-300 hover:-translate-y-1 hover:border-[#79bfff] hover:shadow-[0_22px_55px_rgba(0,0,0,0.24)]">
               <Link href={`/founder/${project.slug}`} aria-label={`Explore ${project.name} development journey`} className="block">
                 <div className="relative aspect-[1.86] overflow-hidden bg-[#090e16]">
@@ -80,7 +81,7 @@ export default function FounderProjects() {
           ))}
         </div>
         <p className="mt-5 flex items-center gap-2 text-xs text-[#8da3b8]">
-          <Layers3 size={14} /> Explore each product for its architecture, decisions and development journey.
+          <Layers3 size={14} /> {section?.footer || "Explore each product for its architecture, decisions and development journey."}
         </p>
       </div>
     </section>

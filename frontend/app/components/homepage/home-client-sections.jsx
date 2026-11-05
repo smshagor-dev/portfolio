@@ -13,6 +13,8 @@ export default function HomeClientSections({
   services,
   pricings,
   projects,
+  founderProjects,
+  founderSection,
 }) {
   return (
     <>
@@ -22,7 +24,7 @@ export default function HomeClientSections({
       <HowIWorkSection />
       <PricingSection pricings={pricings} />
       <Projects projects={projects} />
-      <FounderProjects />
+      <FounderProjects projects={founderProjects} section={founderSection} />
     </>
   );
 }

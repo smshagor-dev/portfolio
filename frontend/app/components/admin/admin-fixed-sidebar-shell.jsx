@@ -33,6 +33,7 @@ const adminTabs = [
   { id: "artical", label: "Artical", icon: FiBookOpen, href: "/admin/artical" },
   { id: "artical-categories", label: "Artical Categories", icon: FiBookOpen, href: "/admin/artical-categories" },
   { id: "projects", label: "Projects", icon: FiFolder, href: "/admin/projects" },
+  { id: "founder-projects", label: "Founded & Engineered", icon: HiOutlineSparkles, href: "/admin/founder-projects" },
   { id: "pricing", label: "Pricing", icon: FiDollarSign, href: "/admin/pricing" },
   { id: "faq", label: "FAQ", icon: FiHelpCircle, href: "/admin/faq" },
   { id: "ai", label: "AI Settings", icon: FiSettings, href: "/admin/ai" },
