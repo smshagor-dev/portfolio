@@ -5,10 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import { showChatMessageNotification } from "@/lib/browser-notifications";
-import { buildPublicApiUrl, buildPublicAssetUrl, getPublicBackendUrl, getSocketServerUrl } from "@/lib/public-backend-url";
+import { buildPublicApiUrl, buildPublicAssetUrl, getPublicBackendUrl } from "@/lib/public-backend-url";
 import AdminNotificationCenter from "@/app/components/admin/admin-notification-center";
 import { HiOutlineSparkles, HiOutlineUsers, HiOutlineViewGrid } from "react-icons/hi";
 import { FiBarChart2, FiBookOpen, FiBriefcase, FiCode, FiDollarSign, FiEye, FiFolder, FiHelpCircle, FiImage, FiLogOut, FiMail, FiMessageSquare, FiPaperclip, FiPhone, FiSend, FiSettings, FiUpload, FiX } from "react-icons/fi";
@@ -34,7 +33,6 @@ const RichTextEditor = dynamic(() => import("@/app/components/admin/rich-text-ed
 });
 
 const backendUrl = getPublicBackendUrl();
-const socketServerUrl = getSocketServerUrl();
 
 function adminFetch(input, init = {}) {
   return fetch(input, {
@@ -861,10 +859,10 @@ export function AdminSectionPage({ section = "dashboard" }) {
     siteSettings: emptySiteSettings(),
   });
   const activeTab = section;
-  const serviceSocketSlugs = form.services
+  const servicePollSlugs = form.services
     .map((service) => String(service?.slug || "").trim().toLowerCase())
     .filter(Boolean);
-  const serviceSocketKey = serviceSocketSlugs.join("|");
+  const servicePollKey = servicePollSlugs.join("|");
   const analyticsVisitors = analytics.visitors || [];
   const messagesPerPage = 5;
   const messagesTotalPages = Math.max(1, Math.ceil(messages.length / messagesPerPage));
@@ -1761,7 +1759,7 @@ export function AdminSectionPage({ section = "dashboard" }) {
           throw new Error(data.message || "Failed to load message thread.");
         }
 
-        setSelectedMessageThread(data.message || null);
+        setSelectedMessageThread(data.message || data.data || null);
       } catch (error) {
         toast.error(error.message || "Failed to load message thread.");
       } finally {
@@ -2025,194 +2023,130 @@ export function AdminSectionPage({ section = "dashboard" }) {
     return () => window.clearInterval(interval);
   }, [loadAnalytics, token]);
 
+  // Poll only the active Services tab. The server is Laravel/HTTP-only;
+  // keep unsaved form fields intact and update just server-owned comments.
   useEffect(() => {
-    if (activeTab !== "services") {
-      return undefined;
+    if (activeTab !== "services" || !servicePollKey) return undefined;
+    let active = true;
+    let busy = false;
+
+    async function pollServiceComments() {
+      if (!active || busy || document.hidden) return;
+      busy = true;
+      try {
+        const response = await adminFetch(buildPublicApiUrl("/api/site/services"));
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (!active) return;
+        const remote = Array.isArray(payload?.services) ? payload.services : [];
+        const commentsBySlug = new Map(
+          remote.filter((service) => service?.slug)
+            .map((service) => [String(service.slug).toLowerCase(), service.comments || []]),
+        );
+        setForm((current) => ({
+          ...current,
+          services: (current.services || []).map((service) => {
+            const comments = commentsBySlug.get(String(service.slug || "").toLowerCase());
+            return comments ? { ...service, comments } : service;
+          }),
+        }));
+        setServiceDraft((current) => {
+          const comments = commentsBySlug.get(String(current?.slug || "").toLowerCase());
+          return comments && current ? { ...current, comments } : current;
+        });
+      } catch (_error) {
+        // Keep the last loaded state on transient API failures.
+      } finally {
+        busy = false;
+      }
     }
 
-    const serviceSlugs = serviceSocketKey ? serviceSocketKey.split("|").filter(Boolean) : [];
-
-    if (!serviceSlugs.length) {
-      return undefined;
-    }
-
-    const socket = io(socketServerUrl, {
-      transports: ["websocket", "polling"],
-    });
-
-    serviceSlugs.forEach((slug) => {
-      socket.emit("service:join", slug);
-    });
-
-    socket.on("service:comment_created", (payload) => {
-      const normalizedSlug = String(payload?.serviceSlug || "").trim().toLowerCase();
-      if (!normalizedSlug || !payload?.comment) {
-        return;
-      }
-
-      setForm((current) => ({
-        ...current,
-        services: mergeLiveServiceComment(current.services, normalizedSlug, payload.comment),
-      }));
-
-      setServiceDraft((current) => {
-        if (String(current?.slug || "").trim().toLowerCase() !== normalizedSlug) {
-          return current;
-        }
-
-        return {
-          ...current,
-          comments: mergeLiveServiceComment(
-            [{ ...current, comments: current.comments || [] }],
-            normalizedSlug,
-            payload.comment,
-          )[0].comments,
-        };
-      });
-    });
-
-    socket.on("service:reply_created", (payload) => {
-      const normalizedSlug = String(payload?.serviceSlug || "").trim().toLowerCase();
-      if (!normalizedSlug || !payload?.reply || !payload?.commentId) {
-        return;
-      }
-
-      setForm((current) => ({
-        ...current,
-        services: mergeLiveServiceReply(current.services, normalizedSlug, payload.commentId, payload.reply),
-      }));
-
-      setServiceDraft((current) => {
-        if (String(current?.slug || "").trim().toLowerCase() !== normalizedSlug) {
-          return current;
-        }
-
-        return {
-          ...current,
-          comments: mergeLiveServiceReply(
-            [{ ...current, comments: current.comments || [] }],
-            normalizedSlug,
-            payload.commentId,
-            payload.reply,
-          )[0].comments,
-        };
-      });
-    });
-
+    pollServiceComments();
+    const interval = window.setInterval(pollServiceComments, 15000);
+    const resume = () => { if (!document.hidden) pollServiceComments(); };
+    document.addEventListener("visibilitychange", resume);
     return () => {
-      serviceSlugs.forEach((slug) => {
-        socket.emit("service:leave", slug);
-      });
-      socket.disconnect();
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", resume);
     };
-  }, [activeTab, serviceSocketKey]);
+  }, [activeTab, servicePollKey]);
 
+  // Messages and the selected thread are refreshed with authenticated
+  // HTTP requests instead of Socket.IO. No browser websocket is opened.
   useEffect(() => {
-    if (!token) {
-      return undefined;
-    }
+    if (!token || activeTab !== "messages") return undefined;
+    let active = true;
+    let busy = false;
+    let previousMessages = null;
+    const selectedId = selectedMessageThread?.id || null;
 
-    const socket = io(socketServerUrl, {
-      transports: ["websocket", "polling"],
-    });
+    async function pollInbox() {
+      if (!active || busy || document.hidden) return;
+      busy = true;
 
-    if (selectedMessageThread?.id) {
-      socket.emit("contact:admin_join", {
-        messageId: selectedMessageThread.id,
-        token,
-      });
-    }
-
-    socket.on("contact:ticket_created", (payload) => {
-      if (!payload?.ticket?.id) {
-        return;
-      }
-
-      setMessages((current) => {
-        const exists = current.some((item) => item.id === payload.ticket.id);
-        if (exists) {
-          return current;
-        }
-
-        return sortMessagesByLatest([
-          {
-            ...payload.ticket,
-            messageCount: (payload.ticket.chatMessages || []).length,
-            lastMessageAt:
-              payload.ticket.chatMessages?.[payload.ticket.chatMessages.length - 1]?.createdAt ||
-              payload.ticket.createdAt,
-            latestReply:
-              payload.ticket.chatMessages?.[payload.ticket.chatMessages.length - 1] || null,
-          },
-          ...current,
-        ]);
-      });
-    });
-
-    socket.on("contact:message_created", (payload) => {
-      if (!payload?.ticketId || !payload?.message) {
-        return;
-      }
-
-      const isAdminMessage = payload.message.senderType === "admin";
-
-      if (!isAdminMessage) {
-        const matchingTicket = messagesRef.current.find((item) => item.id === payload.ticketId);
-        showChatMessageNotification({
-          audience: "admin",
-          senderName: payload.message.senderName || matchingTicket?.name,
-          ticketId: payload.ticketId,
-          message: payload.message.message,
-          tag: `admin-inbox-${payload.message.id}`,
+      try {
+        const response = await adminFetch(buildPublicApiUrl("/api/admin/messages"), {
+          headers: { Authorization: "Bearer " + token },
         });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!active) return;
+        const next = Array.isArray(data.messages)
+          ? data.messages
+          : Array.isArray(data.messages?.data)
+            ? data.messages.data
+            : [];
+
+        if (previousMessages !== null) {
+          for (const item of next) {
+            const prior = previousMessages.get(String(item.id));
+            const latest = item.latestReply ||
+              (Array.isArray(item.chatMessages) ? item.chatMessages.at(-1) : null);
+            if (!latest || latest.senderType === "admin" || !prior) continue;
+            const previousLatest = prior.latestReply ||
+              (Array.isArray(prior.chatMessages) ? prior.chatMessages.at(-1) : null);
+            if (String(previousLatest?.id || "") === String(latest.id)) continue;
+            showChatMessageNotification({
+              audience: "admin",
+              senderName: latest.senderName || item.name,
+              ticketId: item.id,
+              message: latest.message,
+              tag: "admin-inbox-" + latest.id,
+            });
+          }
+        }
+
+        previousMessages = new Map(next.map((message) => [String(message.id), message]));
+        setMessages(sortMessagesByLatest(next));
+
+        if (selectedId) {
+          const threadResponse = await adminFetch(
+            buildPublicApiUrl("/api/admin/messages/" + selectedId),
+            { headers: { Authorization: "Bearer " + token } },
+          );
+          if (threadResponse.ok && active) {
+            const thread = await threadResponse.json();
+            if (active) setSelectedMessageThread(thread.message || thread.data || null);
+          }
+        }
+      } catch (_error) {
+        // Background refresh failure is not a new message.
+      } finally {
+        busy = false;
       }
+    }
 
-      setMessages((current) =>
-        sortMessagesByLatest(
-          current.map((message) =>
-            message.id === payload.ticketId
-              ? {
-                  ...message,
-                  lastMessageAt: payload.message.createdAt,
-                  messageCount: Number(message.messageCount || 0) + 1,
-                  latestReply: payload.message,
-                  isNew: payload.message.senderType === "admin" ? false : message.isNew,
-                }
-              : message,
-          ),
-        ),
-      );
-
-      setSelectedMessageThread((current) => {
-        if (!current || current.id !== payload.ticketId) {
-          return current;
-        }
-
-        const exists = (current.chatMessages || []).some((item) => item.id === payload.message.id);
-        if (exists) {
-          return current;
-        }
-
-        return {
-          ...current,
-          chatMessages: [...(current.chatMessages || []), payload.message],
-          lastMessageAt: payload.message.createdAt,
-          messageCount: Number(current.messageCount || 0) + 1,
-          latestReply: payload.message,
-          isNew: payload.message.senderType === "admin" ? false : current.isNew,
-        };
-      });
-    });
-
+    pollInbox();
+    const interval = window.setInterval(pollInbox, 10000);
+    const resume = () => { if (!document.hidden) pollInbox(); };
+    document.addEventListener("visibilitychange", resume);
     return () => {
-      if (selectedMessageThread?.id) {
-        socket.emit("contact:admin_leave", {
-          messageId: selectedMessageThread.id,
-        });
-      }
-      socket.disconnect();
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", resume);
     };
-  }, [selectedMessageThread?.id, token]);
+  }, [activeTab, selectedMessageThread?.id, token]);
 
   function updateField(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
